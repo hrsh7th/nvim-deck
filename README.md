@@ -1120,11 +1120,37 @@ Start deck with given sources.
 
 
 ```vimdoc
+*deck.Decoration*
+```
+```lua
+---@class deck.Decoration
+---@field public col? integer
+---@field public end_col? integer
+---@field public hl_group? string
+---@field public virt_text? deck.VirtualText[]
+---@field public virt_text_pos? 'eol' | 'overlay' | 'right_align' | 'inline'
+---@field public virt_text_win_col? integer
+---@field public virt_text_hide? boolean
+---@field public virt_text_repeat_linebreak? boolean
+---@field public virt_lines? deck.VirtualText[][]
+---@field public virt_lines_above? boolean
+---@field public ephemeral? boolean
+---@field public priority? integer
+---@field public sign_text? string
+---@field public sign_hl_group? string
+---@field public number_hl_group? string
+---@field public line_hl_group? string
+---@field public conceal? boolean
+```
+
+
+```vimdoc
 *deck.Decorator*
 ```
 ```lua
 ---@class deck.Decorator
 ---@field public name string
+---@field public dynamic? boolean
 ---@field public resolve? deck.DecoratorResolveFunction
 ---@field public decorate deck.DecoratorDecorateFunction
 ```
