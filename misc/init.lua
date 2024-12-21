@@ -82,7 +82,7 @@ require('lazy').setup({
     },
     {
       'hrsh7th/nvim-deck',
-      dir = vim.fn.isdirectory('/root/nvim-deck') and '/root/nvim-deck' or nil,
+      dir = vim.fn.isdirectory('/root/nvim-deck') > 0 and '/root/nvim-deck' or nil,
       config = function()
         local deck = require('deck')
 

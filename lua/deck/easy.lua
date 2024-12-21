@@ -26,7 +26,7 @@ function easy.setup(config)
       callback = function()
         local bufname = vim.api.nvim_buf_get_name(0)
         if vim.fn.filereadable(bufname) == 1 then
-          require('deck.builtin.source.recent_files').add(vim.fs.normalize(bufname))
+          require('deck.builtin.source.recent_files'):add(vim.fs.normalize(bufname))
         end
       end,
     })
@@ -34,7 +34,7 @@ function easy.setup(config)
     vim.api.nvim_create_autocmd('DirChanged', {
       group = augroup,
       callback = function(e)
-        require('deck.builtin.source.recent_dirs').add(e.cwd)
+        require('deck.builtin.source.recent_dirs'):add(e.cwd)
       end,
     })
   end
