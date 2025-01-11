@@ -26,6 +26,7 @@ local Status = {
 ---@field items deck.Item[]
 ---@field items_filtered? deck.Item[]
 ---@field execute_time integer
+---@field dedup_map table<string, boolean>
 ---@field controller? deck.ExecuteContext.Controller
 
 ---@class deck.Context.State
@@ -33,7 +34,6 @@ local Status = {
 ---@field query string
 ---@field select_all boolean
 ---@field select_map table<deck.Item, boolean|nil>
----@field dedup_map table<string, boolean>
 ---@field preview_mode boolean
 ---@field revision deck.Context.Revision
 ---@field source_state table<deck.Source, deck.Context.SourceState>
@@ -171,7 +171,6 @@ function Context.create(id, sources, start_config)
     query = '',
     select_all = false,
     select_map = {},
-    dedup_map = {},
     preview_mode = false,
     revision = {
       execute = 0,
@@ -192,6 +191,7 @@ function Context.create(id, sources, start_config)
       status = Status.Waiting,
       items = {},
       items_filtered = nil,
+      dedup_map = {},
       execute_time = 0,
       controller = nil,
     }
@@ -367,6 +367,8 @@ function Context.create(id, sources, start_config)
     state.source_state[source] = {
       status = Status.Waiting,
       items = {},
+      items_filtered = nil,
+      dedup_map = {},
       execute_time = vim.uv.now(),
       controller = nil,
     }
@@ -381,10 +383,12 @@ function Context.create(id, sources, start_config)
         on_item = function(item)
           if start_config.dedup then
             local dedup_key = item.dedup_id or item.display_text
-            if state.dedup_map[dedup_key] then
-              return
+            for _, s in ipairs(sources) do
+              if state.source_state[s].dedup_map[dedup_key] then
+                return
+              end
             end
-            state.dedup_map[dedup_key] = true
+            state.source_state[source].dedup_map[dedup_key] = true
           end
 
           item[symbols.source] = source
@@ -451,7 +455,6 @@ function Context.create(id, sources, start_config)
       state = kit.clone(state)
       state.select_all = false
       state.select_map = {}
-      state.dedup_map = {}
       state.revision.execute = state.revision.execute + 1
       state.revision.status = state.revision.status + 1
       state.revision.cursor = state.revision.cursor + 1
@@ -468,6 +471,7 @@ function Context.create(id, sources, start_config)
           status = Status.Waiting,
           items = {},
           items_filtered = nil,
+          dedup_map = {},
           execute_time = 0,
           controller = nil,
         }
