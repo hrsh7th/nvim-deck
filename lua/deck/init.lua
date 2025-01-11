@@ -132,6 +132,7 @@ local Context = require('deck.Context')
 ---@field public previewers? deck.Previewer[]
 ---@field public performance? { interrupt_interval: integer, interrupt_timeout: integer }
 ---@field public dedup? boolean
+---@field public parse_query? fun(query: string, source: deck.Source): { filter: string, dynamic: string }
 
 ---@doc.type
 ---@class deck.StartConfig: deck.StartConfigSpecifier
@@ -141,6 +142,7 @@ local Context = require('deck.Context')
 ---@field public history boolean
 ---@field public performance { interrupt_interval: integer, interrupt_timeout: integer }
 ---@field public dedup boolean
+---@field public parse_query fun(query: string, source: deck.Source): { filter: string, dynamic: string }
 
 ---@class deck.ConfigSpecifier
 ---@field public guicursor? string
@@ -187,6 +189,19 @@ local internal = {
         interrupt_timeout = 8,
       },
       dedup = true,
+      parse_query = function(query, source)
+        if source.dynamic then
+          local dynamic, filter = unpack(vim.split(query, '  '))
+          return {
+            filter = (filter or ''):gsub('^%s*(.-)%s*$', '%1'),
+            dynamic = (dynamic or ''):gsub('^%s*(.-)%s*$', '%1'),
+          }
+        end
+        return {
+          filter = query:gsub('^%s*(.-)%s*$', '%1'),
+          dynamic = '',
+        }
+      end,
     },
   },
 }

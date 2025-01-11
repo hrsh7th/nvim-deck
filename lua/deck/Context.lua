@@ -23,6 +23,7 @@ local Status = {
 
 ---@class deck.Context.SourceState
 ---@field status deck.Context.Status
+---@field query string
 ---@field items deck.Item[]
 ---@field items_filtered? deck.Item[]
 ---@field execute_time integer
@@ -189,6 +190,7 @@ function Context.create(id, sources, start_config)
   for _, source in ipairs(sources) do
     state.source_state[source] = {
       status = Status.Waiting,
+      query = '',
       items = {},
       items_filtered = nil,
       dedup_map = {},
@@ -366,6 +368,7 @@ function Context.create(id, sources, start_config)
 
     state.source_state[source] = {
       status = Status.Waiting,
+      query = context.get_query(),
       items = {},
       items_filtered = nil,
       dedup_map = {},
@@ -373,12 +376,13 @@ function Context.create(id, sources, start_config)
       controller = nil,
     }
 
+    local queries = start_config.parse_query(context.get_query(), source)
     Async.run(function()
       -- create execute context.
       local execute_context, execute_controller = ExecuteContext.create({
         context = context,
         get_query = function()
-          return state.query
+          return queries.dynamic
         end,
         on_item = function(item)
           if start_config.dedup then
@@ -399,7 +403,7 @@ function Context.create(id, sources, start_config)
 
           -- on-demand filter item for optimization.
           if state.source_state[source].items_filtered then
-            local matched, matches = start_config.matcher(state.query, item.filter_text or item.display_text)
+            local matched, matches = start_config.matcher(queries.filter, item.filter_text or item.display_text)
             if matched then
               item[symbols.matches] = matches or {}
               table.insert(state.source_state[source].items_filtered, item)
@@ -469,6 +473,7 @@ function Context.create(id, sources, start_config)
       for _, source in ipairs(sources) do
         state.source_state[source] = {
           status = Status.Waiting,
+          query = context.get_query(),
           items = {},
           items_filtered = nil,
           dedup_map = {},
@@ -607,7 +612,10 @@ function Context.create(id, sources, start_config)
       Async.run(function()
         for _, source in ipairs(sources) do
           state.source_state[source].items_filtered = nil
-          if source.dynamic then
+
+          local prev_dynamic_query = start_config.parse_query(state.source_state[source].query, source).dynamic
+          local next_dynamic_query = start_config.parse_query(query, source).dynamic
+          if source.dynamic and prev_dynamic_query ~= next_dynamic_query then
             execute_source(source)
           end
         end
@@ -703,9 +711,10 @@ function Context.create(id, sources, start_config)
       if not state.cache.get_filtered_items then
         local items = {}
         for _, source in ipairs(sources) do
-          if source.dynamic then
-            -- dynamic source always filter items by source.
+          local queries = start_config.parse_query(state.query, source)
+          if queries.filter == '' then
             for _, item in ipairs(state.source_state[source].items) do
+              item[symbols.matches] = {}
               table.insert(items, item)
             end
           elseif state.source_state[source] and state.source_state[source].items_filtered then
@@ -717,7 +726,7 @@ function Context.create(id, sources, start_config)
             -- filter all items.
             state.source_state[source].items_filtered = {}
             for _, item in ipairs(state.source_state[source].items) do
-              local matched, matches = start_config.matcher(state.query, item.filter_text or item.display_text)
+              local matched, matches = start_config.matcher(queries.filter, item.filter_text or item.display_text)
               if matched then
                 item[symbols.matches] = matches or {}
                 table.insert(state.source_state[source].items_filtered, item)
