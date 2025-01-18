@@ -182,6 +182,7 @@ function Git:status()
     :exec({
       'git',
       'status',
+      '--untracked-files=all',
       '--porcelain=v2',
     })
     :next(function(out)

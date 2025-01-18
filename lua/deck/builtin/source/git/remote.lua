@@ -37,6 +37,7 @@ return function(option)
             data = remote,
           })
         end
+        ctx.done()
       end)
     end,
     actions = {

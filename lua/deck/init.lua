@@ -31,7 +31,7 @@ local Context = require('deck.Context')
 ---@field public sign_hl_group? string
 ---@field public number_hl_group? string
 ---@field public line_hl_group? string
----@field public conceal? boolean
+---@field public conceal? string
 
 ---@doc.type
 ---@alias deck.Matcher fun(query: string, text: string): boolean, deck.Match[]?
@@ -122,7 +122,6 @@ local Context = require('deck.Context')
 ---@field public hide fun(ctx: deck.Context)
 ---@field public prompt fun(ctx: deck.Context)
 ---@field public scroll_preview fun(ctx: deck.Context, delta: integer)
----@field public render fun(ctx: deck.Context)
 
 ---@class deck.StartConfigSpecifier
 ---@field public name? string
@@ -132,9 +131,8 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public performance? { interrupt_interval: integer, interrupt_timeout: integer }
+---@field public performance? { interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
 ---@field public dedup? boolean
----@field public parse_query? fun(query: string, source: deck.Source): { filter: string, dynamic: string }
 
 ---@doc.type
 ---@class deck.StartConfig: deck.StartConfigSpecifier
@@ -142,9 +140,8 @@ local Context = require('deck.Context')
 ---@field public view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
----@field public performance { interrupt_interval: integer, interrupt_timeout: integer }
+---@field public performance { interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
 ---@field public dedup boolean
----@field public parse_query fun(query: string, source: deck.Source): { filter: string, dynamic: string }
 
 ---@class deck.ConfigSpecifier
 ---@field public guicursor? string
@@ -193,23 +190,11 @@ local internal = {
       matcher = require('deck.builtin.matcher').default,
       history = true,
       performance = {
-        interrupt_interval = 8,
-        interrupt_timeout = 8,
+        interrupt_interval = 16,
+        interrupt_timeout = 4,
+        interrupt_batch_size = 100,
       },
       dedup = true,
-      parse_query = function(query, source)
-        if source.dynamic then
-          local dynamic, filter = unpack(vim.split(query, '  '))
-          return {
-            filter = (filter or ''):gsub('^%s*(.-)%s*$', '%1'),
-            dynamic = (dynamic or ''):gsub('^%s*(.-)%s*$', '%1'),
-          }
-        end
-        return {
-          filter = query:gsub('^%s*(.-)%s*$', '%1'),
-          dynamic = '',
-        }
-      end,
     },
   },
 }
@@ -242,17 +227,17 @@ function deck.setup(config)
       vim.api.nvim_create_autocmd('SafeState', {
         group = internal.augroup,
         callback = function()
-        if vim.b.deck then
-          if restore_guicursor == nil then
-            restore_guicursor = vim.o.guicursor
-            vim.api.nvim_set_option_value('guicursor', config_guicursor, {})
+          if vim.b.deck then
+            if restore_guicursor == nil then
+              restore_guicursor = vim.o.guicursor
+              vim.api.nvim_set_option_value('guicursor', config_guicursor, {})
+            end
+          else
+            if restore_guicursor then
+              vim.api.nvim_set_option_value('guicursor', restore_guicursor, {})
+              restore_guicursor = nil
+            end
           end
-        else
-          if restore_guicursor then
-            vim.api.nvim_set_option_value('guicursor', restore_guicursor, {})
-            restore_guicursor = nil
-          end
-        end
         end
       })
     end

@@ -1,11 +1,17 @@
 local IO = require('deck.kit.IO')
 local System = require('deck.kit.System')
 
+local home = vim.fn.fnamemodify('~', ':p')
+
 ---@param filename string
 ---@return deck.Item
 local function to_item(filename)
+  local display_text = filename
+  if #filename > #home and vim.startswith(filename, home) then
+    display_text = ('~/%s'):format(filename:sub(#home + 1))
+  end
   return {
-    display_text = vim.fn.fnamemodify(filename, ':~'):gsub('/$', ''),
+    display_text = display_text,
     data = {
       filename = filename,
     },
@@ -22,6 +28,7 @@ local function ripgrep(root_dir, ignore_globs, ctx)
     table.insert(command, '!' .. glob)
   end
 
+  root_dir = vim.fs.normalize(root_dir)
   ctx.on_abort(System.spawn(command, {
     cwd = root_dir,
     env = {},
@@ -29,7 +36,10 @@ local function ripgrep(root_dir, ignore_globs, ctx)
       ignore_empty = true,
     }),
     on_stdout = function(text)
-      ctx.item(to_item(vim.fs.joinpath(root_dir, text)))
+      if vim.startswith(text, './') then
+        text = text:sub(3)
+      end
+      ctx.item(to_item(('%s/%s'):format(root_dir, text)))
     end,
     on_stderr = function()
       -- noop

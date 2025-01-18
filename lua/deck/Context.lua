@@ -2,44 +2,21 @@ local kit = require('deck.kit')
 local misc = require('deck.misc')
 local notify = require('deck.notify')
 local symbols = require('deck.symbols')
+local compose = require('deck.builtin.source.deck.compose')
+local Buffer = require('deck.Buffer')
 local ExecuteContext = require('deck.ExecuteContext')
-local Async = require('deck.kit.Async')
-
----@enum deck.Context.Status
-local Status = {
-  Waiting = 'waiting',
-  Running = 'running',
-  Success = 'success',
-}
-
----@class deck.Context.Revision
----@field execute integer
----@field status integer
----@field cursor integer
----@field query integer
----@field items integer
----@field select_all integer
----@field select_map integer
----@field preview_mode integer
-
----@class deck.Context.SourceState
----@field status deck.Context.Status
----@field query string
----@field items deck.Item[]
----@field items_filtered? deck.Item[]
----@field execute_time integer
----@field dedup_map table<string, boolean>
----@field controller? deck.ExecuteContext.Controller
 
 ---@class deck.Context.State
+---@field status deck.Context.Status
 ---@field cursor integer
----@field query string
+---@field matcher_query string
+---@field dynamic_query string
 ---@field select_all boolean
----@field select_map table<deck.Item, boolean|nil>
+---@field select_map table<string, boolean>
+---@field dedup_map table<deck.Item, boolean>
 ---@field preview_mode boolean
----@field revision deck.Context.Revision
----@field source_state table<deck.Source, deck.Context.SourceState>
----@field cache { get_filtered_items?: deck.Item[], buf_items: deck.Item[] }
+---@field dynamic_mode boolean
+---@field controller deck.ExecuteContext.Controller?
 ---@field disposed boolean
 
 ---@doc.type
@@ -55,26 +32,32 @@ local Status = {
 ---@field prompt fun()
 ---@field scroll_preview fun(delta: integer)
 ---@field get_status fun(): deck.Context.Status
+---@field is_filtering fun(): boolean
 ---@field get_cursor fun(): integer
 ---@field set_cursor fun(cursor: integer)
 ---@field get_query fun(): string
 ---@field set_query fun(query: string)
+---@field get_dynamic_query fun(): string
+---@field set_dynamic_query fun(query: string)
+---@field get_matcher_query fun(): string
+---@field set_matcher_query fun(query: string)
 ---@field set_selected fun(item: deck.Item, selected: boolean)
 ---@field get_selected fun(item: deck.Item): boolean
 ---@field set_select_all fun(select_all: boolean)
 ---@field get_select_all fun(): boolean
 ---@field set_preview_mode fun(preview_mode: boolean)
 ---@field get_preview_mode fun(): boolean
+---@field set_dynamic_mode fun(dynamic_mode: boolean)
+---@field get_dynamic_mode fun(): boolean
 ---@field get_items fun(): deck.Item[]
 ---@field get_cursor_item fun(): deck.Item?
 ---@field get_action_items fun(): deck.Item[]
 ---@field get_filtered_items fun(): deck.Item[]
+---@field get_rendered_items fun(): deck.Item[]
 ---@field get_selected_items fun(): deck.Item[]
 ---@field get_actions fun(): deck.Action[]
 ---@field get_decorators fun(): deck.Decorator[]
 ---@field get_previewer fun(): deck.Previewer?
----@field get_revision fun(): deck.Context.Revision
----@field get_source_names fun(): string[]
 ---@field sync fun(option: { count: integer })
 ---@field keymap fun(mode: string, lhs: string, rhs: fun(ctx: deck.Context))
 ---@field do_action fun(name: string)
@@ -84,20 +67,46 @@ local Status = {
 ---@field on_hide fun(callback: fun())
 ---@field on_dispose fun(callback: fun()): fun()
 
+
 local Context = {}
 
-Context.Status = Status
+---@enum deck.Context.Status
+Context.Status = {
+  Waiting = 'waiting',
+  Running = 'running',
+  Success = 'success',
+}
 
 ---Create deck context.
 ---@param id integer
----@param sources deck.Source|deck.Source[]
+---@param source deck.Source
 ---@param start_config deck.StartConfig
-function Context.create(id, sources, start_config)
-  sources = kit.to_array(sources) --[=[@as deck.Source[]]=]
+function Context.create(id, source, start_config)
+  if kit.is_array(source) then
+    if #source == 1 then
+      source = source[1]
+    else
+      source = compose(source)
+    end
+  end
 
-  local buf = misc.create_deck_buf(start_config.name)
-  local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(buf))
+  local view = start_config.view()
   local context ---@type deck.Context
+  local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(id))
+
+  local state = {
+    status = Context.Status.Waiting,
+    cursor = 1,
+    matcher_query = '',
+    dynamic_query = '',
+    select_all = false,
+    select_map = {},
+    dedup_map = {},
+    preview_mode = false,
+    dynamic_mode = source.dynamic or false,
+    controller = nil,
+    disposed = false,
+  } ---@type deck.Context.State
 
   local events = {
     dispose = misc.create_events(),
@@ -105,53 +114,81 @@ function Context.create(id, sources, start_config)
     hide = misc.create_events(),
   }
 
-  local view = start_config.view()
+  local buffer = Buffer.new(tostring(id), {
+    interval = start_config.performance.interrupt_interval,
+    timeout = start_config.performance.interrupt_timeout,
+    batch_size = start_config.performance.interrupt_batch_size,
+    matcher = start_config.matcher,
+  })
 
-  ---@type deck.Context.State
-  local state = {
-    cursor = 1,
-    query = '',
-    select_all = false,
-    select_map = {},
-    preview_mode = false,
-    revision = {
-      execute = 0,
-      status = 0,
-      cursor = 0,
-      query = 0,
-      items = 0,
-      select_all = 0,
-      select_map = 0,
-      preview_mode = 0,
-    },
-    source_state = {},
-    cache = { buf_items = {}, get_filtered_items = nil },
-    disposed = false,
-  }
-  for _, source in ipairs(sources) do
-    state.source_state[source] = {
-      status = Status.Waiting,
-      query = '',
-      items = {},
-      items_filtered = nil,
-      dedup_map = {},
-      execute_time = 0,
-      controller = nil,
-    }
+  ---Execute source.
+  local execute_source = function()
+    local execute_context, execute_controller = ExecuteContext.create({
+      context = context,
+      get_query = function()
+        return state.dynamic_query
+      end,
+      on_item = function(item)
+        if start_config.dedup then
+          local dedup_id = item.dedup_id or item.display_text
+          if state.dedup_map[dedup_id] then
+            return
+          end
+          state.dedup_map[dedup_id] = true
+        end
+        item[symbols.source] = item[symbols.source] or source
+        context.set_selected(item, state.select_all)
+        buffer:stream_add(item)
+      end,
+      on_done = function()
+        state.status = Context.Status.Success
+        buffer:stream_done()
+      end,
+    })
+
+    -- execute source.
+    state.status = Context.Status.Running
+    state.controller = execute_controller
+    buffer:stream_start()
+    source.execute(execute_context)
   end
 
   --Setup decoration provider.
   do
     local item_decoration_cache = {}
+
+    local function apply_decoration(row, decoration)
+      vim.api.nvim_buf_set_extmark(context.buf, context.ns, row, decoration.col or 0, {
+        end_row = decoration.end_col and row,
+        end_col = decoration.end_col,
+        hl_group = decoration.hl_group,
+        hl_mode = 'combine',
+        virt_text = decoration.virt_text,
+        virt_text_pos = decoration.virt_text_pos,
+        virt_text_win_col = decoration.virt_text_win_col,
+        virt_text_hide = decoration.virt_text_hide,
+        virt_text_repeat_linebreak = decoration.virt_text_repeat_linebreak,
+        virt_lines = decoration.virt_lines,
+        virt_lines_above = decoration.virt_lines_above,
+        ephemeral = decoration.ephemeral,
+        priority = decoration.priority,
+        sign_text = decoration.sign_text,
+        sign_hl_group = decoration.sign_hl_group,
+        number_hl_group = decoration.number_hl_group,
+        line_hl_group = decoration.line_hl_group,
+        conceal = decoration.conceal,
+      })
+    end
+
     vim.api.nvim_set_decoration_provider(namespace, {
       on_win = function(_, _, bufnr, toprow, botrow)
         if bufnr == context.buf then
           vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
 
           for row = toprow, botrow do
-            local item = state.cache.buf_items[row + 1]
+            local item = buffer:get_rendered_items()[row + 1]
             if item then
-              -- create decoration cache.
+              -- create cache.
               if not item_decoration_cache[item] then
                 item_decoration_cache[item] = {
                   decorations = {},
@@ -167,217 +204,24 @@ function Context.create(id, sources, start_config)
                 end
               end
 
-              local decorations = kit.clone(item_decoration_cache[item].decorations)
-
-              -- create dynamic decoration.
+              -- apply.
               for _, decorator in ipairs(context.get_decorators()) do
                 if decorator.dynamic then
                   if not decorator.resolve or decorator.resolve(context, item) then
                     for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
-                      table.insert(decorations, decoration)
+                      apply_decoration(row, decoration)
                     end
                   end
                 end
               end
-
-              -- apply cached decoration.
-              for _, decoration in ipairs(decorations) do
-                vim.api.nvim_buf_set_extmark(context.buf, context.ns, row, decoration.col or 0, {
-                  end_row = decoration.end_col and row,
-                  end_col = decoration.end_col,
-                  hl_group = decoration.hl_group,
-                  hl_mode = 'combine',
-                  virt_text = decoration.virt_text,
-                  virt_text_pos = decoration.virt_text_pos,
-                  virt_text_win_col = decoration.virt_text_win_col,
-                  virt_text_hide = decoration.virt_text_hide,
-                  virt_text_repeat_linebreak = decoration.virt_text_repeat_linebreak,
-                  virt_lines = decoration.virt_lines,
-                  virt_lines_above = decoration.virt_lines_above,
-                  ephemeral = decoration.ephemeral,
-                  priority = decoration.priority,
-                  sign_text = decoration.sign_text,
-                  sign_hl_group = decoration.sign_hl_group,
-                  number_hl_group = decoration.number_hl_group,
-                  line_hl_group = decoration.line_hl_group,
-                  conceal = decoration.conceal,
-                })
+              for _, decoration in ipairs(item_decoration_cache[item].decorations) do
+                apply_decoration(row, decoration)
               end
             end
           end
         end
       end,
     })
-  end
-  events.dispose.on(function()
-    if vim.api.nvim_buf_is_valid(context.buf) then
-      vim.api.nvim_buf_clear_namespace(context.buf, context.ns, 0, -1)
-    end
-  end)
-
-  ---@type fun()
-  local render
-  ---@type fun()|{ __call: fun() }
-  local render_throttle
-  ---@type fun(): boolean
-  local update_buf
-  ---@type fun(source: deck.Source)
-  local execute_source
-  ---@type fun()
-  local redraw_debounced = kit.debounce(vim.schedule_wrap(function()
-    vim.cmd.redraw()
-  end), 16)
-
-  ---Update buffer content.
-  do
-    local prev_revision = kit.clone(state.revision)
-    local pseudo_extmark_id = 1
-    update_buf = function()
-      local count = vim.api.nvim_buf_line_count(context.buf)
-      local filtered_items = context.get_filtered_items()
-      local re_execute = prev_revision.execute ~= state.revision.execute and state.revision.execute > #sources
-
-      -- If the number of items is insufficient after re-execution, the display update will be delayed (this is called debounce).
-      -- This mainly contributes to the stability of the display while the dynamic source query is being rewritten.
-      if re_execute and view.is_visible(context) then
-        local not_enough = #filtered_items < vim.api.nvim_win_get_height(view.get_win() --[[@as integer]])
-        local execute_time = 0
-        for _, source in ipairs(sources) do
-          execute_time = math.max(execute_time, state.source_state[source].execute_time)
-        end
-        if not_enough and (vim.uv.now() - execute_time) < 200 then
-          vim.schedule(function()
-            render_throttle()
-          end)
-          return false
-        end
-      end
-
-      -- TODO: we can create `BufferManager` for incremental item update.
-      if count == 0 or #sources > 1 or re_execute or prev_revision.query ~= state.revision.query then
-        -- full update.
-        local contents = {}
-        for _, item in ipairs(filtered_items) do
-          table.insert(contents, item.display_text)
-        end
-        vim.api.nvim_set_option_value('modifiable', true, { buf = context.buf })
-        vim.api.nvim_buf_set_lines(context.buf, 0, -1, false, contents)
-        vim.api.nvim_set_option_value('modifiable', false, { buf = context.buf })
-        vim.api.nvim_set_option_value('modified', false, { buf = context.buf })
-        state.cache.buf_items = filtered_items
-      elseif prev_revision.items ~= state.revision.items then
-        -- append only (1-item is overwrote).
-        local contents = {}
-        for i = count, #filtered_items do
-          state.cache.buf_items[i] = filtered_items[i]
-          table.insert(contents, filtered_items[i].display_text)
-        end
-        vim.api.nvim_set_option_value('modifiable', true, { buf = context.buf })
-        vim.api.nvim_buf_set_lines(context.buf, count - 1, -1, false, contents)
-        vim.api.nvim_set_option_value('modifiable', false, { buf = context.buf })
-        vim.api.nvim_set_option_value('modified', false, { buf = context.buf })
-      end
-
-      -- force invoke `nvim_set_decoration_provider` callbacks.
-      vim.api.nvim_buf_del_extmark(context.buf, namespace, pseudo_extmark_id)
-      vim.api.nvim_buf_set_extmark(context.buf, namespace, 0, 0, {
-        id = pseudo_extmark_id,
-        ui_watched = true,
-      })
-
-      -- memoize rendered revision.
-      prev_revision = kit.clone(state.revision)
-
-      return true
-    end
-  end
-
-  ---Render view.
-  render = kit.fast_schedule_wrap(function()
-    if context.disposed() then
-      return
-    end
-    if update_buf() then
-      view.render(context)
-    end
-  end)
-
-  ---Render view with throttling.
-  render_throttle = kit.throttle(render, 16)
-
-  ---Execute source.
-  execute_source = function(source)
-    if state.source_state[source] and state.source_state[source].controller then
-      state.source_state[source].controller.abort()
-    end
-
-    state.source_state[source] = {
-      status = Status.Waiting,
-      query = context.get_query(),
-      items = {},
-      items_filtered = nil,
-      dedup_map = {},
-      execute_time = vim.uv.now(),
-      controller = nil,
-    }
-
-    local queries = start_config.parse_query(context.get_query(), source)
-    Async.run(function()
-      -- create execute context.
-      local execute_context, execute_controller = ExecuteContext.create({
-        context = context,
-        get_query = function()
-          return queries.dynamic
-        end,
-        on_item = function(item)
-          if start_config.dedup then
-            local dedup_key = item.dedup_id or item.display_text
-            for _, s in ipairs(sources) do
-              if state.source_state[s].dedup_map[dedup_key] then
-                return
-              end
-            end
-            state.source_state[source].dedup_map[dedup_key] = true
-          end
-
-          item[symbols.source] = source
-
-          table.insert(state.source_state[source].items, item)
-          state.revision.items = state.revision.items + 1
-          state.cache.get_filtered_items = nil
-
-          -- on-demand filter item for optimization.
-          if state.source_state[source].items_filtered then
-            local matched, matches = start_config.matcher(queries.filter, item.filter_text or item.display_text)
-            if matched then
-              item[symbols.matches] = matches or {}
-              table.insert(state.source_state[source].items_filtered, item)
-            end
-          end
-
-          -- initial selection.
-          context.set_selected(item, state.select_all)
-
-          -- interrupt and pause/resume if possible.
-          if Async.in_context() then
-            Async.interrupt(start_config.performance.interrupt_interval, start_config.performance.interrupt_timeout)
-          end
-          render_throttle()
-        end,
-        on_done = function()
-          state.source_state[source].status = Status.Success
-          state.revision.status = state.revision.status + 1
-          render() -- flash immediately (this must be called before throttled on_item callback.)
-        end,
-      })
-
-      -- execute source.
-      state.source_state[source].controller = execute_controller
-      state.source_state[source].status = Status.Running
-      state.revision.status = state.revision.status + 1
-      state.revision.execute = state.revision.execute + 1
-      source.execute(execute_context)
-    end)
   end
 
   context = {
@@ -386,7 +230,7 @@ function Context.create(id, sources, start_config)
     ns = namespace,
 
     ---Deck buffer.
-    buf = buf,
+    buf = buffer:nr(),
 
     ---Deck name.
     name = start_config.name,
@@ -394,57 +238,26 @@ function Context.create(id, sources, start_config)
     ---Execute source.
     execute = function()
       -- abort previous execution.
-      for _, source_state in pairs(state.source_state) do
-        if source_state.controller then
-          source_state.controller.abort()
-        end
+      if state.controller then
+        state.controller.abort()
+        state.controller = nil
       end
 
       -- reset state.
-      state = kit.clone(state)
-      state.select_all = false
-      state.select_map = {}
-      state.revision.execute = state.revision.execute + 1
-      state.revision.status = state.revision.status + 1
-      state.revision.cursor = state.revision.cursor + 1
-      state.revision.query = state.revision.query + 1
-      state.revision.items = state.revision.items + 1
-      state.revision.select_all = state.revision.select_all + 1
-      state.revision.select_map = state.revision.select_map + 1
-      state.revision.preview_mode = state.revision.preview_mode + 1
-      state.cache.get_filtered_items = nil
-
-      state.source_state = {}
-      for _, source in ipairs(sources) do
-        state.source_state[source] = {
-          status = Status.Waiting,
-          query = context.get_query(),
-          items = {},
-          items_filtered = nil,
-          dedup_map = {},
-          execute_time = 0,
-          controller = nil,
-        }
-      end
-
-      local max_height = vim.o.lines
-      Async.run(function()
-        for _, source in ipairs(sources) do
-          execute_source(source)
-          local s = vim.uv.hrtime() / 1000000
-          while (vim.uv.hrtime() / 1000000 - s) < 200 do
-            local success = state.source_state[source].status == Status.Success
-            if success then
-              break
-            end
-            local enough_items = #context.get_items() >= max_height
-            if enough_items then
-              break
-            end
-            Async.timeout(32):await()
-          end
-        end
-      end)
+      state = {
+        status = Context.Status.Waiting,
+        cursor = 1,
+        matcher_query = state.matcher_query,
+        dynamic_query = state.dynamic_query,
+        select_all = false,
+        select_map = {},
+        dedup_map = {},
+        preview_mode = state.preview_mode,
+        dynamic_mode = state.dynamic_mode,
+        controller = nil,
+        disposed = false,
+      } ---@type deck.Context.State
+      execute_source()
     end,
 
     ---Return visibility state.
@@ -454,42 +267,46 @@ function Context.create(id, sources, start_config)
 
     ---Show context via given view.
     show = function()
+      local to_show = not context.is_visible()
+      buffer:start_filtering()
       view.show(context)
-      vim.schedule(function()
+      if to_show then
+        --[=[@doc
+          category = "autocmd"
+          name = "DeckShow"
+          desc = "Triggered after deck window shown."
+        --]=]
+        vim.api.nvim_exec_autocmds('User', {
+          pattern = 'DeckShow',
+          modeline = false,
+          data = {
+            ctx = context
+          },
+        })
         events.show.emit()
-      end)
-      --[=[@doc
-        category = "autocmd"
-        name = "DeckShow"
-        desc = "Triggered after deck window shown."
-      --]=]
-      vim.api.nvim_exec_autocmds('User', {
-        pattern = 'DeckShow',
-        modeline = false,
-        data = {
-          ctx = context
-        },
-      })
+      end
     end,
 
     ---Hide context via given view.
     hide = function()
+      local to_hide = context.is_visible()
+      buffer:abort_filtering()
       view.hide(context)
-      vim.schedule(function()
+      if to_hide then
+        --[=[@doc
+          category = "autocmd"
+          name = "DeckHide"
+          desc = "Triggered after deck window hidden."
+        --]=]
+        vim.api.nvim_exec_autocmds('User', {
+          pattern = 'DeckHide',
+          modeline = false,
+          data = {
+            ctx = context
+          },
+        })
         events.hide.emit()
-      end)
-      --[=[@doc
-        category = "autocmd"
-        name = "DeckHide"
-        desc = "Triggered after deck window hidden."
-      --]=]
-      vim.api.nvim_exec_autocmds('User', {
-        pattern = 'DeckHide',
-        modeline = false,
-        data = {
-          ctx = context
-        },
-      })
+      end
     end,
 
     ---Start prompt.
@@ -507,23 +324,17 @@ function Context.create(id, sources, start_config)
 
     ---Return status state.
     get_status = function()
-      for _, source in ipairs(sources) do
-        if state.source_state[source].status == Status.Running then
-          return Status.Running
-        end
-      end
+      return state.status
+    end,
 
-      for _, source in ipairs(sources) do
-        if state.source_state[source].status ~= Status.Success then
-          return Status.Waiting
-        end
-      end
-      return Status.Success
+    ---Return filtering state.
+    is_filtering = function()
+      return buffer:is_filtering()
     end,
 
     ---Return cursor position state.
     get_cursor = function()
-      return state.cursor
+      return math.min(state.cursor, #buffer:get_rendered_items() + 1)
     end,
 
     ---Set cursor row.
@@ -532,40 +343,55 @@ function Context.create(id, sources, start_config)
         return
       end
 
-      state.cursor = math.max(1, math.min(cursor, #context.get_filtered_items()))
-      state.revision.cursor = state.revision.cursor + 1
-      render_throttle()
+      state.cursor = math.max(1, cursor)
     end,
 
     ---Get query text.
     get_query = function()
-      return state.query
+      if state.dynamic_mode then
+        return state.dynamic_query
+      end
+      return state.matcher_query
     end,
 
     ---Set query text.
     set_query = function(query)
-      if state.query == query then
+      query = query:gsub('^%s+', ''):gsub('%s+$', '')
+      if state.dynamic_mode then
+        context.set_dynamic_query(query)
+      else
+        context.set_matcher_query(query)
+      end
+    end,
+
+    ---Get dynamic query.
+    get_dynamic_query = function()
+      return state.dynamic_query
+    end,
+
+    ---Set dynamic query.
+    set_dynamic_query = function(query)
+      if state.dynamic_query == query then
         return
       end
-
+      state.dynamic_query = query
       context.set_cursor(1)
-      state.query = query
-      state.revision.query = state.revision.query + 1
-      state.cache.get_filtered_items = nil
+      context.execute()
+    end,
 
-      -- reset filter.
-      Async.run(function()
-        for _, source in ipairs(sources) do
-          state.source_state[source].items_filtered = nil
+    ---Get matcher query.
+    get_matcher_query = function()
+      return state.matcher_query
+    end,
 
-          local prev_dynamic_query = start_config.parse_query(state.source_state[source].query, source).dynamic
-          local next_dynamic_query = start_config.parse_query(query, source).dynamic
-          if source.dynamic and prev_dynamic_query ~= next_dynamic_query then
-            execute_source(source)
-          end
-        end
-      end)
-      render_throttle()
+    ---Set matcher query.
+    set_matcher_query = function(query)
+      if state.matcher_query == query then
+        return
+      end
+      state.matcher_query = query
+      context.set_cursor(1)
+      buffer:update_query(query)
     end,
 
     ---Set specified item's selected state.
@@ -578,8 +404,6 @@ function Context.create(id, sources, start_config)
         state.select_all = false
       end
       state.select_map[item] = selected and true or nil
-      state.revision.select_map = state.revision.select_map + 1
-      render_throttle()
     end,
 
     ---Get specified item's selected state.
@@ -594,11 +418,9 @@ function Context.create(id, sources, start_config)
       end
 
       state.select_all = select_all
-      state.revision.select_all = state.revision.select_all + 1
       for _, item in ipairs(context.get_items()) do
         context.set_selected(item, state.select_all)
       end
-      render_throttle()
     end,
 
     ---Get selected all state.
@@ -613,8 +435,6 @@ function Context.create(id, sources, start_config)
       end
 
       state.preview_mode = preview_mode
-      state.revision.preview_mode = state.revision.preview_mode + 1
-      render_throttle()
     end,
 
     ---Get preview mode.
@@ -622,20 +442,28 @@ function Context.create(id, sources, start_config)
       return state.preview_mode
     end,
 
+    ---Set dynamic mode.
+    set_dynamic_mode = function(dynamic_mode)
+      if state.dynamic_mode == dynamic_mode then
+        return
+      end
+
+      state.dynamic_mode = dynamic_mode
+    end,
+
+    ---Get dynamic mode.
+    get_dynamic_mode = function()
+      return state.dynamic_mode
+    end,
+
     ---Get items.
     get_items = function()
-      local items = {}
-      for _, source in ipairs(sources) do
-        for _, item in ipairs(state.source_state[source].items) do
-          table.insert(items, item)
-        end
-      end
-      return items
+      return buffer:get_items()
     end,
 
     ---Get cursor item.
     get_cursor_item = function()
-      return context.get_filtered_items()[context.get_cursor()]
+      return buffer:get_rendered_items()[state.cursor]
     end,
 
     ---Get action items.
@@ -653,42 +481,18 @@ function Context.create(id, sources, start_config)
 
     ---Get filter items.
     get_filtered_items = function()
-      if not state.cache.get_filtered_items then
-        local items = {}
-        for _, source in ipairs(sources) do
-          local queries = start_config.parse_query(state.query, source)
-          if queries.filter == '' then
-            for _, item in ipairs(state.source_state[source].items) do
-              item[symbols.matches] = {}
-              table.insert(items, item)
-            end
-          elseif state.source_state[source] and state.source_state[source].items_filtered then
-            -- use already filtered items.
-            for _, item in ipairs(state.source_state[source].items_filtered) do
-              table.insert(items, item)
-            end
-          else
-            -- filter all items.
-            state.source_state[source].items_filtered = {}
-            for _, item in ipairs(state.source_state[source].items) do
-              local matched, matches = start_config.matcher(queries.filter, item.filter_text or item.display_text)
-              if matched then
-                item[symbols.matches] = matches or {}
-                table.insert(state.source_state[source].items_filtered, item)
-                table.insert(items, item)
-              end
-            end
-          end
-        end
-        state.cache.get_filtered_items = items
-      end
-      return state.cache.get_filtered_items
+      return buffer:get_filtered_items()
+    end,
+
+    ---Get rendered items.
+    get_rendered_items = function()
+      return buffer:get_rendered_items()
     end,
 
     ---Get select items.
     get_selected_items = function()
       local items = {}
-      for _, item in ipairs(context.get_filtered_items()) do
+      for _, item in ipairs(context.get_rendered_items()) do
         if state.select_map[item] then
           table.insert(items, item)
         end
@@ -707,17 +511,17 @@ function Context.create(id, sources, start_config)
       end
 
       -- source.
-      for _, source in ipairs(sources) do
-        for _, action in ipairs(source.actions or {}) do
-          action.desc = action.desc or source.name
-          table.insert(actions, action)
-        end
+      for _, action in ipairs(source.actions or {}) do
+        action.desc = action.desc or source.name
+        table.insert(actions, action)
       end
 
       -- global.
       for _, action in ipairs(require('deck').get_actions()) do
+        action.desc = action.desc or 'global'
         table.insert(actions, action)
       end
+
       return actions
     end,
 
@@ -731,10 +535,8 @@ function Context.create(id, sources, start_config)
       end
 
       -- source.
-      for _, source in ipairs(sources) do
-        for _, decorator in ipairs(source.decorators or {}) do
-          table.insert(decorators, decorator)
-        end
+      for _, decorator in ipairs(source.decorators or {}) do
+        table.insert(decorators, decorator)
       end
 
       -- global.
@@ -759,11 +561,9 @@ function Context.create(id, sources, start_config)
       end
 
       -- source.
-      for _, source in ipairs(sources) do
-        for _, previewer in ipairs(source.previewers or {}) do
-          if not previewer.resolve or previewer.resolve(context, item) then
-            return previewer
-          end
+      for _, previewer in ipairs(source.previewers or {}) do
+        if not previewer.resolve or previewer.resolve(context, item) then
+          return previewer
         end
       end
 
@@ -775,39 +575,21 @@ function Context.create(id, sources, start_config)
       end
     end,
 
-    ---Get revision.
-    ---@return deck.Context.Revision
-    get_revision = function()
-      return kit.clone(state.revision)
-    end,
-
-    ---Get source names.
-    get_source_names = function()
-      local names = {}
-      for _, source in ipairs(sources) do
-        table.insert(names, source.name)
-      end
-      return names
-    end,
-
     ---Synchronize for display.
     sync = function(option)
       if context.disposed() then
         return
       end
 
-      -- sync for enough height.
       vim.wait(200, function()
-        if #state.cache.buf_items >= option.count then
+        if context.disposed() then
           return true
         end
-
-        if context.get_status() == Status.Success then
-          return true
+        if context.get_status() == Context.Status.Success then
+          return vim.api.nvim_buf_line_count(context.buf) == #context.get_filtered_items()
         end
-
-        return false
-      end, 0)
+        return option.count <= vim.api.nvim_buf_line_count(context.buf)
+      end)
     end,
 
     ---Set keymap to the deck buffer.
@@ -828,7 +610,6 @@ function Context.create(id, sources, start_config)
         if action.name == name then
           if not action.resolve or action.resolve(context) then
             action.execute(context)
-            redraw_debounced()
             return
           end
         end
@@ -845,19 +626,18 @@ function Context.create(id, sources, start_config)
       end
       state.disposed = true
 
+      -- abort filtering.
+      buffer:abort_filtering()
+
+      -- abort source execution.
+      if state.controller then
+        state.controller.abort()
+      end
+
       if vim.api.nvim_buf_is_valid(context.buf) then
         vim.api.nvim_buf_delete(context.buf, { force = true })
       end
-
-      -- abort source execution.
-      for _, source_state in pairs(state.source_state) do
-        if source_state.controller then
-          source_state.controller.abort()
-        end
-      end
-      vim.schedule(function()
-        events.dispose.emit()
-      end)
+      events.dispose.emit()
     end,
 
     ---Return dispose state.
@@ -875,14 +655,19 @@ function Context.create(id, sources, start_config)
     on_hide = events.hide.on,
   } --[[@as deck.Context]]
 
-  -- explicitly show when buffer shown.
+  -- update cursor position.
+  events.dispose.on(misc.autocmd('CursorMoved', function()
+    context.set_cursor(vim.api.nvim_win_get_cursor(0)[1])
+  end, {
+    pattern = ('<buffer=%s>'):format(context.buf),
+  }))
+
+  -- explicitly show.
   do
     local first = true
     events.dispose.on(misc.autocmd('BufWinEnter', function()
-      for _, source in ipairs(sources) do
-        if source.events and source.events.BufWinEnter then
-          source.events.BufWinEnter(context, { first = first })
-        end
+      if source.events and source.events.BufWinEnter then
+        source.events.BufWinEnter(context, { first = first })
       end
       first = false
 
@@ -892,14 +677,14 @@ function Context.create(id, sources, start_config)
     }))
   end
 
-  -- explicitly hide when buffer hidden.
+  -- explicitly hide.
   events.dispose.on(misc.autocmd('BufWinLeave', function()
     context.hide()
   end, {
     pattern = ('<buffer=%s>'):format(context.buf),
   }))
 
-  -- dispose.
+  -- explicitly dispose.
   do
     events.dispose.on(misc.autocmd('BufDelete', function()
       context.dispose()
@@ -911,23 +696,7 @@ function Context.create(id, sources, start_config)
     end))
   end
 
-  -- update cursor position.
-  events.dispose.on(misc.autocmd('CursorMoved', function()
-    context.set_cursor(vim.api.nvim_win_get_cursor(0)[1])
-  end, {
-    pattern = ('<buffer=%s>'):format(context.buf),
-  }))
-
-  -- re-render.
-  events.dispose.on(misc.autocmd({ 'BufEnter', 'WinResized', 'WinScrolled' }, function()
-    vim.schedule(function()
-      render()
-    end)
-  end, {
-    pattern = ('<buffer=%s>'):format(context.buf),
-  }))
-
-  -- close preview window.
+  -- close preview window if bufleave.
   do
     local preview_mode = context.get_preview_mode()
     events.dispose.on(misc.autocmd('BufLeave', function()
@@ -942,11 +711,6 @@ function Context.create(id, sources, start_config)
       pattern = ('<buffer=%s>'):format(context.buf),
     }))
   end
-
-  -- hide window after dispose.
-  events.dispose.on(function()
-    context.hide()
-  end)
 
   return context
 end

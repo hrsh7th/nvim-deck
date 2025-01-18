@@ -1,5 +1,12 @@
 local misc = {}
 
+---Clear table.
+misc.clear = require('table.clear') or (function(t)
+  for k in pairs(t) do
+    t[k] = nil
+  end
+end)
+
 ---Create pub/sub pairs.
 ---@return { on: (fun(callback: fun(...)): fun()), emit: fun(...) }
 function misc.create_events()

@@ -476,7 +476,13 @@ action.substitute = {
           vim.api.nvim_set_option_value('modified', false, { buf = buf })
           for i, target in ipairs(substitute_targets) do
             vim.api.nvim_buf_call(target.buf, function()
-              vim.api.nvim_buf_set_lines(target.buf, target.lnum - 1, target.lnum, false, { vim.api.nvim_buf_get_lines(buf, i - 1, i, false)[1] })
+              vim.api.nvim_buf_set_lines(
+                target.buf,
+                target.lnum - 1,
+                target.lnum,
+                false,
+                { vim.api.nvim_buf_get_lines(buf, i - 1, i, false)[1] }
+              )
             end)
           end
           for _, b in pairs(filename_buf) do

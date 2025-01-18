@@ -1,4 +1,4 @@
-local VFile = require('deck.helper.vfile')
+local MemoryFile = require('deck.x.MemoryFile')
 local IO = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
 
@@ -29,7 +29,7 @@ local pruned = false
   desc = "Ignore paths."
 ]=]
 return setmetatable({
-  vfile = VFile.new(vim.fs.normalize('~/.deck.recent_dirs')),
+  file = MemoryFile.new(vim.fs.normalize('~/.deck.recent_dirs')),
 
   ---Setup.
   ---@param config { path: string }
@@ -38,17 +38,17 @@ return setmetatable({
     if vim.fn.filereadable(path) == 0 then
       error('`config.path` must be readable file.')
     end
-    self.vfile = VFile.new(path)
+    self.file = MemoryFile.new(path)
   end,
 
   ---Prune entries (remove duplicates and non-existent entries).
   ---@param self unknown
   prune = function(self)
     local seen = {}
-    for i = #self.vfile.contents, 1, -1 do
-      local path = self.vfile.contents[i]
+    for i = #self.file.contents, 1, -1 do
+      local path = self.file.contents[i]
       if seen[path] or vim.fn.isdirectory(path) == 0 then
-        table.remove(self.vfile.contents, i)
+        table.remove(self.file.contents, i)
       end
       seen[path] = true
     end
@@ -69,14 +69,14 @@ return setmetatable({
     end
 
     local seen = { [target_path] = true }
-    for i = #self.vfile.contents, 1, -1 do
-      local path = self.vfile.contents[i]
+    for i = #self.file.contents, 1, -1 do
+      local path = self.file.contents[i]
       if seen[path] then
-        table.remove(self.vfile.contents, i)
+        table.remove(self.file.contents, i)
       end
       seen[path] = true
     end
-    table.insert(self.vfile.contents, target_path)
+    table.insert(self.file.contents, target_path)
   end,
 }, {
   ---@param option { ignore_paths?: string[] }
@@ -99,7 +99,7 @@ return setmetatable({
       name = 'recent_dirs',
       execute = function(ctx)
         local sync_count = vim.o.lines
-        local contents = self.vfile.contents
+        local contents = self.file.contents
         Async.run(function()
           local i = #contents
           -- sync items.

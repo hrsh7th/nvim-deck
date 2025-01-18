@@ -9,7 +9,7 @@ decorators.signs = {
   decorate = function(ctx, item)
     local signs = {}
     if ctx.get_selected(item) then
-      table.insert(signs, '│')
+      table.insert(signs, '▌')
     else
       table.insert(signs, ' ')
     end
@@ -37,9 +37,6 @@ decorators.signs = {
 ---@type deck.Decorator
 decorators.source_name = {
   name = 'source_name',
-  resolve = function(ctx)
-    return #ctx.get_source_names() > 1
-  end,
   decorate = function(_, item)
     return {
       col = 0,
@@ -117,11 +114,10 @@ do
     end,
     decorate = function(_, item)
       local decorations = {}
-      local is_dir = vim.fn.isdirectory(item.data.filename) == 1
 
       -- icons decoration.
       if get_icon then
-        local icon, hl = get_icon(is_dir and 'directory' or 'file', item.data.filename)
+        local icon, hl = get_icon('extension', item.data.filename)
         if icon then
           table.insert(decorations, {
             col = 0,
@@ -133,7 +129,7 @@ do
 
       -- buffer related decoration.
       local buf = vim.fn.bufnr(item.data.filename)
-      if not is_dir and buf ~= -1 then
+      if buf ~= -1 and vim.fn.isdirectory(item.data.filename) ~= 1 then
         local modified = vim.api.nvim_get_option_value('modified', { buf = buf })
         table.insert(decorations, {
           col = 0,

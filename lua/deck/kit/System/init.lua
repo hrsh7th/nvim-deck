@@ -46,7 +46,7 @@ function System.LineBuffering:create(callback)
         buffer = texts[#texts] ~= '' and { table.remove(texts) } or {}
         for _, text in ipairs(texts) do
           if self.ignore_empty then
-            if text:gsub('^%s*', ''):gsub('%s*$', '') ~= '' then
+            if not text:match('^%s*$') then
               callback(text)
             end
           else
@@ -255,11 +255,11 @@ end
 ---@return fun(signal?: integer)
 function System.spawn(command, params)
   command = vim
-    .iter(command)
-    :filter(function(c)
-      return c ~= nil
-    end)
-    :totable()
+      .iter(command)
+      :filter(function(c)
+        return c ~= nil
+      end)
+      :totable()
 
   local cmd = command[1]
   local args = {}

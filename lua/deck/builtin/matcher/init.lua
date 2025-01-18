@@ -4,17 +4,20 @@ do
   local state = {
     query = '',
     parsed = {},
+    queries = {},
   }
 
   ---Default matcher.
   ---@type deck.Matcher
   function matcher.default(query, text)
     if query == '' then
-      return true, {}
+      return true
     end
 
     if state.query ~= query then
       state.query = query
+
+      -- create parsed.
       state.parsed = {}
       local i = 1
       local chunk = {}
@@ -25,7 +28,7 @@ do
           i = i + 1
         elseif c ~= ' ' then
           table.insert(chunk, c)
-        else
+        elseif #chunk > 0 then
           table.insert(state.parsed, table.concat(chunk, ''):lower())
           chunk = {}
         end
@@ -34,28 +37,44 @@ do
       if #chunk > 0 then
         table.insert(state.parsed, table.concat(chunk, ''):lower())
       end
+
+      -- create queries.
+      state.queries = {}
+      for _, q in ipairs(state.parsed) do
+        if q:sub(1, 1) == '!' then
+          table.insert(state.queries, {
+            negated = true,
+            query = q:sub(2),
+          })
+        else
+          table.insert(state.queries, {
+            negated = false,
+            query = q,
+          })
+        end
+      end
     end
 
     text = text:lower()
 
     local matched = true
     local matches = {}
-    for _, q in ipairs(state.parsed) do
-      if q:sub(1, 1) == '!' then
-        if q ~= '!' and text:find(q:sub(2), 1, true) then
+    for _, q in ipairs(state.queries) do
+      if q.negated then
+        if q.query ~= '' and text:find(q.query, 1, true) then
           matched = false
           break
         end
-      else
-        local idx = text:find(q, 1, true)
+      elseif q.query ~= '' then
+        local idx = text:find(q.query, 1, true)
         if not idx then
           matched = false
           break
         end
-        table.insert(matches, { idx - 1, idx + #q - 1 })
+        table.insert(matches, { idx - 1, idx + #q.query - 1 })
       end
       if not matched then
-        break
+        return false
       end
     end
     return matched, matches
