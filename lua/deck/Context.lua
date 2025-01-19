@@ -2,7 +2,6 @@ local kit = require('deck.kit')
 local x = require('deck.x')
 local notify = require('deck.notify')
 local symbols = require('deck.symbols')
-local compose = require('deck.builtin.source.deck.compose')
 local Buffer = require('deck.Buffer')
 local ExecuteContext = require('deck.ExecuteContext')
 
@@ -83,14 +82,6 @@ Context.Status = {
 ---@param source deck.Source
 ---@param start_config deck.StartConfig
 function Context.create(id, source, start_config)
-  if kit.is_array(source) then
-    if #source == 1 then
-      source = source[1]
-    else
-      source = compose(source)
-    end
-  end
-
   local view = start_config.view()
   local context ---@type deck.Context
   local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(id))
@@ -119,6 +110,21 @@ function Context.create(id, source, start_config)
 
   ---Execute source.
   local execute_source = function()
+    ---@type deck.Context.State
+    state = {
+      status = Context.Status.Waiting,
+      cursor = 1,
+      matcher_query = state.matcher_query,
+      dynamic_query = state.dynamic_query,
+      select_all = false,
+      select_map = {},
+      dedup_map = {},
+      preview_mode = state.preview_mode,
+      dynamic_mode = state.dynamic_mode,
+      controller = nil,
+      disposed = false,
+    }
+
     local execute_context, execute_controller = ExecuteContext.create({
       context = context,
       get_query = function()
@@ -157,6 +163,7 @@ function Context.create(id, source, start_config)
       vim.api.nvim_buf_set_extmark(context.buf, context.ns, row, decoration.col or 0, {
         end_row = decoration.end_col and row,
         end_col = decoration.end_col,
+        hl_eol = decoration.hl_eol,
         hl_group = decoration.hl_group,
         hl_mode = 'combine',
         virt_text = decoration.virt_text,
@@ -245,20 +252,9 @@ function Context.create(id, source, start_config)
       end
 
       -- reset state.
-      state = {
-        status = Context.Status.Waiting,
-        cursor = 1,
-        matcher_query = state.matcher_query,
-        dynamic_query = state.dynamic_query,
-        select_all = false,
-        select_map = {},
-        dedup_map = {},
-        preview_mode = state.preview_mode,
-        dynamic_mode = state.dynamic_mode,
-        controller = nil,
-        disposed = false,
-      } ---@type deck.Context.State
       execute_source()
+
+      context.sync()
     end,
 
     ---Return visibility state.
@@ -377,7 +373,7 @@ function Context.create(id, source, start_config)
       end
       state.dynamic_query = query
       context.set_cursor(1)
-      context.execute()
+      execute_source()
     end,
 
     ---Get matcher query.

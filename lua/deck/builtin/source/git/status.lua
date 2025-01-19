@@ -1,5 +1,5 @@
 local x = require('deck.x')
-local Git = require('deck.x.git')
+local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -20,6 +20,7 @@ local Async = require('deck.kit.Async')
 ---@param option { cwd: string }
 return function(option)
   local git = Git.new(option.cwd)
+
   ---@type deck.Source
   return {
     name = 'git.status',

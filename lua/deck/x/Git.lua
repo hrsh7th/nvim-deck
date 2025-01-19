@@ -523,9 +523,10 @@ function Git:commit(params, callback)
         }, filenames))
         :await().stdout
 
-    local start_time = vim.uv.hrtime() / 1000000
+    local s = vim.uv.hrtime() / 1e6
     while IO.exists(vim.fs.joinpath(self.cwd, '.git', 'index.lock')):await() do
-      if (vim.uv.hrtime() / 1000000) - start_time > 1000 then
+      local n = vim.uv.hrtime() / 1e6
+      if n - s > 1000 then
         break
       end
       Async.timeout(200):await()

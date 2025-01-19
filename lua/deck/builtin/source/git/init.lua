@@ -1,6 +1,6 @@
 local x = require('deck.x')
 local IO = require('deck.kit.IO')
-local Git = require('deck.x.git')
+local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc

@@ -2,6 +2,7 @@ local kit = require('deck.kit')
 local Async = require('deck.kit.Async')
 local Keymap = require('deck.kit.Vim.Keymap')
 local validate = require('deck.validate')
+local compose = require('deck.builtin.source.deck.compose')
 local Context = require('deck.Context')
 
 ---@doc.type
@@ -158,9 +159,6 @@ local Context = require('deck.Context')
 
 local internal = {
   ---@type integer
-  start_id = 0,
-
-  ---@type integer
   augroup = vim.api.nvim_create_augroup('deck', {
     clear = true,
   }),
@@ -192,7 +190,7 @@ local internal = {
       matcher = require('deck.builtin.matcher').default,
       history = true,
       performance = {
-        sync_timeout = 280,
+        sync_timeout = 200,
         interrupt_interval = 16,
         interrupt_timeout = 1,
         interrupt_batch_size = 100,
@@ -273,25 +271,31 @@ end
 ---@return deck.Context
 function deck.start(sources, start_config_specifier)
   sources = validate.sources(kit.to_array(sources))
-  start_config_specifier = validate.start_config(kit.merge(start_config_specifier or {},
-    internal.config.default_start_config or {}) --[[@as deck.StartConfig]])
 
-  -- create name.
-  if not start_config_specifier.name then
-    start_config_specifier.name = vim
-        .iter(sources)
-        :map(function(source)
-          return source.name
-        end)
-        :join('+')
+  --- create composed source.
+  local source = sources
+  if kit.is_array(source) then
+    if #source == 1 then
+      source = source[1]
+    else
+      source = compose(source)
+    end
   end
 
+  --- check start_config.
+  local start_config = validate.start_config(
+    kit.merge(
+      start_config_specifier or {},
+      internal.config.default_start_config or {}
+    ) --[[@as deck.StartConfig]]
+  )
+  start_config.name = start_config.name or source.name
+
   -- create context.
-  internal.start_id = internal.start_id + 1
-  local context = Context.create(internal.start_id, sources, start_config_specifier)
+  local context = Context.create(kit.unique_id(), source, start_config)
 
   -- manage history.
-  if start_config_specifier.history then
+  if start_config.history then
     table.insert(internal.history, 1, context)
     context.on_dispose(function()
       for i, c in ipairs(internal.history) do
@@ -344,18 +348,16 @@ function deck.start(sources, start_config_specifier)
 
   --[=[@doc
     category = "autocmd"
-    name = "DeckStart:{source_name}"
+    name = "DeckStart:{source.name}"
     desc = "Triggered when deck starts for source."
   --]=]
-  for _, source in ipairs(sources) do
-    vim.api.nvim_exec_autocmds('User', {
-      pattern = 'DeckStart:' .. source.name,
-      modeline = false,
-      data = {
-        ctx = context,
-      },
-    })
-  end
+  vim.api.nvim_exec_autocmds('User', {
+    pattern = 'DeckStart:' .. source.name,
+    modeline = false,
+    data = {
+      ctx = context,
+    },
+  })
 
   return context
 end
