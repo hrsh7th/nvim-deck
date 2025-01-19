@@ -80,7 +80,11 @@ decorators.query_matches = {
     item[symbols.query_matches] = item[symbols.query_matches] or {}
     if item[symbols.query_matches].query ~= ctx.get_matcher_query() then
       item[symbols.query_matches].query = ctx.get_matcher_query()
-      item[symbols.query_matches].matches = ctx.get_config().matcher.decor(ctx.get_matcher_query(), item.display_text)
+      item[symbols.display_text_lower] = item[symbols.display_text_lower] or item.display_text:lower()
+      item[symbols.query_matches].matches = ctx.get_config().matcher.decor(
+        ctx.get_matcher_query(),
+        item[symbols.display_text_lower]
+      )
     end
 
     local decorations = {}

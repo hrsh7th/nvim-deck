@@ -59,8 +59,6 @@ do
         return true
       end
 
-      text = text:lower()
-
       local matched = true
       for _, q in ipairs(parse_query(query)) do
         if q.negated then
@@ -86,8 +84,6 @@ do
       if query == '' then
         return Empty
       end
-
-      text = text:lower()
 
       local matches = {}
       for _, q in ipairs(parse_query(query)) do

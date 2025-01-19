@@ -190,9 +190,9 @@ local internal = {
       matcher = require('deck.builtin.matcher').default,
       history = true,
       performance = {
-        sync_timeout = 200,
-        interrupt_interval = 16,
-        interrupt_timeout = 1,
+        sync_timeout = 120,
+        interrupt_interval = 32,
+        interrupt_timeout = 8,
         interrupt_batch_size = 100,
       },
       dedup = true,

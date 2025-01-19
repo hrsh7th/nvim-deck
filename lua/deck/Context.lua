@@ -110,6 +110,12 @@ function Context.create(id, source, start_config)
 
   ---Execute source.
   local execute_source = function()
+    -- abort previous execution.
+    if state.controller then
+      state.controller.abort()
+      state.controller = nil
+    end
+
     ---@type deck.Context.State
     state = {
       status = Context.Status.Waiting,
@@ -245,15 +251,7 @@ function Context.create(id, source, start_config)
 
     ---Execute source.
     execute = function()
-      -- abort previous execution.
-      if state.controller then
-        state.controller.abort()
-        state.controller = nil
-      end
-
-      -- reset state.
       execute_source()
-
       context.sync()
     end,
 

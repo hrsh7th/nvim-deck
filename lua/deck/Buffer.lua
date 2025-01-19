@@ -1,4 +1,5 @@
 local x = require('deck.x')
+local symbols = require('deck.symbols')
 local ScheduledTimer = require("deck.x.ScheduledTimer")
 
 ---@class deck.Buffer
@@ -108,17 +109,13 @@ function Buffer:flush_rendering()
   end
 
   self._timer_flush:start(self._start_config.performance.sync_timeout / 2, 0, function()
-    local flush = false
+    if self._done then
+      return self:_render(#self._items_filtered)
+    end
     if self._cursor_filtered >= #self._items then
-      flush = true
-    else
-      if #self._items_filtered - self._cursor_rendered >= self._start_config.performance.interrupt_batch_size then
-        flush = true
-      end
+      return self:_render(#self._items_filtered)
     end
-    if flush then
-      self:_render(#self._items_filtered)
-    end
+    self:_render(self._start_config.performance.interrupt_batch_size)
   end)
 end
 
@@ -140,7 +137,6 @@ function Buffer:start_filtering()
   if self._timer:is_running() then
     return
   end
-  self._timer:stop()
   self._timer:start(0, 0, function()
     self:_step()
   end)
@@ -163,6 +159,7 @@ function Buffer:_step()
   end
   self._query_filtered = self._query
 
+  -- filter items with interruption.
   local s = vim.uv.hrtime() / 1e6
   local c = 0
   if self._query == '' then
@@ -178,12 +175,15 @@ function Buffer:_step()
     -- filter items with interruption.
     for i = self._cursor_filtered + 1, #self._items do
       local item = self._items[i]
-      local matched = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
+      item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (
+        item.filter_text or item.display_text
+      ):lower()
+      local matched = self._start_config.matcher.match(
+        self._query,
+        item[symbols.filter_text_lower]
+      )
       if matched then
         self._items_filtered[#self._items_filtered + 1] = item
-        if #self._items_filtered == self._start_config.performance.interrupt_batch_size then
-          self:flush_rendering()
-        end
       end
       self._cursor_filtered = i
 
@@ -193,9 +193,8 @@ function Buffer:_step()
         c = 0
         local n = vim.uv.hrtime() / 1e6
         if n - s > self._start_config.performance.interrupt_interval then
-          self:flush_rendering()
-          self._timer:stop()
           self._timer:start(self._start_config.performance.interrupt_timeout, 0, function()
+            self:flush_rendering()
             self:_step()
           end)
           return
@@ -205,8 +204,14 @@ function Buffer:_step()
   end
 
   -- if reached this point, the currently received items have already been filtered.
-
-  self:flush_rendering()
+  if not self._done then
+    self._timer:start(self._start_config.performance.interrupt_timeout, 0, function()
+      self:flush_rendering()
+      self:_step()
+    end)
+  else
+    self:flush_rendering()
+  end
 end
 
 ---Render buffer.
