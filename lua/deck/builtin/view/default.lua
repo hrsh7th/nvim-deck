@@ -97,6 +97,12 @@ function default_view.create(config)
       }
     )
 
+    -- update cursor.
+    local cursor = ctx.get_cursor()
+    if cursor ~= vim.api.nvim_win_get_cursor(state.win) then
+      vim.api.nvim_win_set_cursor(state.win, { cursor, 0 })
+    end
+
     -- update topline.
     do
       local winheight = vim.api.nvim_win_get_height(state.win)
