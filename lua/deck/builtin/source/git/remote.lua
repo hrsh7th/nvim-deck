@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -25,8 +25,8 @@ return function(option)
     name = 'git.remote',
     execute = function(ctx)
       Async.run(function()
-        local remotes = git:remote():await() ---@type deck.builtin.source.git.Remote[]
-        local display_texts, highlights = helper.create_aligned_display_texts(remotes, function(remote)
+        local remotes = git:remote():await() ---@type deck.x.Git.Remote[]
+        local display_texts, highlights = x.create_aligned_display_texts(remotes, function(remote)
           return { remote.name, remote.push_url, remote.fetch_url }
         end, { sep = ' │ ' })
 

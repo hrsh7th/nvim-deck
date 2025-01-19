@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -25,8 +25,8 @@ return function(option)
     name = 'git.status',
     execute = function(ctx)
       Async.run(function()
-        local status_items = git:status():await() ---@type deck.builtin.source.git.Status[]
-        local display_texts, highlights = helper.create_aligned_display_texts(status_items, function(status_item)
+        local status_items = git:status():await() ---@type deck.x.Git.Status[]
+        local display_texts, highlights = x.create_aligned_display_texts(status_items, function(status_item)
           if status_item.type == 'renamed' then
             return {
               status_item.xy,
@@ -112,26 +112,26 @@ return function(option)
           end)
         end,
       },
-    {
-      name = 'git.status.checkout_theirs',
-      resolve = function(ctx)
-        for _, item in ipairs(ctx.get_action_items()) do
-          if item.data.type == 'unmerged' then
-            return true
-          end
-        end
-      end,
-      execute = function(ctx)
-        Async.run(function()
+      {
+        name = 'git.status.checkout_theirs',
+        resolve = function(ctx)
           for _, item in ipairs(ctx.get_action_items()) do
             if item.data.type == 'unmerged' then
-              git:exec_print({ 'git', 'checkout', '--theirs', item.data.filename }):await()
+              return true
             end
           end
-          ctx.execute()
-        end)
-      end,
-    },
+        end,
+        execute = function(ctx)
+          Async.run(function()
+            for _, item in ipairs(ctx.get_action_items()) do
+              if item.data.type == 'unmerged' then
+                git:exec_print({ 'git', 'checkout', '--theirs', item.data.filename }):await()
+              end
+            end
+            ctx.execute()
+          end)
+        end,
+      },
       {
         name = 'git.status.add',
         execute = function(ctx)
@@ -226,7 +226,7 @@ return function(option)
           end
         end,
         preview = function(_, item, env)
-          helper.open_preview_buffer(env.win, {
+          x.open_preview_buffer(env.win, {
             contents = git
                 :get_unified_diff({
                   from_rev = 'HEAD',

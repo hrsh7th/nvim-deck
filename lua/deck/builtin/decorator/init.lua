@@ -73,12 +73,18 @@ decorators.highlights = {
 decorators.query_matches = {
   name = 'query_matches',
   dynamic = true,
-  resolve = function(_, item)
-    return item[symbols.matches]
+  resolve = function(ctx)
+    return ctx.get_config().matcher.decor
   end,
-  decorate = function(_, item)
+  decorate = function(ctx, item)
+    item[symbols.query_matches] = item[symbols.query_matches] or {}
+    if item[symbols.query_matches].query ~= ctx.get_matcher_query() then
+      item[symbols.query_matches].query = ctx.get_matcher_query()
+      item[symbols.query_matches].matches = ctx.get_config().matcher.decor(ctx.get_matcher_query(), item.display_text)
+    end
+
     local decorations = {}
-    for _, match in ipairs(item[symbols.matches]) do
+    for _, match in ipairs(item[symbols.query_matches].matches) do
       table.insert(decorations, {
         col = match[1],
         end_col = match[2],
@@ -128,7 +134,7 @@ do
       end
 
       -- buffer related decoration.
-      local buf = vim.fn.bufnr(item.data.filename)
+      local buf = vim.fn.bufnr(item.data.filename, false)
       if buf ~= -1 and vim.fn.isdirectory(item.data.filename) ~= 1 then
         local modified = vim.api.nvim_get_option_value('modified', { buf = buf })
         table.insert(decorations, {

@@ -1,4 +1,4 @@
-local helper = require('deck.helper')
+local x = require('deck.x')
 
 local previewer = {}
 
@@ -10,7 +10,7 @@ previewer.filename = {
     return item.data.filename ~= nil and vim.fn.filereadable(item.data.filename) == 1
   end,
   preview = function(_, item, env)
-    helper.open_preview_buffer(env.win, {
+    x.open_preview_buffer(env.win, {
       contents = vim.split(assert(io.open(item.data.filename, 'r')):read('*a'), '\n'),
       filename = item.data.filename,
       lnum = item.data.lnum,
@@ -29,7 +29,7 @@ previewer.bufnr = {
     return item.data.bufnr
   end,
   preview = function(_, item, env)
-    helper.open_preview_buffer(env.win, {
+    x.open_preview_buffer(env.win, {
       contents = vim.api.nvim_buf_get_lines(item.data.bufnr, 0, -1, false),
       filetype = vim.api.nvim_get_option_value('filetype', { buf = item.data.bufnr }),
       lnum = item.data.lnum,

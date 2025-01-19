@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -37,8 +37,8 @@ return function(option)
     name = 'git.changeset',
     execute = function(ctx)
       Async.run(function()
-        local changeset = git:get_changeset({ from_rev = option.from_rev, to_rev = option.to_rev }):await() ---@type deck.builtin.source.git.Change[]
-        local display_texts, highlights = helper.create_aligned_display_texts(changeset, function(change)
+        local changeset = git:get_changeset({ from_rev = option.from_rev, to_rev = option.to_rev }):await() ---@type deck.x.Git.Change[]
+        local display_texts, highlights = x.create_aligned_display_texts(changeset, function(change)
           return { change.type, git:to_relative(change.filename) }
         end, { sep = ' │ ' })
 
@@ -73,7 +73,7 @@ return function(option)
       {
         name = 'git.changeset.unified_diff',
         preview = function(_, item, env)
-          helper.open_preview_buffer(env.win, {
+          x.open_preview_buffer(env.win, {
             contents = git
               :get_unified_diff({
                 from_rev = option.from_rev,

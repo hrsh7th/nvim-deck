@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -25,8 +25,8 @@ return function(option)
     name = 'git.branch',
     execute = function(ctx)
       Async.run(function()
-        local branches = git:branch():await() ---@type deck.builtin.source.git.Branch[]
-        local display_texts, highlights = helper.create_aligned_display_texts(branches, function(branch)
+        local branches = git:branch():await() ---@type deck.x.Git.Branch[]
+        local display_texts, highlights = x.create_aligned_display_texts(branches, function(branch)
           return {
             branch.current and '*' or ' ',
             branch.remote and ('(remote) %s/%s'):format(branch.remotename, branch.name) or branch.name,

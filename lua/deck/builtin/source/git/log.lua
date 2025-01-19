@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -39,8 +39,8 @@ return function(option)
           if ctx.aborted() then
             break
           end
-          local logs = git:log({ count = chunk, offset = offset }):await() ---@type deck.builtin.source.git.Log[]
-          local display_texts, highlights = helper.create_aligned_display_texts(logs, function(log)
+          local logs = git:log({ count = chunk, offset = offset }):await() ---@type deck.x.Git.Log[]
+          local display_texts, highlights = x.create_aligned_display_texts(logs, function(log)
             return {
               log.author_date,
               log.author_name,
@@ -143,8 +143,8 @@ return function(option)
           Async.run(function()
             for _, item in ipairs(ctx.get_action_items()) do
               if #item.data.hash_parents > 1 then
-                local p1 = git:show_log(item.data.hash_parents[1]):await() --[[@as deck.builtin.source.git.Log]]
-                local p2 = git:show_log(item.data.hash_parents[2]):await() --[[@as deck.builtin.source.git.Log]]
+                local p1 = git:show_log(item.data.hash_parents[1]):await() --[[@as deck.x.Git.Log]]
+                local p2 = git:show_log(item.data.hash_parents[2]):await() --[[@as deck.x.Git.Log]]
                 local m = Async.new(function(resolve)
                   vim.ui.select({ 1, 2 }, {
                     prompt = 'Select a parent commit: ',
@@ -175,7 +175,7 @@ return function(option)
         end,
         preview = function(_, item, env)
           Async.run(function()
-            helper.open_preview_buffer(env.win, {
+            x.open_preview_buffer(env.win, {
               contents = git
                   :get_unified_diff({
                     from_rev = item.data.hash_parents[1],

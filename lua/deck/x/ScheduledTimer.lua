@@ -35,12 +35,11 @@ function ScheduledTimer:start(ms, repeat_ms, callback)
       if revision ~= self._revision then
         return
       end
+      self._running = false
       callback()
       if repeat_ms ~= 0 then
         self._timer:stop()
-        self._timer:start(ms, 0, on_tick)
-      else
-        self._running = false
+        self._timer:start(repeat_ms, 0, on_tick)
       end
     end
     if vim.in_fast_event() then

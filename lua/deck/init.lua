@@ -34,7 +34,9 @@ local Context = require('deck.Context')
 ---@field public conceal? string
 
 ---@doc.type
----@alias deck.Matcher fun(query: string, text: string): boolean, deck.Match[]?
+---@alias deck.Matcher.MatchFunction fun(query: string, text: string): boolean
+---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
+---@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }
 
 ---@class deck.ItemSpecifier
 ---@field public display_text string|(deck.VirtualText[])
@@ -131,7 +133,7 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public performance? { interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
+---@field public performance? { sync_timeout?: integer, interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
 ---@field public dedup? boolean
 
 ---@doc.type
@@ -140,7 +142,7 @@ local Context = require('deck.Context')
 ---@field public view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
----@field public performance { interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
+---@field public performance { sync_timeout: integer, interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
 ---@field public dedup boolean
 
 ---@class deck.ConfigSpecifier
@@ -190,8 +192,9 @@ local internal = {
       matcher = require('deck.builtin.matcher').default,
       history = true,
       performance = {
+        sync_timeout = 280,
         interrupt_interval = 16,
-        interrupt_timeout = 4,
+        interrupt_timeout = 1,
         interrupt_batch_size = 100,
       },
       dedup = true,

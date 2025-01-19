@@ -1,5 +1,5 @@
 local kit = require('deck.kit')
-local misc = require('deck.misc')
+local x = require('deck.x')
 local notify = require('deck.notify')
 local symbols = require('deck.symbols')
 local compose = require('deck.builtin.source.deck.compose')
@@ -25,6 +25,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field ns integer
 ---@field buf integer
 ---@field name string
+---@field get_config fun(): deck.StartConfig
 ---@field execute fun()
 ---@field is_visible fun(): boolean
 ---@field show fun()
@@ -58,7 +59,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field get_actions fun(): deck.Action[]
 ---@field get_decorators fun(): deck.Decorator[]
 ---@field get_previewer fun(): deck.Previewer?
----@field sync fun(option: { count: integer })
+---@field sync fun()
 ---@field keymap fun(mode: string, lhs: string, rhs: fun(ctx: deck.Context))
 ---@field do_action fun(name: string)
 ---@field dispose fun()
@@ -109,17 +110,12 @@ function Context.create(id, source, start_config)
   } ---@type deck.Context.State
 
   local events = {
-    dispose = misc.create_events(),
-    show = misc.create_events(),
-    hide = misc.create_events(),
+    dispose = x.create_events(),
+    show = x.create_events(),
+    hide = x.create_events(),
   }
 
-  local buffer = Buffer.new(tostring(id), {
-    interval = start_config.performance.interrupt_interval,
-    timeout = start_config.performance.interrupt_timeout,
-    batch_size = start_config.performance.interrupt_batch_size,
-    matcher = start_config.matcher,
-  })
+  local buffer = Buffer.new(tostring(id), start_config)
 
   ---Execute source.
   local execute_source = function()
@@ -234,6 +230,11 @@ function Context.create(id, source, start_config)
 
     ---Deck name.
     name = start_config.name,
+
+    ---Get start config.
+    get_config = function()
+      return start_config
+    end,
 
     ---Execute source.
     execute = function()
@@ -576,19 +577,22 @@ function Context.create(id, source, start_config)
     end,
 
     ---Synchronize for display.
-    sync = function(option)
+    sync = function()
       if context.disposed() then
         return
       end
 
-      vim.wait(200, function()
+      vim.wait(start_config.performance.sync_timeout, function()
         if context.disposed() then
           return true
         end
-        if context.get_status() == Context.Status.Success then
-          return vim.api.nvim_buf_line_count(context.buf) == #context.get_filtered_items()
+        if vim.o.lines <= #context.get_rendered_items() then
+          return true
         end
-        return option.count <= vim.api.nvim_buf_line_count(context.buf)
+        if context.get_status() == Context.Status.Success then
+          return not context.is_filtering()
+        end
+        return false
       end)
     end,
 
@@ -656,7 +660,7 @@ function Context.create(id, source, start_config)
   } --[[@as deck.Context]]
 
   -- update cursor position.
-  events.dispose.on(misc.autocmd('CursorMoved', function()
+  events.dispose.on(x.autocmd('CursorMoved', function()
     context.set_cursor(vim.api.nvim_win_get_cursor(0)[1])
   end, {
     pattern = ('<buffer=%s>'):format(context.buf),
@@ -665,7 +669,7 @@ function Context.create(id, source, start_config)
   -- explicitly show.
   do
     local first = true
-    events.dispose.on(misc.autocmd('BufWinEnter', function()
+    events.dispose.on(x.autocmd('BufWinEnter', function()
       if source.events and source.events.BufWinEnter then
         source.events.BufWinEnter(context, { first = first })
       end
@@ -678,7 +682,7 @@ function Context.create(id, source, start_config)
   end
 
   -- explicitly hide.
-  events.dispose.on(misc.autocmd('BufWinLeave', function()
+  events.dispose.on(x.autocmd('BufWinLeave', function()
     context.hide()
   end, {
     pattern = ('<buffer=%s>'):format(context.buf),
@@ -686,12 +690,12 @@ function Context.create(id, source, start_config)
 
   -- explicitly dispose.
   do
-    events.dispose.on(misc.autocmd('BufDelete', function()
+    events.dispose.on(x.autocmd('BufDelete', function()
       context.dispose()
     end, {
       pattern = ('<buffer=%s>'):format(context.buf),
     }))
-    events.dispose.on(misc.autocmd('VimLeave', function()
+    events.dispose.on(x.autocmd('VimLeave', function()
       context.dispose()
     end))
   end
@@ -699,13 +703,13 @@ function Context.create(id, source, start_config)
   -- close preview window if bufleave.
   do
     local preview_mode = context.get_preview_mode()
-    events.dispose.on(misc.autocmd('BufLeave', function()
+    events.dispose.on(x.autocmd('BufLeave', function()
       preview_mode = context.get_preview_mode()
       context.set_preview_mode(false)
     end, {
       pattern = ('<buffer=%s>'):format(context.buf),
     }))
-    events.dispose.on(misc.autocmd('BufEnter', function()
+    events.dispose.on(x.autocmd('BufEnter', function()
       context.set_preview_mode(preview_mode)
     end, {
       pattern = ('<buffer=%s>'):format(context.buf),

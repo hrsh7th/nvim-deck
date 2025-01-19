@@ -1,5 +1,5 @@
-local helper = require('deck.helper')
-local Git = require('deck.helper.git')
+local x = require('deck.x')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -39,8 +39,8 @@ return function(option)
           if ctx.aborted() then
             break
           end
-          local logs = git:reflog({ count = chunk, offset = offset }):await() ---@type deck.builtin.source.git.Log[]
-          local display_texts, highlights = helper.create_aligned_display_texts(logs, function(log)
+          local logs = git:reflog({ count = chunk, offset = offset }):await() ---@type deck.x.Git.Log[]
+          local display_texts, highlights = x.create_aligned_display_texts(logs, function(log)
             return {
               log.author_date,
               log.author_name,

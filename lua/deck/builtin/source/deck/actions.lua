@@ -1,5 +1,5 @@
 local notify = require('deck.notify')
-local helper = require('deck.helper')
+local x = require('deck.x')
 
 --[=[@doc
   category = "source"
@@ -29,7 +29,7 @@ return function(option)
           end
         end
       end
-      local display_texts, highlights = helper.create_aligned_display_texts(actions, function(action)
+      local display_texts, highlights = x.create_aligned_display_texts(actions, function(action)
         return {
           action.name,
           { action.desc, 'Comment' },

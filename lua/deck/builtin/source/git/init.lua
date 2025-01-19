@@ -1,6 +1,6 @@
-local helper = require('deck.helper')
+local x = require('deck.x')
 local IO = require('deck.kit.IO')
-local Git = require('deck.helper.git')
+local Git = require('deck.x.git')
 local Async = require('deck.kit.Async')
 
 --[=[@doc
@@ -33,7 +33,7 @@ return function(option)
     },
     execute = function(execute_context)
       Async.run(function()
-        local branches = git:branch():await() --[=[@as deck.builtin.source.git.Branch[]]=]
+        local branches = git:branch():await() --[=[@as deck.x.Git.Branch[]]=]
 
         local menu = {}
 
@@ -109,7 +109,7 @@ return function(option)
 
         local current_branch = vim.iter(branches):find(function(branch)
           return branch.current
-        end) --[=[@as deck.builtin.source.git.Branch?]=]
+        end) --[=[@as deck.x.Git.Branch?]=]
 
         if current_branch then
           if current_branch.upstream then
@@ -217,7 +217,7 @@ return function(option)
           })
         end
 
-        local display_texts, highlights = helper.create_aligned_display_texts(menu, function(item)
+        local display_texts, highlights = x.create_aligned_display_texts(menu, function(item)
           return item.columns
         end, { sep = ' │ ' })
 

@@ -180,10 +180,12 @@ function default_view.create(config)
     ---Show window.
     show = function(ctx)
       if not view.is_visible(ctx) then
-        ctx.sync({ count = config.max_height })
+        -- wait for enough items.
+        ctx.sync()
+
         -- open win.
         if vim.api.nvim_get_option_value('filetype', { buf = 0 }) ~= 'deck' then
-          -- search existing deck_builtin_view_default window.
+          -- search existing window.
           local existing_deck_win --[[@type integer?]]
           for _, win in ipairs(vim.api.nvim_list_wins()) do
             local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_builtin_view_default')
@@ -193,10 +195,13 @@ function default_view.create(config)
             end
           end
 
-          -- open new window or move to window.
+          -- ensure window.
           if existing_deck_win then
+            -- move to existing window.
+            vim.cmd.normal({ "m'", bang = true })
             vim.api.nvim_set_current_win(existing_deck_win)
           else
+            -- open new window.
             local height = math.max(1, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
             vim.cmd.split({
               range = { height },
@@ -211,19 +216,17 @@ function default_view.create(config)
             vim.w.winfixwidth = true
           end
         end
+        state.win = vim.api.nvim_get_current_win()
 
         -- setup window.
         vim.api.nvim_win_set_var(0, 'deck_builtin_view_default', true)
         vim.api.nvim_set_option_value('wrap', false, { win = 0 })
         vim.api.nvim_set_option_value('number', false, { win = 0 })
-
-        vim.cmd.buffer({ ctx.buf, bang = true })
-
-        state.win = vim.api.nvim_get_current_win()
+        vim.api.nvim_win_set_buf(state.win, ctx.buf)
       end
 
       state.timer:stop()
-      state.timer:start(80, 80, function()
+      state.timer:start(0, 80, function()
         update(ctx)
         if vim.api.nvim_get_mode().mode == 'c' then
           vim.cmd.redraw()

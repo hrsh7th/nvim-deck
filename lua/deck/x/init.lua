@@ -1,9 +1,9 @@
-local helper = {}
+local x = {}
 
 ---Normalize display_text.
 ---@param display_text string|deck.VirtualText
 ---@return deck.VirtualText
-local function normalize_display_text(display_text)
+function x.normalize_display_text(display_text)
   if type(display_text) == 'table' then
     display_text[1] = display_text[1] or ''
     return display_text
@@ -11,10 +11,26 @@ local function normalize_display_text(display_text)
   return { display_text or '' }
 end
 
+---Resolve bufnr from deck.Item if can't resolved, return -1.
+---@param item deck.Item
+---@return integer
+function x.resolve_bufnr(item)
+  if item.data.bufnr then
+    return item.data.bufnr
+  end
+  if item.data.filename then
+    local bufnr = vim.fn.bufnr(item.data.filename, true)
+    if bufnr ~= -1 then
+      return bufnr
+    end
+  end
+  return -1
+end
+
 ---Open a preview buffer with the given data.
 ---@param win integer
 ---@param file { contents: string[], filename?: string, filetype?: string, lnum?: integer, col?: integer, end_lnum?: integer, end_col?: integer }
-function helper.open_preview_buffer(win, file)
+function x.open_preview_buffer(win, file)
   local buf = vim.api.nvim_create_buf(false, true)
 
   -- set contents.
@@ -69,7 +85,8 @@ function helper.open_preview_buffer(win, file)
       extmark_option.virt_text_pos = 'inline'
       extmark_option.hl_mode = 'combine'
     end
-    vim.api.nvim_buf_set_extmark(buf, vim.api.nvim_create_namespace(('deck.helper.open_preview_buffer:%s'):format(buf)), file.lnum - 1, (file.col or 1) - 1, extmark_option)
+    vim.api.nvim_buf_set_extmark(buf, vim.api.nvim_create_namespace(('deck.x.open_preview_buffer:%s'):format(buf)),
+      file.lnum - 1, (file.col or 1) - 1, extmark_option)
   end
 
   -- set window.
@@ -92,7 +109,7 @@ end
 ---@param callback fun(item: T): deck.VirtualText[]
 ---@param option? { sep?: string }
 ---@return string[], deck.Highlight[]
-function helper.create_aligned_display_texts(items, callback, option)
+function x.create_aligned_display_texts(items, callback, option)
   local get_strwidth ---@type fun(string: string): integer
   do
     local cache = {}
@@ -115,14 +132,14 @@ function helper.create_aligned_display_texts(items, callback, option)
     end
 
     for j, column in ipairs(columns) do
-      column = normalize_display_text(column)
+      column = x.normalize_display_text(column)
       column_definitions[j] = column_definitions[j] or { max_width = 0, columns = {} }
       column_definitions[j].max_width = math.max(column_definitions[j].max_width, get_strwidth(column[1]))
       column_definitions[j].columns[i] = column
     end
   end
 
-  local sep = normalize_display_text(option and option.sep or ' ')
+  local sep = x.normalize_display_text(option and option.sep or ' ')
 
   local display_texts = {} ---@type string[]
   local highlights = {} ---@type deck.Highlight[][]
@@ -160,4 +177,72 @@ function helper.create_aligned_display_texts(items, callback, option)
   return display_texts, highlights
 end
 
-return helper
+---Clear table.
+x.clear = require('table.clear') or (function(t)
+  for k in pairs(t) do
+    t[k] = nil
+  end
+end)
+
+---Create pub/sub pairs.
+---@return { on: (fun(callback: fun(...)): fun()), emit: fun(...) }
+function x.create_events()
+  local callbacks = {}
+
+  return {
+    on = function(callback)
+      table.insert(callbacks, callback)
+      return function()
+        for i, v in ipairs(callbacks) do
+          if v == callback then
+            table.remove(callbacks, i)
+            break
+          end
+        end
+      end
+    end,
+    emit = function(...)
+      for _, callback in ipairs(callbacks) do
+        callback(...)
+      end
+    end,
+  }
+end
+
+---Create autocmd and return dispose function.
+---@param event string|string[]
+---@param callback fun(e: table)
+---@param option? { pattern?: string, once?: boolean }
+---@return fun()
+function x.autocmd(event, callback, option)
+  local id = vim.api.nvim_create_autocmd(event, {
+    once = option and option.once,
+    pattern = option and option.pattern,
+    callback = callback,
+  })
+  return function()
+    pcall(vim.api.nvim_del_autocmd, id)
+  end
+end
+
+---Create deck buffer.
+---@param name string
+---@return integer
+function x.create_deck_buf(name)
+  local buf = vim.api.nvim_create_buf(false, false)
+  vim.api.nvim_buf_set_var(buf, 'deck', true)
+  vim.api.nvim_buf_set_var(buf, 'deck_name', name)
+  vim.api.nvim_set_option_value('filetype', 'deck', { buf = buf })
+  vim.api.nvim_set_option_value('buftype', 'nofile', { buf = buf })
+  vim.api.nvim_set_option_value('bufhidden', 'hide', { buf = buf })
+  vim.api.nvim_create_autocmd('BufWinEnter', {
+    pattern = ('<buffer=%s>'):format(buf),
+    callback = function()
+      vim.api.nvim_set_option_value('conceallevel', 3, { win = 0 })
+      vim.api.nvim_set_option_value('concealcursor', 'nvic', { win = 0 })
+    end,
+  })
+  return buf
+end
+
+return x
