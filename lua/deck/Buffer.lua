@@ -133,12 +133,18 @@ function Buffer:_step_filter()
   local c = 0
   for i = self._cursor_filtered + 1, #self._items do
     local item = self._items[i]
-    item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (
-      item.filter_text or item.display_text
-    ):lower()
-    local matched = self._start_config.matcher.match(self._query, item[symbols.filter_text_lower])
-    if matched then
+    if self._query == '' then
+      -- fast path.
       self._items_filtered[#self._items_filtered + 1] = item
+    else
+      -- matching.
+      item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (
+        item.filter_text or item.display_text
+      ):lower()
+      local matched = self._start_config.matcher.match(self._query, item[symbols.filter_text_lower])
+      if matched then
+        self._items_filtered[#self._items_filtered + 1] = item
+      end
     end
     self._cursor_filtered = i
 

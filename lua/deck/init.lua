@@ -280,7 +280,6 @@ function deck.start(sources, start_config_specifier)
     if #source == 1 then
       source = source[1]
     else
-      vim.print('compose: ' .. vim.uv.now())
       source = compose(source)
     end
   end
