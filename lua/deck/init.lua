@@ -134,7 +134,7 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public performance? { sync_timeout?: integer, interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
+---@field public performance? { sync_timeout_ms?: integer, filter_bugdet_ms: integer, filter_batch_size: integer, render_bugdet_ms: integer, render_batch_size: integer, interrupt_ms?: integer }
 ---@field public dedup? boolean
 
 ---@doc.type
@@ -143,7 +143,7 @@ local Context = require('deck.Context')
 ---@field public view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
----@field public performance { sync_timeout: integer, interrupt_interval: integer, interrupt_timeout: integer, interrupt_batch_size: integer }
+---@field public performance { sync_timeout_ms: integer, filter_bugdet_ms: integer, filter_batch_size: integer, render_bugdet_ms: integer, render_batch_size: integer, interrupt_ms: integer }
 ---@field public dedup boolean
 
 ---@class deck.ConfigSpecifier
@@ -190,10 +190,12 @@ local internal = {
       matcher = require('deck.builtin.matcher').default,
       history = true,
       performance = {
-        sync_timeout = 120,
-        interrupt_interval = 32,
-        interrupt_timeout = 8,
-        interrupt_batch_size = 100,
+        sync_timeout_ms = 200,
+        filter_bugdet_ms = 16,
+        filter_batch_size = 100,
+        render_bugdet_ms = 16,
+        render_batch_size = 100,
+        interrupt_ms = 8
       },
       dedup = true,
     },
@@ -278,6 +280,7 @@ function deck.start(sources, start_config_specifier)
     if #source == 1 then
       source = source[1]
     else
+      vim.print('compose: ' .. vim.uv.now())
       source = compose(source)
     end
   end

@@ -576,7 +576,7 @@ function Context.create(id, source, start_config)
         return
       end
 
-      vim.wait(start_config.performance.sync_timeout, function()
+      vim.wait(start_config.performance.sync_timeout_ms, function()
         if context.disposed() then
           return true
         end
