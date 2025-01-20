@@ -176,9 +176,18 @@ function Buffer:_step_render()
   local s = vim.uv.hrtime() / 1e6
   local c = 0
 
+  -- get max win height.
+  local max_count = 0
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_get_buf(win) == self._bufnr then
+      max_count = math.max(vim.api.nvim_win_get_height(win), max_count)
+    end
+  end
+  max_count = max_count == 0 and vim.o.lines or max_count
+
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.sync_timeout_ms
-  should_render = should_render or (#self._items_filtered - self._cursor_rendered) > vim.o.lines
+  should_render = should_render or (#self._items_filtered - self._cursor_rendered) >= max_count
   should_render = should_render or not self._timer_filter:is_running()
   if not should_render then
     self._timer_render:start(config.interrupt_ms, 0, function()
@@ -191,18 +200,20 @@ function Buffer:_step_render()
   while self._cursor_rendered < #self._items_filtered do
     self._cursor_rendered = self._cursor_rendered + 1
     local item = self._items_filtered[self._cursor_rendered]
-    table.insert(lines, item.display_text)
     self._items_rendered[self._cursor_rendered] = item
-    for i = self._cursor_rendered + 1, #self._items_rendered do
-      self._items_rendered[i] = nil
-    end
+    table.insert(lines, item.display_text)
 
     -- interrupt.
     c = c + 1
     if c >= config.render_batch_size then
-      vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #lines, -1, false, lines)
-      x.clear(lines)
       c = 0
+
+      vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #lines, -1, false, lines)
+      for i = self._cursor_rendered + 1, #self._items_rendered do
+        self._items_rendered[i] = nil
+      end
+      x.clear(lines)
+
       local n = vim.uv.hrtime() / 1e6
       if n - s > config.render_bugdet_ms then
         self._timer_render:start(config.interrupt_ms, 0, function()

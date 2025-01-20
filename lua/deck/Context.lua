@@ -576,11 +576,19 @@ function Context.create(id, source, start_config)
         return
       end
 
+      local max_count = 0
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        if vim.api.nvim_win_get_buf(win) == context.buf then
+          max_count = math.max(vim.api.nvim_win_get_height(win), max_count)
+        end
+      end
+      max_count = max_count == 0 and vim.o.lines or max_count
+
       vim.wait(start_config.performance.sync_timeout_ms, function()
         if context.disposed() then
           return true
         end
-        if vim.o.lines <= #context.get_rendered_items() then
+        if max_count <= #context.get_rendered_items() then
           return true
         end
         if context.get_status() == Context.Status.Success then
