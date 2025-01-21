@@ -12,11 +12,22 @@ local System = require('deck.kit.System')
 ]=]
 return function()
   local helps = vim.api.nvim_get_runtime_file('doc/*.txt', true)
+
+  local function parse_query(query)
+    local dynamic_query, matcher_query = unpack(vim.split(query, '  '))
+    return {
+      dynamic_query = dynamic_query,
+      matcher_query = matcher_query,
+    }
+  end
+
+  ---@type deck.Source
   return {
     name = 'helpgrep',
-    dynamic = true,
+    parse_query = parse_query,
     execute = function(ctx)
-      if ctx.get_query() == '' then
+      local query = parse_query(ctx.get_query()).dynamic_query
+      if query == '' then
         ctx.done()
         return
       end
@@ -44,10 +55,10 @@ return function()
       -- create query.
       -- e.g.) 'statu line' -> `\*[^\*]*statu[^\*]*.*?line[^\*]*\*`
       local parts = {}
-      for _, q in ipairs(vim.split(ctx.get_query(), ' ')) do
+      for _, q in ipairs(vim.split(query, ' ')) do
         table.insert(parts, vim.fn.escape(q, [=[\[]().*?+]=]))
       end
-      local query = ([[\*'?[^\*]*%s[^\*]*\*]]):format(table.concat(parts, '.*?'))
+      query = ([[\*'?[^\*]*%s[^\*]*\*]]):format(table.concat(parts, '.*?'))
 
       local done_count = 0
       for _, dir in ipairs(target_dirs) do
@@ -69,7 +80,7 @@ return function()
             ctx.item({
               display_text = {
                 { ('%s (%s:%s): '):format(filename, lnum, col) },
-                { match, 'Comment' },
+                { match,                                       'Comment' },
               },
               data = {
                 filename = vim.fs.joinpath(dir, filename),

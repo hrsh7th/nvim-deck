@@ -2,8 +2,16 @@ local kit = require('deck.kit')
 local Async = require('deck.kit.Async')
 local symbols = require('deck.symbols')
 
+---Create compose source.
+---NOTE: it will not work properly if both dynamic and static sources are specified.
 ---@param sources deck.Source[]
 return function(sources)
+  for _, s in ipairs(sources) do
+    if s.parse_query then
+      error('can\'t compose source that has `parse_query`.')
+    end
+  end
+
   local name = vim.iter(sources):map(function(source)
     return source.name
   end):join('+')
@@ -22,11 +30,9 @@ return function(sources)
     end
   end
 
+  ---@type deck.Source
   return {
     name = name,
-    dynamic = vim.iter(sources):fold(false, function(acc, source)
-      return acc or source.dynamic
-    end),
     execute = function(ctx)
       Async.run(function()
         for _, source in ipairs(sources) do

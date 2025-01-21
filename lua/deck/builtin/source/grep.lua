@@ -48,12 +48,26 @@ return function(option)
     error('pattern option must be a non-empty string.')
   end
 
+  local function parse_query(query)
+    if option.pattern then
+      return {
+        dynamic_query = option.pattern,
+        matcher_query = query,
+      }
+    end
+    local dynamic_query, matcher_query = unpack(vim.split(query, '  '))
+    return {
+      dynamic_query = dynamic_query,
+      matcher_query = matcher_query,
+    }
+  end
+
   ---@type deck.Source
   return {
     name = 'grep',
-    dynamic = option.dynamic,
+    parse_query = parse_query,
     execute = function(ctx)
-      local query = option.dynamic and ctx.get_query() or option.pattern or ''
+      local query = parse_query(ctx.get_query()).dynamic_query
       if query == '' then
         return ctx.done()
       end
@@ -89,7 +103,7 @@ return function(option)
             ctx.item({
               display_text = {
                 { ('%s (%s:%s): '):format(filename, lnum, col) },
-                { match, 'Comment' },
+                { match,                                       'Comment' },
               },
               data = {
                 filename = vim.fs.joinpath(option.root_dir, filename),

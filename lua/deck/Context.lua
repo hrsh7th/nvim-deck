@@ -8,13 +8,13 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@class deck.Context.State
 ---@field status deck.Context.Status
 ---@field cursor integer
+---@field query string
 ---@field matcher_query string
 ---@field dynamic_query string
 ---@field select_all boolean
 ---@field select_map table<string, boolean>
 ---@field dedup_map table<deck.Item, boolean>
 ---@field preview_mode boolean
----@field dynamic_mode boolean
 ---@field controller deck.ExecuteContext.Controller?
 ---@field disposed boolean
 
@@ -37,18 +37,14 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field set_cursor fun(cursor: integer)
 ---@field get_query fun(): string
 ---@field set_query fun(query: string)
----@field get_dynamic_query fun(): string
----@field set_dynamic_query fun(query: string)
 ---@field get_matcher_query fun(): string
----@field set_matcher_query fun(query: string)
+---@field get_dynamic_query fun(): string
 ---@field set_selected fun(item: deck.Item, selected: boolean)
 ---@field get_selected fun(item: deck.Item): boolean
 ---@field set_select_all fun(select_all: boolean)
 ---@field get_select_all fun(): boolean
 ---@field set_preview_mode fun(preview_mode: boolean)
 ---@field get_preview_mode fun(): boolean
----@field set_dynamic_mode fun(dynamic_mode: boolean)
----@field get_dynamic_mode fun(): boolean
 ---@field get_items fun(): deck.Item[]
 ---@field get_cursor_item fun(): deck.Item?
 ---@field get_action_items fun(): deck.Item[]
@@ -86,19 +82,20 @@ function Context.create(id, source, start_config)
   local context ---@type deck.Context
   local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(id))
 
+  ---@type deck.Context.State
   local state = {
     status = Context.Status.Waiting,
     cursor = 1,
+    query = '',
     matcher_query = '',
     dynamic_query = '',
     select_all = false,
     select_map = {},
     dedup_map = {},
     preview_mode = false,
-    dynamic_mode = source.dynamic or false,
     controller = nil,
     disposed = false,
-  } ---@type deck.Context.State
+  }
 
   local events = {
     dispose = x.create_events(),
@@ -120,13 +117,13 @@ function Context.create(id, source, start_config)
     state = {
       status = Context.Status.Waiting,
       cursor = 1,
+      query = state.query,
       matcher_query = state.matcher_query,
       dynamic_query = state.dynamic_query,
       select_all = false,
       select_map = {},
       dedup_map = {},
       preview_mode = state.preview_mode,
-      dynamic_mode = state.dynamic_mode,
       controller = nil,
       disposed = false,
     }
@@ -134,7 +131,7 @@ function Context.create(id, source, start_config)
     local execute_context, execute_controller = ExecuteContext.create({
       context = context,
       get_query = function()
-        return state.dynamic_query
+        return state.query
       end,
       on_item = function(item)
         if start_config.dedup then
@@ -343,50 +340,47 @@ function Context.create(id, source, start_config)
 
     ---Get query text.
     get_query = function()
-      if state.dynamic_mode then
-        return state.dynamic_query
-      end
-      return state.matcher_query
+      return state.query
     end,
 
     ---Set query text.
     set_query = function(query)
-      query = query:gsub('^%s+', ''):gsub('%s+$', '')
-      if state.dynamic_mode then
-        context.set_dynamic_query(query)
-      else
-        context.set_matcher_query(query)
-      end
-    end,
-
-    ---Get dynamic query.
-    get_dynamic_query = function()
-      return state.dynamic_query
-    end,
-
-    ---Set dynamic query.
-    set_dynamic_query = function(query)
-      if state.dynamic_query == query then
+      if state.query == query then
         return
       end
-      state.dynamic_query = query
-      context.set_cursor(1)
-      execute_source()
+      state.query = query
+
+      local parsed = source.parse_query and source.parse_query(query) or {
+        dynamic_query = '',
+        matcher_query = query,
+      }
+      parsed.dynamic_query = parsed.dynamic_query or ''
+      parsed.matcher_query = parsed.matcher_query or ''
+
+      local changed = false
+      if state.dynamic_query ~= parsed.dynamic_query then
+        state.dynamic_query = parsed.dynamic_query
+        execute_source()
+        changed = true
+      end
+      if state.matcher_query ~= parsed.matcher_query then
+        state.matcher_query = parsed.matcher_query
+        buffer:update_query(parsed.matcher_query)
+        changed = true
+      end
+      if changed then
+        context.set_cursor(1)
+      end
     end,
 
-    ---Get matcher query.
+    ---Get matcher query text.
     get_matcher_query = function()
       return state.matcher_query
     end,
 
-    ---Set matcher query.
-    set_matcher_query = function(query)
-      if state.matcher_query == query then
-        return
-      end
-      state.matcher_query = query
-      context.set_cursor(1)
-      buffer:update_query(query)
+    ---Get dynamic query text.
+    get_dynamic_query = function()
+      return state.dynamic_query
     end,
 
     ---Set specified item's selected state.
@@ -435,20 +429,6 @@ function Context.create(id, source, start_config)
     ---Get preview mode.
     get_preview_mode = function()
       return state.preview_mode
-    end,
-
-    ---Set dynamic mode.
-    set_dynamic_mode = function(dynamic_mode)
-      if state.dynamic_mode == dynamic_mode then
-        return
-      end
-
-      state.dynamic_mode = dynamic_mode
-    end,
-
-    ---Get dynamic mode.
-    get_dynamic_mode = function()
-      return state.dynamic_mode
     end,
 
     ---Get items.
@@ -576,19 +556,8 @@ function Context.create(id, source, start_config)
         return
       end
 
-      local max_count = 0
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_win_get_buf(win) == context.buf then
-          max_count = math.max(vim.api.nvim_win_get_height(win), max_count)
-        end
-      end
-      max_count = max_count == 0 and vim.o.lines or max_count
-
       vim.wait(start_config.performance.sync_timeout_ms, function()
-        if context.disposed() then
-          return true
-        end
-        if max_count <= #context.get_rendered_items() then
+        if vim.o.lines <= #context.get_rendered_items() then
           return true
         end
         if context.get_status() == Context.Status.Success then

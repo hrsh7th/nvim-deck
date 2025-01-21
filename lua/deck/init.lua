@@ -60,6 +60,7 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
+---@field public parse_query? fun(query: string): { dynamic_query?: string, matcher_query?: string }
 
 ---@doc.type
 ---@alias deck.SourceExecuteFunction fun(ctx: deck.ExecuteContext)
@@ -134,7 +135,7 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public performance? { sync_timeout_ms?: integer, filter_bugdet_ms: integer, filter_batch_size: integer, render_bugdet_ms: integer, render_batch_size: integer, interrupt_ms?: integer }
+---@field public performance? { sync_timeout_ms?: integer, filter_bugdet_ms?: integer, filter_batch_size?: integer, render_bugdet_ms?: integer, render_batch_size?: integer, interrupt_ms?: integer }
 ---@field public dedup? boolean
 
 ---@doc.type
@@ -195,7 +196,7 @@ local internal = {
         filter_batch_size = 100,
         render_bugdet_ms = 16,
         render_batch_size = 100,
-        interrupt_ms = 8
+        interrupt_ms = 4
       },
       dedup = true,
     },

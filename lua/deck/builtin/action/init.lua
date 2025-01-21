@@ -344,21 +344,6 @@ action.toggle_select_all = {
 
 --[=[@doc
   category = "action"
-  name = "toggle_dynamic_mode"
-  desc = "toggle_dynamic_mode preview mode"
-]=]
----@type deck.Action
-action.toggle_dynamic_mode = {
-  name = 'toggle_dynamic_mode',
-  desc = '(built-in) toggle dynamic mode',
-  hidden = true,
-  execute = function(ctx)
-    ctx.set_dynamic_mode(not ctx.get_dynamic_mode())
-  end,
-}
-
---[=[@doc
-  category = "action"
   name = "toggle_preview_mode"
   desc = "Toggle preview mode"
 ]=]
