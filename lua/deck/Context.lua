@@ -668,6 +668,22 @@ function Context.create(id, source, start_config)
     pattern = ('<buffer=%s>'):format(context.buf),
   }))
 
+  -- redraw cmdline-mode.
+  do
+    local changedtick = vim.api.nvim_buf_get_changedtick(context.buf)
+    events.dispose.on(x.autocmd('CmdlineChanged', function()
+      local new_changedtick = vim.api.nvim_buf_get_changedtick(context.buf)
+      if new_changedtick ~= changedtick then
+        changedtick = new_changedtick
+        if vim.api.nvim_get_mode().mode == 'c' then
+          vim.cmd.redraw()
+        end
+      end
+    end, {
+      pattern = ('<buffer=%s>'):format(context.buf),
+    }))
+  end
+
   -- explicitly show.
   do
     local first = true

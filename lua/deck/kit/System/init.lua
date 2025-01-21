@@ -255,11 +255,11 @@ end
 ---@return fun(signal?: integer)
 function System.spawn(command, params)
   command = vim
-      .iter(command)
-      :filter(function(c)
-        return c ~= nil
-      end)
-      :totable()
+    .iter(command)
+    :filter(function(c)
+      return c ~= nil
+    end)
+    :totable()
 
   local cmd = command[1]
   local args = {}
