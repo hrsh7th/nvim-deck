@@ -135,8 +135,9 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public performance? { sync_timeout_ms?: integer, filter_bugdet_ms?: integer, filter_batch_size?: integer, render_bugdet_ms?: integer, render_batch_size?: integer, interrupt_ms?: integer }
+---@field public performance? { sync_timeout_ms?: integer, filter_bugdet_ms?: integer, filter_batch_size?: integer, render_delay_ms?: integer, render_bugdet_ms?: integer, render_batch_size?: integer, interrupt_ms?: integer }
 ---@field public dedup? boolean
+---@field public query? string
 
 ---@doc.type
 ---@class deck.StartConfig: deck.StartConfigSpecifier
@@ -144,8 +145,9 @@ local Context = require('deck.Context')
 ---@field public view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
----@field public performance { sync_timeout_ms: integer, filter_bugdet_ms: integer, filter_batch_size: integer, render_bugdet_ms: integer, render_batch_size: integer, interrupt_ms: integer }
+---@field public performance { sync_timeout_ms: integer, filter_bugdet_ms: integer, filter_batch_size: integer, render_delay_ms: integer, render_bugdet_ms: integer, render_batch_size: integer, interrupt_ms: integer }
 ---@field public dedup boolean
+---@field public query string
 
 ---@class deck.ConfigSpecifier
 ---@field public guicursor? string
@@ -194,6 +196,7 @@ local internal = {
         sync_timeout_ms = 200,
         filter_bugdet_ms = 16,
         filter_batch_size = 100,
+        render_delay_ms = 500,
         render_bugdet_ms = 16,
         render_batch_size = 100,
         interrupt_ms = 4

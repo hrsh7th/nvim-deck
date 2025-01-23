@@ -86,7 +86,7 @@ function Context.create(id, source, start_config)
   local state = {
     status = Context.Status.Waiting,
     cursor = 1,
-    query = '',
+    query = start_config.query or '',
     matcher_query = '',
     dynamic_query = '',
     select_all = false,
