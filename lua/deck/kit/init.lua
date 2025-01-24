@@ -2,6 +2,14 @@
 
 local kit = {}
 
+---Clear table.
+---@param tbl table
+kit.clear = require('table.clear') or function(tbl)
+  for k, _ in pairs(tbl) do
+    tbl[k] = nil
+  end
+end
+
 ---Create gabage collection detector.
 ---@param callback fun(...: any): any
 ---@return userdata

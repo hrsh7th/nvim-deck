@@ -110,7 +110,13 @@ end
 ---Start filtering.
 function Buffer:start_filtering()
   self._aborted = false
-  self._start_ms = vim.uv.hrtime() / 1e6
+
+  -- throttle rendering.
+  local n = vim.uv.hrtime() / 1e6
+  if (n - self._start_ms) > self._start_config.performance.render_delay_ms then
+    self._start_ms = n
+  end
+
   self._timer_filter:start(0, 0, function()
     self:_step_filter()
   end)
