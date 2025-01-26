@@ -77,18 +77,24 @@ decorators.query_matches = {
     return ctx.get_config().matcher.decor
   end,
   decorate = function(ctx, item)
-    item[symbols.query_matches] = item[symbols.query_matches] or {}
+    item[symbols.display_text_lower] = item[symbols.display_text_lower] or item.display_text:lower()
+
+    item[symbols.query_matches] = item[symbols.query_matches] or { matches = {} }
     if item[symbols.query_matches].query ~= ctx.get_matcher_query() then
       item[symbols.query_matches].query = ctx.get_matcher_query()
+
       if item[symbols.query_matches].query == '' then
+        -- clear highlights if query is empty.
         item[symbols.query_matches].matches = {}
       else
-        item[symbols.display_text_lower] = item[symbols.display_text_lower] or item.display_text:lower()
+        -- update highlights.
         local matches = ctx.get_config().matcher.decor(
           ctx.get_matcher_query(),
           item[symbols.display_text_lower]
         )
-        item[symbols.query_matches].matches = #matches > 0 and matches or item[symbols.query_matches].matches or {}
+        if #matches > 0 then
+          item[symbols.query_matches].matches = matches
+        end
       end
     end
 

@@ -195,7 +195,7 @@ function Buffer:_step_render()
 
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
-  should_render = should_render or (#self._items_filtered - self._cursor_rendered) >= max_count
+  should_render = should_render or (#self._items_filtered - self._cursor_rendered) > max_count
   should_render = should_render or not self._timer_filter:is_running()
   if not should_render then
     self._timer_render:start(config.interrupt_ms, 0, function()
