@@ -20,7 +20,7 @@ do
 
   ---Open filename or bufnr.
   ---@param name string
-  ---@param option { split?: 'horizontal' | 'vertical', keep?: boolean }
+  ---@param option { split?: 'horizontal' | 'vertical' | 'tab', keep?: boolean }
   local function create_open_action(name, option)
     option = option or {}
     option.split = option.split
@@ -55,8 +55,10 @@ do
           if option.split then
             if option.split == 'horizontal' then
               vim.cmd.split()
-            else
+            elseif option.split == 'vertical' then
               vim.cmd.vsplit()
+            else
+              vim.cmd.tabnew()
             end
           end
 
@@ -115,6 +117,15 @@ do
     """
   ]=]
   action.open_vsplit = create_open_action('open_vsplit', { split = 'vertical' })
+  --[=[@doc
+    category = "action"
+    name = "open_tabnew"
+    desc = """
+      Open `item.data.filename` or `item.data.bufnr`.\n
+      Open at the new tabpage.
+    """
+  ]=]
+  action.open_tabnew = create_open_action('open_tabnew', { split = 'tab' })
 end
 
 --[=[@doc
