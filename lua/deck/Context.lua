@@ -116,7 +116,7 @@ function Context.create(id, source, start_config)
     ---@type deck.Context.State
     state = {
       status = Context.Status.Waiting,
-      cursor = 1,
+      cursor = state.cursor,
       query = state.query,
       matcher_query = state.matcher_query,
       dynamic_query = state.dynamic_query,
@@ -336,6 +336,7 @@ function Context.create(id, source, start_config)
       end
 
       state.cursor = math.max(1, cursor)
+      view.show(context)
     end,
 
     ---Get query text.
@@ -424,6 +425,7 @@ function Context.create(id, source, start_config)
       end
 
       state.preview_mode = preview_mode
+      view.show(context)
     end,
 
     ---Get preview mode.
@@ -601,13 +603,13 @@ function Context.create(id, source, start_config)
       end
       state.disposed = true
 
-      -- abort filtering.
-      buffer:abort_filtering()
-
       -- abort source execution.
       if state.controller then
         state.controller.abort()
       end
+
+      -- abort filtering.
+      buffer:abort_filtering()
 
       if vim.api.nvim_buf_is_valid(context.buf) then
         vim.api.nvim_buf_delete(context.buf, { force = true })

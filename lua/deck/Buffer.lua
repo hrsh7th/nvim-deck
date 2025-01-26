@@ -1,6 +1,6 @@
 local x = require('deck.x')
 local symbols = require('deck.symbols')
-local ScheduledTimer = require("deck.x.ScheduledTimer")
+local ScheduledTimer = require("deck.kit.Async.ScheduledTimer")
 
 ---@class deck.Buffer
 ---@field private _bufnr integer
@@ -13,8 +13,8 @@ local ScheduledTimer = require("deck.x.ScheduledTimer")
 ---@field private _items_rendered deck.Item[]
 ---@field private _cursor_filtered integer
 ---@field private _cursor_rendered integer
----@field private _timer_filter deck.x.ScheduledTimer
----@field private _timer_render deck.x.ScheduledTimer
+---@field private _timer_filter deck.kit.Async.ScheduledTimer
+---@field private _timer_render deck.kit.Async.ScheduledTimer
 ---@field private _start_config deck.StartConfig
 local Buffer = {}
 Buffer.__index = Buffer
@@ -51,6 +51,7 @@ function Buffer:stream_start()
   x.clear(self._items)
   x.clear(self._items_filtered)
   self._done = false
+  self._start_ms = vim.uv.hrtime() / 1e6
   self._cursor_filtered = 0
   self._cursor_rendered = 0
   self:start_filtering()
@@ -65,6 +66,7 @@ end
 ---Mark buffer as completed.
 function Buffer:stream_done()
   self._done = true
+  self:start_filtering()
 end
 
 ---Return items.
@@ -194,7 +196,7 @@ function Buffer:_step_render()
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
   should_render = should_render or (#self._items_filtered - self._cursor_rendered) >= max_count
-  should_render = should_render or (not self._timer_filter:is_running() and not self._query:match('!'))
+  should_render = should_render or not self._timer_filter:is_running()
   if not should_render then
     self._timer_render:start(config.interrupt_ms, 0, function()
       self:_step_render()

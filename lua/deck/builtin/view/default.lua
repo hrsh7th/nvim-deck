@@ -1,6 +1,6 @@
 local Keymap = require('deck.kit.Vim.Keymap')
 local Context = require('deck.Context')
-local ScheduledTimer = require('deck.x.ScheduledTimer')
+local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 
 ---Check the window is visible or not.
 ---@param win? integer
@@ -100,7 +100,10 @@ function default_view.create(config)
     -- update cursor.
     local cursor = ctx.get_cursor()
     if cursor ~= vim.api.nvim_win_get_cursor(state.win) then
-      vim.api.nvim_win_set_cursor(state.win, { cursor, 0 })
+      vim.api.nvim_win_set_cursor(state.win, {
+        math.min(cursor, vim.api.nvim_buf_line_count(ctx.buf)),
+        0
+      })
     end
 
     -- update topline.

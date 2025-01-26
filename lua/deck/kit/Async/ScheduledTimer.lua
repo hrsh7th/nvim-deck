@@ -1,4 +1,4 @@
----@class deck.x.ScheduledTimer
+---@class deck.kit.Async.ScheduledTimer
 ---@field private _timer uv.uv_timer_t
 ---@field private _running boolean
 ---@field private _revision integer
@@ -48,6 +48,10 @@ function ScheduledTimer:start(ms, repeat_ms, callback)
     else
       tick()
     end
+  end
+  if ms == 0 then
+    on_tick()
+    return
   end
   self._timer:start(ms, 0, on_tick)
 end

@@ -8,6 +8,8 @@ do
     parsed = {},
     queries = {},
   }
+
+  ---@return { negated: boolean, query: string }[]
   local function parse_query(query)
     if parse_query_cache.query ~= query then
       parse_query_cache.query = query
@@ -87,7 +89,7 @@ do
 
       local matches = {}
       for _, q in ipairs(parse_query(query)) do
-        if q.query ~= '' then
+        if not q.negated and q.query ~= '' then
           local idx = text:find(q.query, 1, true)
           if idx then
             table.insert(matches, { idx - 1, idx - 1 + #q.query })
