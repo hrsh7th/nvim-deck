@@ -77,7 +77,12 @@ function default_view.create(config)
     local curr_height = vim.api.nvim_win_get_height(state.win)
     local next_height = math.max(1, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
     if curr_height ~= next_height then
-      vim.api.nvim_win_set_height(state.win, next_height)
+      vim.api.nvim_win_call(state.win, function()
+        local winnr = vim.fn.winnr()
+        if winnr ~= vim.fn.winnr('j') or winnr ~= vim.fn.winnr('k') then
+          vim.api.nvim_win_set_height(state.win, next_height)
+        end
+      end)
     end
 
     -- update statusline.
@@ -249,6 +254,7 @@ function default_view.create(config)
     ---Hide window.
     hide = function(ctx)
       state.timer:stop()
+      vim.api.nvim_win_set_var(state.win, 'deck_builtin_view_default', false)
       if view.is_visible(ctx) then
         vim.api.nvim_win_hide(state.win)
       end

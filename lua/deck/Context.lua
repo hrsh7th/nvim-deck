@@ -283,7 +283,7 @@ function Context.create(id, source, start_config)
     hide = function()
       local to_hide = context.is_visible()
       buffer:abort_filtering()
-      view.hide(context)
+      pcall(view.hide, context)
       if to_hide then
         --[=[@doc
           category = "autocmd"
