@@ -28,7 +28,7 @@ function ExecuteContext.create(params)
       table.insert(on_aborts, callback)
     end,
 
-    ---Get current query for dynamic source.
+    ---Get current query.
     get_query = params.get_query,
 
     ---Noify item to main context.

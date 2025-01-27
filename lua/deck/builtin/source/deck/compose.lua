@@ -16,10 +16,9 @@ return function(sources)
     return source.name
   end):join('+')
 
-  ---@type table<any, deck.Item[]>
-  local memo = {}
+  local memo = {} ---@type table<any, deck.Item[]>
 
-  local events_proxy = newproxy(true)
+  local events_proxy = newproxy(true) --[[@as table]]
   getmetatable(events_proxy).__index = function(_, key)
     return function(...)
       for _, source in ipairs(sources) do
@@ -36,7 +35,7 @@ return function(sources)
     execute = function(ctx)
       Async.run(function()
         for _, source in ipairs(sources) do
-          if not source.dynamic and memo[source] then
+          if not source.parse_query and memo[source] then
             -- replay memoized items for dynamic execution.
             for _, item in ipairs(memo[source]) do
               ctx.item(item)
@@ -55,7 +54,7 @@ return function(sources)
                   return ctx.get_query()
                 end,
                 item = function(item)
-                  if not source.dynamic then
+                  if not source.parse_query then
                     memo[source] = memo[source] or {}
                     table.insert(memo[source], item)
                   end
