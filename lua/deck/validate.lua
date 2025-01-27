@@ -66,9 +66,12 @@ function validate.source(source)
   if type(source.execute) ~= 'function' then
     error('source.execute must be a function')
   end
-  source.dynamic = source.dynamic or false
+  if source.parse_query and type(source.parse_query) ~= 'function' then
+    error('source.parse_query must be a function')
+  end
   source.actions = source.actions or {}
   source.previewers = source.previewers or {}
+  source.decorators = source.decorators or {}
   return source
 end
 
@@ -122,6 +125,9 @@ function validate.decorator(decorator)
   end
   if type(decorator.decorate) ~= 'function' then
     error('decorator.decorate must be a function')
+  end
+  decorator.resolve = decorator.resolve or function()
+    return true
   end
   return decorator
 end
