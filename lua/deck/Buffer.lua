@@ -149,7 +149,7 @@ function Buffer:_step_filter()
       item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (
         item.filter_text or item.display_text
       ):lower()
-      local matched = self._start_config.matcher.match(self._query, item[symbols.filter_text_lower])
+      local matched = self._start_config.matcher.match(self._query, item[symbols.filter_text_lower]) > 0
       if matched then
         self._items_filtered[#self._items_filtered + 1] = item
       end

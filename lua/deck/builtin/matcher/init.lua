@@ -2,6 +2,7 @@ local matcher = {}
 
 local Empty = {}
 
+-- matcher.default.
 do
   local parse_query_cache = {
     query = '',
@@ -58,7 +59,7 @@ do
     ---@type deck.Matcher.MatchFunction
     match = function(query, text)
       if query == '' then
-        return true
+        return 1
       end
 
       local matched = true
@@ -76,10 +77,10 @@ do
           end
         end
         if not matched then
-          return false
+          return 0
         end
       end
-      return matched
+      return matched and 1 or 0
     end,
     ---@type deck.Matcher.DecorFunction
     decor = function(query, text)
@@ -94,6 +95,29 @@ do
           if idx then
             table.insert(matches, { idx - 1, idx - 1 + #q.query })
           end
+        end
+      end
+      return matches
+    end
+  }
+end
+
+-- matcher.fuzzy.
+do
+  matcher.fuzzy = {
+    ---@type deck.Matcher.MatchFunction
+    match = function(query, text)
+      return vim.fn.matchfuzzypos({ text }, query)[3][1] or 0
+    end,
+    ---@type deck.Matcher.DecorFunction
+    decor = function(query, text)
+      local chars = vim.fn.matchfuzzypos({ text }, query)[2][1] or {}
+      local matches = {}
+      for _, char in ipairs(chars) do
+        if matches[#matches] and matches[#matches][2] == char - 1 then
+          matches[#matches][2] = char + 1
+        else
+          table.insert(matches, { char, char + 1 })
         end
       end
       return matches

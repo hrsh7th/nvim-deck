@@ -35,7 +35,7 @@ local Context = require('deck.Context')
 ---@field public conceal? string
 
 ---@doc.type
----@alias deck.Matcher.MatchFunction fun(query: string, text: string): boolean
+---@alias deck.Matcher.MatchFunction fun(query: string, text: string): integer
 ---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
 ---@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }
 
