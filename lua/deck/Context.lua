@@ -559,7 +559,7 @@ function Context.create(id, source, start_config)
       end
 
       vim.wait(start_config.performance.sync_timeout_ms, function()
-        if vim.o.lines <= #context.get_rendered_items() then
+        if vim.o.lines <= math.min(#context.get_filtered_items(), #context.get_rendered_items()) then
           return true
         end
         if context.get_status() == Context.Status.Success then
