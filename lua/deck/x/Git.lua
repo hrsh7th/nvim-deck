@@ -490,7 +490,7 @@ function Git:vimdiff(params)
     if params.to_rev then
       open_rev(params.filename, params.to_rev)
     else
-      vim.cmd.edit(params.filename)
+      vim.cmd.edit(vim.fn.fnameescape(params.filename))
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
     end
     vim.cmd.diffthis()
