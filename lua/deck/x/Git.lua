@@ -513,51 +513,60 @@ function Git:commit(params, callback)
       end
     end
 
-    local contents = self
-        :exec(kit.concat({
-          'git',
-          'commit',
-          '--dry-run',
-          '--verbose',
-          params.amend and '--amend' or '--',
-        }, filenames))
-        :await().stdout
-
-    local s = vim.uv.hrtime() / 1e6
-    while IO.exists(vim.fs.joinpath(self.cwd, '.git', 'index.lock')):await() do
-      local n = vim.uv.hrtime() / 1e6
-      if n - s > 1000 then
-        break
-      end
-      Async.timeout(200):await()
-    end
-
-    if params.amend then
-      local log = self:log({ count = 1 }):await()[1] ---@type deck.x.Git.Log
-      if not log then
-        notify.show({
-          { { 'Not found commit log', 'ErrorMsg' } },
-        })
-        return
-      end
-      local message = {}
-      message = kit.concat(message, vim.split(log.body_raw, '\n'))
-      if message[#message] == '' then
-        table.remove(message, #message)
-      end
-      contents = kit.concat(message, { commit_message_sep }, contents)
-    else
-      contents = kit.concat({ '', commit_message_sep }, contents)
-    end
-
+    -- open commit tab.
     vim.cmd.tabedit(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'))
-    vim.api.nvim_buf_set_lines(0, 0, -1, false, contents)
     vim.api.nvim_set_option_value('swapfile', false, { buf = 0 })
     vim.api.nvim_set_option_value('filetype', 'gitcommit', { buf = 0 })
     vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = 0 })
     vim.api.nvim_set_option_value('modified', false, { buf = 0 })
-    vim.api.nvim_win_set_cursor(0, { 1, 0 })
     vim.treesitter.stop(0) -- prefer vim's `gitcommit` syntax highlighting
+
+    -- update buffer.
+    local function update_buffer()
+      Async.run(function()
+        local contents = self
+            :exec(kit.concat({
+              'git',
+              'commit',
+              '--dry-run',
+              '--verbose',
+              params.amend and '--amend' or '--',
+            }, filenames))
+            :await().stdout
+
+        local s = vim.uv.hrtime() / 1e6
+        while IO.exists(vim.fs.joinpath(self.cwd, '.git', 'index.lock')):await() do
+          local n = vim.uv.hrtime() / 1e6
+          if n - s > 1000 then
+            break
+          end
+          Async.timeout(200):await()
+        end
+
+        if params.amend then
+          local log = self:log({ count = 1 }):await()[1] ---@type deck.x.Git.Log
+          if not log then
+            notify.show({
+              { { 'Not found commit log', 'ErrorMsg' } },
+            })
+            return
+          end
+          local message = {}
+          message = kit.concat(message, vim.split(log.body_raw, '\n'))
+          if message[#message] == '' then
+            table.remove(message, #message)
+          end
+          contents = kit.concat(message, { commit_message_sep }, contents)
+        else
+          contents = kit.concat({ '', commit_message_sep }, contents)
+        end
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, contents)
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      end)
+    end
+
+    update_buffer()
+    vim.keymap.set('n', '<C-l>', update_buffer, { buffer = 0 })
 
     vim.api.nvim_create_autocmd('BufWritePre', {
       once = true,
