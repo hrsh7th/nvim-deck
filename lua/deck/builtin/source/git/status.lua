@@ -190,10 +190,14 @@ return function(option)
                 return item.data
               end)
               :totable()
-          git:commit({ items = status_items }, function()
-            ctx.show()
-            ctx.execute()
-          end)
+          git:commit({ items = status_items }, {
+            close = function()
+              ctx.show()
+            end,
+            commit = function()
+              ctx.execute()
+            end,
+          })
         end,
       },
       {
@@ -212,10 +216,14 @@ return function(option)
                 return item.data
               end)
               :totable()
-          git:commit({ items = status_items, amend = true }, function()
-            ctx.show()
-            ctx.execute()
-          end)
+          git:commit({ items = status_items, amend = true }, {
+            close = function()
+              ctx.show()
+            end,
+            commit = function()
+              ctx.execute()
+            end,
+          })
         end,
       },
     },

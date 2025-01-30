@@ -499,8 +499,8 @@ end
 
 ---Commit items.
 ---@param params { items: deck.x.Git.Status[], amend?: boolean }
----@param callback fun()
-function Git:commit(params, callback)
+---@param callbacks { close: fun(), commit: fun() }
+function Git:commit(params, callbacks)
   Async.run(function()
     ---create filenames.
     local filenames = {}
@@ -515,11 +515,13 @@ function Git:commit(params, callback)
 
     -- open commit tab.
     vim.cmd.tabedit(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'))
-    vim.api.nvim_set_option_value('swapfile', false, { buf = 0 })
-    vim.api.nvim_set_option_value('filetype', 'gitcommit', { buf = 0 })
-    vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = 0 })
-    vim.api.nvim_set_option_value('modified', false, { buf = 0 })
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_set_option_value('swapfile', false, { buf = bufnr })
+    vim.api.nvim_set_option_value('filetype', 'gitcommit', { buf = bufnr })
+    vim.api.nvim_set_option_value('bufhidden', 'wipe', { buf = bufnr })
+    vim.api.nvim_set_option_value('modified', false, { buf = bufnr })
     vim.treesitter.stop(0) -- prefer vim's `gitcommit` syntax highlighting
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
 
     -- update buffer.
     local function update_buffer()
@@ -560,77 +562,80 @@ function Git:commit(params, callback)
         else
           contents = kit.concat({ '', commit_message_sep }, contents)
         end
-        vim.api.nvim_buf_set_lines(0, 0, -1, false, contents)
-        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, contents)
       end)
     end
 
     update_buffer()
-    vim.keymap.set('n', '<C-l>', update_buffer, { buffer = 0 })
+    vim.keymap.set('n', '<C-l>', update_buffer, { buffer = bufnr })
 
+    -- cleanup buffer to only commit message before writing.
     vim.api.nvim_create_autocmd('BufWritePre', {
       once = true,
       pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
       callback = function()
         local messages = {}
-        for _, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+        for _, text in ipairs(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)) do
           if text == commit_message_sep then
             break
           end
           table.insert(messages, text)
         end
-        vim.api.nvim_buf_set_lines(0, 0, -1, false, messages)
+        vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, messages)
       end,
     })
 
-    local callback_once ---@type fun()
+    -- commit or cancel handler.
     do
-      local once = true
-      callback_once = function()
-        if once then
-          once = false
-          callback()
+      local close_callback_once ---@type fun()
+      do
+        local once = true
+        close_callback_once = function()
+          if once then
+            once = false
+            callbacks.close()
+          end
         end
       end
+
+      vim.api.nvim_create_autocmd('BufWritePost', {
+        once = true,
+        pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
+        callback = function()
+          Async.run(function()
+            local yes_no = vim.fn.input('Commit? [y(es)/n(o)]: ')
+            if yes_no == 'y' or yes_no == 'yes' then
+              close_callback_once()
+              vim.api.nvim_buf_delete(bufnr, { force = true })
+
+              IO.cp(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'),
+                vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG')):await()
+              self:exec_print(kit.concat({
+                'git',
+                'commit',
+                params.amend and '--amend' or nil,
+                '--file',
+                vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
+                '--',
+              }, filenames)):await()
+              IO.rm(vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
+              callbacks.commit()
+            else
+              notify.show({
+                { { 'Canceled', 'ModeMsg' } },
+              })
+            end
+          end)
+        end,
+      })
+      vim.api.nvim_create_autocmd('BufDelete', {
+        once = true,
+        pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
+        callback = function()
+          close_callback_once()
+        end,
+      })
     end
-
-    local tabpage = vim.api.nvim_get_current_tabpage()
-    vim.api.nvim_create_autocmd('BufWritePost', {
-      once = true,
-      pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
-      callback = function()
-        Async.run(function()
-          local yes_no = vim.fn.input('Commit? [y(es)/n(o)]: ')
-          if yes_no == 'y' or yes_no == 'yes' then
-            callback_once()
-
-            vim.cmd.tabclose({ tostring(tabpage) })
-            IO.cp(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'),
-              vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG')):await()
-            self:exec_print(kit.concat({
-              'git',
-              'commit',
-              params.amend and '--amend' or nil,
-              '--file',
-              vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
-              '--',
-            }, filenames)):await()
-            IO.rm(vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
-          else
-            notify.show({
-              { { 'Canceled', 'ModeMsg' } },
-            })
-          end
-        end)
-      end,
-    })
-    vim.api.nvim_create_autocmd('BufDelete', {
-      once = true,
-      pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
-      callback = function()
-        callback_once()
-      end,
-    })
   end)
 end
 
