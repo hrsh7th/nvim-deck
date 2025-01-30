@@ -62,4 +62,17 @@ describe('deck', function()
     ctx.do_action('yank')
     assert.are.equals('1\n', vim.fn.getreg(vim.v.register))
   end)
+
+  it('not spill keypress', function()
+    local expected = nil
+    vim.keymap.set('n', '<BS>', function()
+      local ctx = deck.start(example1_source)
+      ctx.keymap('n', '<CR>', function()
+        expected = ctx.get_cursor_item().display_text
+        vim.fn.setreg(vim.v.register, expected)
+      end)
+    end)
+    vim.api.nvim_feedkeys(vim.keycode('<BS><CR>'), 'x', true)
+    assert.are.equals(expected, vim.fn.getreg(vim.v.register))
+  end)
 end)
