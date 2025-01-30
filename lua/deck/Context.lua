@@ -30,6 +30,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field is_visible fun(): boolean
 ---@field show fun()
 ---@field hide fun()
+---@field focus fun()
 ---@field prompt fun()
 ---@field scroll_preview fun(delta: integer)
 ---@field get_status fun(): deck.Context.Status
@@ -264,6 +265,9 @@ function Context.create(id, source, start_config)
     ---Show context via given view.
     show = function()
       local to_show = not context.is_visible()
+      if not to_show then
+        context.focus()
+      end
       buffer:start_filtering()
       view.show(context)
       if to_show then
@@ -303,6 +307,14 @@ function Context.create(id, source, start_config)
         })
         events.hide.emit()
       end
+    end,
+
+    ---Focus context.
+    focus = function()
+      if not context.is_visible() then
+        return
+      end
+      vim.api.nvim_set_current_win(view.get_win() --[[@as integer]])
     end,
 
     ---Start prompt.

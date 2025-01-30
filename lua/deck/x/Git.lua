@@ -582,6 +582,19 @@ function Git:commit(params, callback)
         vim.api.nvim_buf_set_lines(0, 0, -1, false, messages)
       end,
     })
+
+    local callback_once ---@type fun()
+    do
+      local once = true
+      callback_once = function()
+        if once then
+          once = false
+          callback()
+        end
+      end
+    end
+
+    local tabpage = vim.api.nvim_get_current_tabpage()
     vim.api.nvim_create_autocmd('BufWritePost', {
       once = true,
       pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
@@ -589,28 +602,33 @@ function Git:commit(params, callback)
         Async.run(function()
           local yes_no = vim.fn.input('Commit? [y(es)/n(o)]: ')
           if yes_no == 'y' or yes_no == 'yes' then
-            vim.cmd.tabclose()
+            callback_once()
 
+            vim.cmd.tabclose({ tostring(tabpage) })
             IO.cp(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'),
               vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG')):await()
-            self
-                :exec_print(kit.concat({
-                  'git',
-                  'commit',
-                  params.amend and '--amend' or nil,
-                  '--file',
-                  vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
-                  '--',
-                }, filenames))
-                :await()
+            self:exec_print(kit.concat({
+              'git',
+              'commit',
+              params.amend and '--amend' or nil,
+              '--file',
+              vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
+              '--',
+            }, filenames)):await()
             IO.rm(vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
           else
             notify.show({
               { { 'Canceled', 'ModeMsg' } },
             })
           end
-          callback()
         end)
+      end,
+    })
+    vim.api.nvim_create_autocmd('BufDelete', {
+      once = true,
+      pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
+      callback = function()
+        callback_once()
       end,
     })
   end)
