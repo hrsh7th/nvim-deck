@@ -1,6 +1,7 @@
 local kit = require('deck.kit')
 local Async = require('deck.kit.Async')
 local Keymap = require('deck.kit.Vim.Keymap')
+local WinSaveView = require('deck.kit.Vim.WinSaveView')
 local validate = require('deck.validate')
 local compose = require('deck.builtin.source.deck.compose')
 local Context = require('deck.Context')
@@ -665,6 +666,8 @@ end
 ---@param on_choice fun(item: T?, idx: integer?)
 ---@diagnostic disable-next-line: duplicate-set-field
 function deck.ui_select(items, opts, on_choice)
+  local view = WinSaveView.new()
+
   local ctx = deck.start({ {
     name = opts.prompt or 'vim.ui.select',
     execute = function(ctx)
@@ -693,12 +696,16 @@ function deck.ui_select(items, opts, on_choice)
               else
                 on_choice(nil, nil)
               end
+              view:restore()
             end)):await()
           end)
         end
       }
     }
   } })
+  ctx.keymap('c', '<CR>', function()
+    ctx.do_action('default')
+  end)
   ctx.prompt()
 end
 
