@@ -15,6 +15,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field select_map table<string, boolean>
 ---@field dedup_map table<deck.Item, boolean>
 ---@field preview_mode boolean
+---@field is_syncing boolean
 ---@field controller deck.ExecuteContext.Controller?
 ---@field disposed boolean
 
@@ -33,6 +34,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field scroll_preview fun(delta: integer)
 ---@field get_status fun(): deck.Context.Status
 ---@field is_filtering fun(): boolean
+---@field is_syncing fun(): boolean
 ---@field get_cursor fun(): integer
 ---@field set_cursor fun(cursor: integer)
 ---@field get_query fun(): string
@@ -93,6 +95,7 @@ function Context.create(id, source, start_config)
     select_map = {},
     dedup_map = {},
     preview_mode = false,
+    is_syncing = false,
     controller = nil,
     disposed = false,
   }
@@ -124,6 +127,7 @@ function Context.create(id, source, start_config)
       select_map = {},
       dedup_map = {},
       preview_mode = state.preview_mode,
+      is_syncing = false,
       controller = nil,
       disposed = false,
     }
@@ -322,6 +326,11 @@ function Context.create(id, source, start_config)
     ---Return filtering state.
     is_filtering = function()
       return buffer:is_filtering()
+    end,
+
+    ---Return syncing state.
+    is_syncing = function()
+      return state.is_syncing
     end,
 
     ---Return cursor position state.
@@ -558,8 +567,10 @@ function Context.create(id, source, start_config)
         return
       end
 
+      state.is_syncing = true
       vim.wait(start_config.performance.sync_timeout_ms, function()
-        if vim.o.lines <= math.min(#context.get_filtered_items(), #context.get_rendered_items()) then
+        local cursors = buffer:get_cursors()
+        if vim.o.lines <= math.min(cursors.filtered, cursors.rendered) then
           return true
         end
         if context.get_status() == Context.Status.Success then
@@ -567,6 +578,7 @@ function Context.create(id, source, start_config)
         end
         return false
       end)
+      state.is_syncing = false
     end,
 
     ---Set keymap to the deck buffer.

@@ -241,6 +241,9 @@ function default_view.create(config)
 
       state.timer:stop()
       state.timer:start(0, 80, function()
+        if ctx.is_syncing() then
+          return
+        end
         update(ctx)
         if vim.api.nvim_get_mode().mode == 'c' then
           vim.cmd.redraw()

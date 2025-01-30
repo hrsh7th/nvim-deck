@@ -87,6 +87,15 @@ function Buffer:get_rendered_items()
   return self._items_rendered
 end
 
+---Return cursors.
+---@return { filtered: integer, rendered: integer }
+function Buffer:get_cursors()
+  return {
+    filtered = self._cursor_filtered,
+    rendered = self._cursor_rendered,
+  }
+end
+
 ---Update query.
 ---@param query string
 function Buffer:update_query(query)
