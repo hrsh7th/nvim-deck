@@ -290,6 +290,11 @@ function Context.create(id, source, start_config)
     ---Hide context via given view.
     hide = function()
       local to_hide = context.is_visible()
+      if to_hide then
+        if start_config.auto_abort then
+          state.controller.abort()
+        end
+      end
       buffer:abort_filtering()
       pcall(view.hide, context)
       if to_hide then

@@ -13,6 +13,7 @@ local ExecuteContext = {}
 ---@param params deck.ExecuteContext.Params
 ---@return deck.ExecuteContext, deck.ExecuteContext.Controller
 function ExecuteContext.create(params)
+  local done = false
   local aborted = false
   local on_aborts = {}
 
@@ -75,6 +76,10 @@ function ExecuteContext.create(params)
       if aborted then
         return
       end
+      if done then
+        return
+      end
+      done = true
       params.on_done()
     end,
   } --[[@as deck.ExecuteContext]]
@@ -87,6 +92,7 @@ function ExecuteContext.create(params)
       for _, on_abort in ipairs(on_aborts) do
         on_abort()
       end
+      params.on_done()
     end,
   }
 
