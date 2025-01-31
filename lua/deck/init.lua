@@ -210,6 +210,32 @@ local internal = {
   },
 }
 
+-- guicursor.
+do
+  local restore_guicursor = nil
+  vim.api.nvim_create_autocmd('SafeState', {
+    group = internal.augroup,
+    callback = function()
+      local config_guicursor = internal.config.guicursor
+      if vim.b.deck then
+        if restore_guicursor == nil then
+          restore_guicursor = vim.o.guicursor
+          if vim.api.nvim_get_option_value('guicursor', {}) ~= config_guicursor then
+            vim.api.nvim_set_option_value('guicursor', config_guicursor, {})
+          end
+        end
+      else
+        if restore_guicursor then
+          if vim.api.nvim_get_option_value('guicursor', {}) ~= restore_guicursor then
+            vim.api.nvim_set_option_value('guicursor', restore_guicursor, {})
+          end
+          restore_guicursor = nil
+        end
+      end
+    end
+  })
+end
+
 local deck = {}
 
 --[=[@doc
@@ -229,30 +255,6 @@ function deck.setup(config)
   end
 
   internal.config = kit.merge(kit.clone(config), internal.config)
-
-  -- guicursor.
-  do
-    local config_guicursor = require('deck').get_config().guicursor
-    if config_guicursor then
-      local restore_guicursor = nil
-      vim.api.nvim_create_autocmd('SafeState', {
-        group = internal.augroup,
-        callback = function()
-          if vim.b.deck then
-            if restore_guicursor == nil then
-              restore_guicursor = vim.o.guicursor
-              vim.api.nvim_set_option_value('guicursor', config_guicursor, {})
-            end
-          else
-            if restore_guicursor then
-              vim.api.nvim_set_option_value('guicursor', restore_guicursor, {})
-              restore_guicursor = nil
-            end
-          end
-        end
-      })
-    end
-  end
 end
 
 ---Return deck config.
