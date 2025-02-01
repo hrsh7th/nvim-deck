@@ -69,6 +69,9 @@ function default_view.create(config)
 
   ---@param ctx deck.Context
   local function update(ctx)
+    if ctx.is_syncing() then
+      return
+    end
     if not view.is_visible(ctx) then
       return
     end
@@ -175,6 +178,11 @@ function default_view.create(config)
         vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.win_preview) })
       end
     end
+
+    -- redraw if cmdline.
+    if vim.api.nvim_get_mode().mode == 'c' then
+      vim.cmd.redraw()
+    end
   end
 
   view = {
@@ -241,17 +249,8 @@ function default_view.create(config)
 
       state.timer:stop()
       state.timer:start(0, 80, function()
-        if ctx.is_syncing() then
-          return
-        end
         update(ctx)
-        if vim.api.nvim_get_mode().mode == 'c' then
-          vim.cmd.redraw()
-        else
-          vim.cmd.redrawstatus()
-        end
       end)
-      update(ctx)
     end,
 
     ---Hide window.
