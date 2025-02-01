@@ -22,8 +22,8 @@ return function(sources)
   getmetatable(events_proxy).__index = function(_, key)
     return function(...)
       for _, source in ipairs(sources) do
-        if source[key] then
-          source[key](...)
+        if source.events[key] then
+          source.events[key](...)
         end
       end
     end
