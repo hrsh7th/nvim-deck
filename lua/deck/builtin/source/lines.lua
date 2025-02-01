@@ -30,6 +30,7 @@ return function(option)
           })
         end
       end
+      ctx.done()
     end,
     decorators = {
       {
