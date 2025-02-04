@@ -1,4 +1,5 @@
 local symbols = require('deck.symbols')
+local Icon    = require('deck.x.Icon')
 
 local decorators = {}
 
@@ -113,21 +114,6 @@ decorators.query_matches = {
 
 ---@type deck.Decorator
 do
-  local get_icon --[[@as (fun(category: string, filename: string):(string?, string?))?]]
-  vim.api.nvim_create_autocmd('BufEnter', {
-    callback = function()
-      if vim.b.deck then
-        do -- mini.icons.
-          local ok, Icons = pcall(require, 'mini.icons')
-          if ok then
-            get_icon = function(category, filename)
-              return Icons.get(category, filename)
-            end
-          end
-        end
-      end
-    end,
-  })
   decorators.filename = {
     name = 'filename',
     resolve = function(_, item)
@@ -137,15 +123,13 @@ do
       local decorations = {}
 
       -- icons decoration.
-      if get_icon then
-        local icon, hl = get_icon('extension', item.data.filename)
-        if icon then
-          table.insert(decorations, {
-            col = 0,
-            virt_text = { { icon, hl }, { ' ' } },
-            virt_text_pos = 'inline',
-          })
-        end
+      local icon, hl = Icon.filename(item.data.filename)
+      if icon then
+        table.insert(decorations, {
+          col = 0,
+          virt_text = { { icon, hl }, { ' ' } },
+          virt_text_pos = 'inline',
+        })
       end
 
       -- buffer related decoration.

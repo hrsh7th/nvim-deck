@@ -34,7 +34,7 @@ function easy.setup(config)
     vim.api.nvim_create_autocmd('DirChanged', {
       group = augroup,
       callback = function(e)
-        require('deck.builtin.source.recent_dirs'):add(e.cwd)
+        require('deck.builtin.source.recent_dirs'):add(e.cwd --[[@as string]])
       end,
     })
   end
@@ -87,6 +87,11 @@ function easy.setup(config)
       deck.start(require('deck.builtin.source.git')({
         cwd = config.get_cwd(),
       }))
+    end)
+
+    -- Register `helpgrep` start preset.
+    deck.register_start_preset('helpgrep', function()
+      require('deck').start(require('deck.builtin.source.helpgrep')())
     end)
   end
 end

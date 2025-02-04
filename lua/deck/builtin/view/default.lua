@@ -180,8 +180,11 @@ function default_view.create(config)
     end
 
     -- redraw if cmdline.
-    if vim.api.nvim_get_mode().mode == 'c' then
-      vim.cmd.redraw()
+    if vim.fn.mode(1):sub(1, 1) == 'c' then
+      vim.api.nvim__redraw({
+        valid = true,
+        win = state.win,
+      })
     end
   end
 

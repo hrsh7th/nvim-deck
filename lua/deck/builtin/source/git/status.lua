@@ -137,7 +137,6 @@ return function(option)
         name = 'git.status.add',
         execute = function(ctx)
           Async.run(function()
-            vim.print('git.status.add: ' .. #ctx.get_action_items())
             for _, item in ipairs(ctx.get_action_items()) do
               if not item.data.staged then
                 git:exec_print({ 'git', 'add', item.data.filename }):await()
@@ -164,7 +163,6 @@ return function(option)
         name = 'git.status.reset',
         execute = function(ctx)
           Async.run(function()
-            vim.print('git.status.reset: ' .. #ctx.get_action_items())
             for _, item in ipairs(ctx.get_action_items()) do
               if item.data.staged then
                 git:exec_print({ 'git', 'reset', item.data.filename }):await()

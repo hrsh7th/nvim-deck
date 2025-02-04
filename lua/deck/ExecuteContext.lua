@@ -44,7 +44,7 @@ function ExecuteContext.create(params)
         local highlights = {} ---@type deck.Highlight[]
         local offset = 0
         for _, virt_text in
-          ipairs(item_specifier.display_text --[=[@as deck.VirtualText[]]=])
+        ipairs(item_specifier.display_text --[=[@as deck.VirtualText[]]=])
         do
           if type(virt_text) ~= 'table' or type(virt_text[1]) ~= 'string' then
             error('item.display_text must be string or deck.VirtualText[]')
@@ -73,14 +73,16 @@ function ExecuteContext.create(params)
 
     --- Noify done to main context.
     done = function()
-      if aborted then
-        return
-      end
-      if done then
-        return
-      end
-      done = true
-      params.on_done()
+      vim.schedule(function()
+        if aborted then
+          return
+        end
+        if done then
+          return
+        end
+        done = true
+        params.on_done()
+      end)
     end,
   } --[[@as deck.ExecuteContext]]
 

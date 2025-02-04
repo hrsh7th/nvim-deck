@@ -16,6 +16,10 @@ local Context = require('deck.Context')
 ---@alias deck.Match { [1]: integer, [2]: integer }
 
 ---@doc.type
+---@alias deck.ParseQuery fun(query: string): { dynamic_query?: string, matcher_query?: string }
+
+
+---@doc.type
 ---@class deck.Decoration
 ---@field public col? integer
 ---@field public end_col? integer
@@ -61,7 +65,7 @@ local Context = require('deck.Context')
 ---@field public actions? deck.Action[]
 ---@field public decorators? deck.Decorator[]
 ---@field public previewers? deck.Previewer[]
----@field public parse_query? fun(query: string): { dynamic_query?: string, matcher_query?: string }
+---@field public parse_query? deck.ParseQuery
 
 ---@doc.type
 ---@alias deck.SourceExecuteFunction fun(ctx: deck.ExecuteContext)
@@ -530,11 +534,11 @@ function deck.register_start_preset(start_preset_or_name, start_fn_or_nil)
   end
 
   local start_preset = start_preset_or_name --[[@as deck.StartPreset]]
-  local has = vim.iter(internal.start_presets):any(function(target)
-    return target.name == start_preset.name
-  end)
-  if has then
-    error(('`%s` is already registered.'):format(start_preset.name))
+  for i, preset in ipairs(internal.start_presets) do
+    if preset.name == start_preset.name then
+      internal.start_presets[i] = start_preset
+      return
+    end
   end
   table.insert(internal.start_presets, 1, start_preset)
 end
