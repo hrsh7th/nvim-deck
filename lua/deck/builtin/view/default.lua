@@ -43,20 +43,8 @@ local default_view = {}
 function default_view.create(config)
   local spinner = {
     idx = 1,
-    frame = { "|", "/", "-", "\\" },
-    presets = {
-      { "|", "/", "-", "\\" },
-      { '◐', '◓', '◑', '◒' },
-      { ".", "..", "...", "...." },
-      { "┤", "┘", "┴", "└", "├", "┌", "┬", "┐" },
-      { "←", "↖", "↑", "↗", "→", "↘", "↓", "↙" },
-      { "✶", "✸", "✹", "✺", "✹", "✷" },
-      { "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈" },
-      { " ▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂", "▁" },
-      { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
-    }
+    frame = { ".", "..", "...", "...." },
   }
-  spinner.frame = spinner.presets[3]
 
   local state = {
     win = nil, --[[@type integer?]]
@@ -90,15 +78,15 @@ function default_view.create(config)
 
     -- update statusline.
     spinner.idx = spinner.idx + 1
-    local char = spinner.frame[spinner.idx % #spinner.frame + 1]
 
+    local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
     vim.api.nvim_set_option_value(
       'statusline',
       ('[%s] %s/%s%s'):format(
         ctx.name,
         #ctx.get_filtered_items(),
         #ctx.get_items(),
-        (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering()) and (' %s'):format(char) or ''
+        is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
       ),
       {
         win = state.win,
