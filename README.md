@@ -1190,8 +1190,3 @@ Start deck with given sources.
 
 <!-- auto-generate-e:type -->
 
-```
-```
-
-```
-```
