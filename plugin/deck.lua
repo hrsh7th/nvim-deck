@@ -49,4 +49,3 @@ do
     deck.register_start_preset(start_preset)
   end
 end
-

@@ -18,8 +18,8 @@ return function(option)
   ---@return string?, deck.Source?, string?
   local function get_source(query)
     for prefix, source in pairs(option.setting) do
-      if query:find(('^%s '):format(vim.pesc(prefix))) then
-        return prefix, source, query:sub(#prefix + 2)
+      if query:find(('^%s'):format(vim.pesc(prefix))) then
+        return prefix, source, query:sub(#prefix + 1)
       end
     end
     return nil
@@ -29,14 +29,21 @@ return function(option)
   local function parse_query(query)
     local prefix, source, source_query = get_source(query)
     if prefix and source and source_query then
-      if source_query == ('%s '):format(prefix) then
+      if source_query == prefix then
         return {
-          dynamic_query = prefix,
+          dynamic_query = query,
           matcher_query = '',
         }
       end
-      return source.parse_query and source.parse_query(source_query) or {
-        dynamic_query = prefix,
+      if source.parse_query then
+        local parsed = source.parse_query(source_query)
+        return {
+          dynamic_query = query,
+          matcher_query = parsed.matcher_query,
+        }
+      end
+      return {
+        dynamic_query = query,
         matcher_query = source_query,
       }
     end
