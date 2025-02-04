@@ -163,11 +163,11 @@ return function(option)
 
           -- for directory.
           if vim.fn.isdirectory(item.data.explorer.filename) == 1 then
-            if collapse.resolve(ctx) then
-              collapse.execute(ctx)
-            else
-              expand.execute(ctx)
-            end
+            require('deck').start(require('deck.builtin.source.explorer')({
+              root_dir = item.data.explorer.filename,
+            }), {
+              name = item.data.explorer.filename
+            })
             return
           end
 
