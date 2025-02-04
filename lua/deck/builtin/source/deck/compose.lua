@@ -75,9 +75,21 @@ return function(sources)
     actions = vim.iter(sources):fold({}, function(acc, source)
       return kit.concat(acc, source.actions or {})
     end),
-    decorators = vim.iter(sources):fold({}, function(acc, source)
+    decorators = kit.concat(vim.iter(sources):fold({}, function(acc, source)
       return kit.concat(acc, source.decorators or {})
-    end),
+    end), {
+      {
+        name = 'source_name',
+        decorate = function(_, item)
+          return {
+            col = 0,
+            virt_text = { { ('%s'):format(item[symbols.source].name), 'Comment' } },
+            virt_text_pos = 'right_align',
+            hl_mode = 'combine',
+          }
+        end,
+      }
+    }),
     previewers = vim.iter(sources):fold({}, function(acc, source)
       return kit.concat(acc, source.previewers or {})
     end),

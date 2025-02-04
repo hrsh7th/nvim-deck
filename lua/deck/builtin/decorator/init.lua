@@ -36,19 +36,6 @@ decorators.signs = {
 }
 
 ---@type deck.Decorator
-decorators.source_name = {
-  name = 'source_name',
-  decorate = function(_, item)
-    return {
-      col = 0,
-      virt_text = { { ('%s'):format(item[symbols.source].name), 'Comment' } },
-      virt_text_pos = 'right_align',
-      hl_mode = 'combine',
-    }
-  end,
-}
-
----@type deck.Decorator
 decorators.highlights = {
   name = 'highlights',
   resolve = function(_, item)
