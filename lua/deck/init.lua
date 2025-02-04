@@ -676,8 +676,7 @@ end
 ---@diagnostic disable-next-line: duplicate-set-field
 function deck.ui_select(items, opts, on_choice)
   local view = WinSaveView.new()
-
-  local ctx = deck.start({ {
+  deck.start({ {
     name = opts.prompt or 'vim.ui.select',
     execute = function(ctx)
       for idx, item in ipairs(items) do
@@ -712,10 +711,6 @@ function deck.ui_select(items, opts, on_choice)
       }
     }
   } })
-  ctx.keymap('c', '<CR>', function()
-    ctx.do_action('default')
-  end)
-  ctx.prompt()
 end
 
 return deck
