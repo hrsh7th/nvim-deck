@@ -47,7 +47,7 @@ function ExecuteContext.create(params)
         ipairs(item_specifier.display_text --[=[@as deck.VirtualText[]]=])
         do
           if type(virt_text) ~= 'table' or type(virt_text[1]) ~= 'string' then
-            error('item.display_text must be string or deck.VirtualText[]')
+            error('item.display_text must be string or deck.VirtualText[] ' .. vim.inspect(virt_text))
           end
           table.insert(texts, virt_text[1])
           table.insert(highlights, {
@@ -60,7 +60,7 @@ function ExecuteContext.create(params)
         item_specifier.display_text = table.concat(texts, '')
         item_specifier.highlights = highlights
       elseif type(item_specifier.display_text) ~= 'string' then
-        error('item.display_text must be string or deck.VirtualText[]')
+        error('item.display_text must be string or deck.VirtualText[] ' .. vim.inspect(item_specifier.display_text))
       end
 
       -- check & normalize data.

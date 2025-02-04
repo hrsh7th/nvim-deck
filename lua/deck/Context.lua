@@ -362,7 +362,13 @@ function Context.create(id, source, start_config)
       end
 
       state.cursor = math.max(1, cursor)
-      view.show(context)
+
+      if view.is_visible(context) then
+        if vim.api.nvim_win_get_cursor(view.get_win() --[[@as integer]])[1] == cursor then
+          return
+        end
+        vim.api.nvim_win_set_cursor(view.get_win() --[[@as integer]], { cursor, 0 })
+      end
     end,
 
     ---Get query text.
@@ -466,6 +472,9 @@ function Context.create(id, source, start_config)
 
     ---Get cursor item.
     get_cursor_item = function()
+      if view.is_visible(context) then
+        return buffer:get_rendered_items()[vim.api.nvim_win_get_cursor(view.get_win() --[[@as integer]])[1]]
+      end
       return buffer:get_rendered_items()[state.cursor]
     end,
 
@@ -584,7 +593,23 @@ function Context.create(id, source, start_config)
         return
       end
 
+      local function saveview()
+        if view.is_visible(context) then
+          local v = vim.api.nvim_win_call(view.get_win() --[[@as integer]], function()
+            return vim.fn.winsaveview()
+          end)
+          return function()
+            vim.api.nvim_win_call(view.get_win() --[[@as integer]], function()
+              vim.fn.winrestview(v)
+            end)
+          end
+        end
+        return function()
+        end
+      end
+
       state.is_syncing = true
+      local restore = saveview()
       vim.wait(start_config.performance.sync_timeout_ms, function()
         local cursors = buffer:get_cursors()
         if vim.o.lines <= math.min(cursors.filtered, cursors.rendered) then
@@ -595,6 +620,7 @@ function Context.create(id, source, start_config)
         end
         return false
       end)
+      restore()
       state.is_syncing = false
     end,
 

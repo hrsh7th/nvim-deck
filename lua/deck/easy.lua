@@ -54,6 +54,13 @@ function easy.setup(config)
       })
     end)
 
+    -- Register `explorer` start preset.
+    deck.register_start_preset('explorer', function()
+      deck.start(require('deck.builtin.source.explorer')({
+        root_dir = config.get_cwd(),
+      }))
+    end)
+
     -- Register `buffers` start preset.
     deck.register_start_preset('buffers', function()
       deck.start({

@@ -105,36 +105,6 @@ function default_view.create(config)
       }
     )
 
-    -- update cursor.
-    local cursor = ctx.get_cursor()
-    if cursor ~= vim.api.nvim_win_get_cursor(state.win) then
-      vim.api.nvim_win_set_cursor(state.win, {
-        math.min(cursor, vim.api.nvim_buf_line_count(ctx.buf)),
-        0
-      })
-    end
-
-    -- update topline.
-    do
-      local winheight = vim.api.nvim_win_get_height(state.win)
-      local maxline = vim.api.nvim_buf_line_count(ctx.buf)
-      local topline = vim.fn.getwininfo(state.win)[1].topline
-      if topline > 1 + maxline - winheight then
-        vim.api.nvim_win_call(state.win, function()
-          vim.cmd.normal({
-            ('%szt'):format(maxline - winheight + 1),
-            bang = true,
-            mods = {
-              keepmarks = true,
-              keepjumps = true,
-              keepalt = true,
-              noautocmd = true,
-            },
-          })
-        end)
-      end
-    end
-
     -- update preview.
     local item = ctx.get_cursor_item()
     local deps = {
@@ -254,6 +224,7 @@ function default_view.create(config)
       state.timer:start(0, 80, function()
         update(ctx)
       end)
+      vim.api.nvim_win_set_cursor(state.win, { ctx.get_cursor(), 0 })
     end,
 
     ---Hide window.
