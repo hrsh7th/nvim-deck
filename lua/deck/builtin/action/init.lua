@@ -71,7 +71,7 @@ do
             vim.cmd.edit(filename_or_bufnr)
           end
           if item.data.lnum then
-            vim.api.nvim_win_set_cursor(0, { item.data.lnum, item.data.col or 0 })
+            vim.api.nvim_win_set_cursor(0, { item.data.lnum, (item.data.col or 1) - 1 })
           end
         end
 
