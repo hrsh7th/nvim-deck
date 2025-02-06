@@ -322,15 +322,6 @@ function deck.start(sources, start_config_specifier)
         end
       end
     end)
-    context.on_show(function()
-      for i, c in ipairs(internal.history) do
-        if c == context then
-          table.remove(internal.history, i)
-          table.insert(internal.history, 1, context)
-          break
-        end
-      end
-    end)
     if #internal.history > internal.config.max_history_size then
       local c = table.remove(internal.history, #internal.history)
       if c then
