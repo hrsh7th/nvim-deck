@@ -56,6 +56,13 @@ function default_view.create(config)
   local view
 
   ---@param ctx deck.Context
+  ---@return integer
+  local function calc_winheight(ctx)
+    local min_height = vim.o.laststatus == 0 and vim.o.cmdheight == 0 and 2 or 1
+    return math.max(min_height, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
+  end
+
+  ---@param ctx deck.Context
   local function update(ctx)
     if ctx.is_syncing() then
       return
@@ -66,7 +73,7 @@ function default_view.create(config)
 
     -- update winheight.
     local curr_height = vim.api.nvim_win_get_height(state.win)
-    local next_height = math.max(1, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
+    local next_height = calc_winheight(ctx)
     if curr_height ~= next_height then
       vim.api.nvim_win_call(state.win, function()
         local winnr = vim.fn.winnr()
@@ -108,7 +115,7 @@ function default_view.create(config)
           state.win_preview = nil
         end
       else
-        local available_height = vim.o.lines - math.min(config.max_height, vim.api.nvim_buf_line_count(ctx.buf))
+        local available_height = vim.o.lines - next_height
         local preview_height = math.floor(available_height * 0.8)
         local win_config = {
           noautocmd = true,
@@ -186,7 +193,7 @@ function default_view.create(config)
             vim.api.nvim_set_current_win(existing_deck_win)
           else
             -- open new window.
-            local height = math.max(1, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
+            local height = calc_winheight(ctx)
             vim.cmd.split({
               range = { height },
               mods = {
