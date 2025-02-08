@@ -356,11 +356,11 @@ function Context.create(id, source, start_config)
 
     ---Set cursor row.
     set_cursor = function(cursor)
+      cursor = math.max(1, cursor)
       if state.cursor == cursor then
         return
       end
-
-      state.cursor = math.max(1, cursor)
+      state.cursor = cursor
 
       if view.is_visible(context) then
         if vim.api.nvim_win_get_cursor(view.get_win() --[[@as integer]])[1] == cursor then
