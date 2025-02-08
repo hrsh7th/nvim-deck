@@ -322,7 +322,7 @@ action.toggle_select = {
     local cursor_item = ctx.get_cursor_item()
     if cursor_item then
       ctx.set_selected(cursor_item, not ctx.get_selected(cursor_item))
-      vim.cmd.normal('j')
+      ctx.set_cursor(ctx.get_cursor() + 1)
     end
   end,
 }
