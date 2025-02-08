@@ -59,7 +59,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field get_decorators fun(): deck.Decorator[]
 ---@field get_previewer fun(): deck.Previewer?
 ---@field sync fun()
----@field keymap fun(mode: string, lhs: string, rhs: fun(ctx: deck.Context))
+---@field keymap fun(mode: string|string[], lhs: string, rhs: fun(ctx: deck.Context))
 ---@field do_action fun(name: string)
 ---@field dispose fun()
 ---@field disposed fun(): boolean
