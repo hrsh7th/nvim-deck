@@ -24,6 +24,7 @@ local Context = require('deck.Context')
 ---@field public col? integer
 ---@field public end_col? integer
 ---@field public hl_group? string
+---@field public hl_eol? boolean
 ---@field public virt_text? deck.VirtualText[]
 ---@field public virt_text_pos? 'eol' | 'overlay' | 'right_align' | 'inline'
 ---@field public virt_text_win_col? integer

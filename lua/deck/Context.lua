@@ -168,6 +168,8 @@ function Context.create(id, source, start_config)
 
   --Setup decoration provider.
   do
+    ---@param row integer
+    ---@param decoration deck.Decoration
     local function apply_decoration(row, decoration)
       vim.api.nvim_buf_set_extmark(context.buf, context.ns, row, decoration.col or 0, {
         end_row = decoration.end_col and row,
