@@ -72,21 +72,27 @@ function x.open_preview_buffer(win, file)
 
   -- highlight cursor position.
   if file.lnum then
-    local extmark_option = { line_hl_group = 'Visual' }
-    if file.col and file.end_lnum and file.end_col then
-      extmark_option.end_row = file.end_lnum - 1
-      extmark_option.end_col = file.end_col - 1
-      extmark_option.hl_group = 'CurSearch'
-      extmark_option.hl_mode = 'combine'
+    local extmark_option = {} ---@type vim.api.keyset.set_extmark
+    if file.col then
       extmark_option.virt_text = { { '>', 'CurSearch' } }
       extmark_option.virt_text_pos = 'inline'
-    elseif file.col then
-      extmark_option.virt_text = { { '>', 'CurSearch' } }
-      extmark_option.virt_text_pos = 'inline'
-      extmark_option.hl_mode = 'combine'
+      if file.end_col then
+        extmark_option.end_col = file.end_col - 1
+        extmark_option.end_row = file.end_lnum and file.end_lnum - 1
+        extmark_option.hl_group = 'Visual'
+      elseif file.end_lnum then
+        -- If `end_col` is `nil` but `end_lnum` is not `nil`,
+        -- set the end of the highlight to the start of the next line of `end_lnum`.
+        extmark_option.end_col = 0
+        extmark_option.end_row = file.end_lnum
+        extmark_option.hl_group = 'Visual'
+      end
     end
-    vim.api.nvim_buf_set_extmark(buf, vim.api.nvim_create_namespace(('deck.x.open_preview_buffer:%s'):format(buf)),
-      file.lnum - 1, (file.col or 1) - 1, extmark_option)
+    if not extmark_option.hl_group then
+      extmark_option.line_hl_group = 'Visual'
+    end
+    local ns = vim.api.nvim_create_namespace(('deck.x.open_preview_buffer:%s'):format(buf))
+    vim.api.nvim_buf_set_extmark(buf, ns, file.lnum - 1, (file.col or 1) - 1, extmark_option)
   end
 
   -- set window.
