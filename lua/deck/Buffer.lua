@@ -78,7 +78,11 @@ end
 ---Return filtered items.
 ---@return deck.Item[]
 function Buffer:get_filtered_items()
-  return self._items_filtered
+  if self._query == '' then
+    return self._items
+  else
+    return self._items_filtered
+  end
 end
 
 ---Return rendered items.
@@ -146,35 +150,32 @@ end
 ---Filtering step.
 function Buffer:_step_filter()
   local config = self._start_config.performance
-  local s = vim.uv.hrtime() / 1e6
-  local c = 0
-  for i = self._cursor_filtered + 1, #self._items do
-    local item = self._items[i]
-    if self._query == '' then
-      -- fast path.
-      self._items_filtered[#self._items_filtered + 1] = item
-    else
+  if self._query == '' then
+    self._cursor_filtered = #self._items
+  else
+    local s = vim.uv.hrtime() / 1e6
+    local c = 0
+    for i = self._cursor_filtered + 1, #self._items do
+      local item = self._items[i]
       -- matching.
-      item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (
-        item.filter_text or item.display_text
-      ):lower()
+      item[symbols.filter_text_lower] = item[symbols.filter_text_lower] or (item.filter_text or item.display_text):lower()
       local matched = self._start_config.matcher.match(self._query, item[symbols.filter_text_lower]) > 0
       if matched then
         self._items_filtered[#self._items_filtered + 1] = item
       end
-    end
-    self._cursor_filtered = i
+      self._cursor_filtered = i
 
-    -- interrupt.
-    c = c + 1
-    if c >= config.filter_batch_size then
-      c = 0
-      local n = vim.uv.hrtime() / 1e6
-      if n - s > config.filter_bugdet_ms then
-        self._timer_filter:start(config.interrupt_ms, 0, function()
-          self:_step_filter()
-        end)
-        return
+      -- interrupt.
+      c = c + 1
+      if c >= config.filter_batch_size then
+        c = 0
+        local n = vim.uv.hrtime() / 1e6
+        if n - s > config.filter_bugdet_ms then
+          self._timer_filter:start(config.interrupt_ms, 0, function()
+            self:_step_filter()
+          end)
+          return
+        end
       end
     end
   end
@@ -193,6 +194,7 @@ function Buffer:_step_render()
   local s = vim.uv.hrtime() / 1e6
   local c = 0
 
+  local items_filtered = self:get_filtered_items()
   -- get max win height.
   local max_count = 0
   for _, win in ipairs(vim.api.nvim_list_wins()) do
@@ -204,7 +206,7 @@ function Buffer:_step_render()
 
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
-  should_render = should_render or (#self._items_filtered - self._cursor_rendered) > max_count
+  should_render = should_render or (#items_filtered - self._cursor_rendered) > max_count
   should_render = should_render or not self._timer_filter:is_running()
   if not should_render then
     self._timer_render:start(config.interrupt_ms, 0, function()
@@ -214,9 +216,9 @@ function Buffer:_step_render()
   end
 
   local lines = {}
-  while self._cursor_rendered < #self._items_filtered do
+  while self._cursor_rendered < #items_filtered do
     self._cursor_rendered = self._cursor_rendered + 1
-    local item = self._items_filtered[self._cursor_rendered]
+    local item = items_filtered[self._cursor_rendered]
     self._items_rendered[self._cursor_rendered] = item
     table.insert(lines, item.display_text)
 
