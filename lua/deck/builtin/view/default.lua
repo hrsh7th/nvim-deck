@@ -58,8 +58,22 @@ function default_view.create(config)
   ---@param ctx deck.Context
   ---@return integer
   local function calc_winheight(ctx)
+    local buf_height = vim.api.nvim_buf_line_count(ctx.buf)
+    if config.max_height <= buf_height then
+      return config.max_height
+    end
+    local extmarks = vim.api.nvim_buf_get_extmarks(ctx.buf, ctx.ns, 0, -1, {
+      type = 'virt_lines',
+      details = true,
+    })
+    for _, extmark in ipairs(extmarks) do
+      buf_height = buf_height + #extmark[4].virt_lines
+      if config.max_height <= buf_height then
+        return config.max_height
+      end
+    end
     local min_height = vim.o.laststatus == 0 and vim.o.cmdheight == 0 and 2 or 1
-    return math.max(min_height, math.min(vim.api.nvim_buf_line_count(ctx.buf), config.max_height))
+    return math.max(min_height, buf_height)
   end
 
   ---@param ctx deck.Context
