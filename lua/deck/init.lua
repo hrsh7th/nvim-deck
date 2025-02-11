@@ -32,7 +32,6 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field public virt_text_repeat_linebreak? boolean
 ---@field public virt_lines? deck.VirtualText[][]
 ---@field public virt_lines_above? boolean
----@field public ephemeral? boolean
 ---@field public priority? integer
 ---@field public sign_text? string
 ---@field public sign_hl_group? string

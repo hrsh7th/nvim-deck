@@ -305,7 +305,6 @@ require('deck').register_decorator({
           end_row = row,
           end_col = e + 1,
           conceal = '',
-          ephemeral = true,
         },
         -- Display the directory name as a comment at the end of the line
         {

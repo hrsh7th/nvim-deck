@@ -184,7 +184,7 @@ function Context.create(id, source, start_config)
         virt_text_repeat_linebreak = decoration.virt_text_repeat_linebreak,
         virt_lines = decoration.virt_lines,
         virt_lines_above = decoration.virt_lines_above,
-        ephemeral = decoration.ephemeral,
+        ephemeral = true,
         priority = decoration.priority,
         sign_text = decoration.sign_text,
         sign_hl_group = decoration.sign_hl_group,
@@ -199,7 +199,6 @@ function Context.create(id, source, start_config)
         if bufnr ~= context.buf then
           return
         end
-        vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
 
         for row = toprow, botrow do
           local item = buffer:get_rendered_items()[row + 1]

@@ -49,7 +49,6 @@ decorators.highlights = {
           col = hi[1],
           end_col = hi[2],
           hl_group = hi.hl_group,
-          ephemeral = true,
         })
       end
     end
@@ -92,7 +91,6 @@ decorators.query_matches = {
         col = match[1],
         end_col = match[2],
         hl_group = 'Search',
-        ephemeral = true,
       })
     end
     return decorations
@@ -128,7 +126,6 @@ do
           virt_text = { { modified and '[+]' or '', 'SpecialKey' }, { ' ' }, { ('#%s'):format(buf), 'Comment' }, },
           virt_text_pos = 'eol',
           hl_mode = 'combine',
-          ephemeral = true,
         })
       end
 
