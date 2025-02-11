@@ -45,6 +45,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
 ---@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }
 
+---@doc.type
 ---@class deck.ItemSpecifier
 ---@field public display_text string|(deck.VirtualText[])
 ---@field public highlights? deck.Highlight[]
@@ -133,6 +134,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field public prompt fun(ctx: deck.Context)
 ---@field public scroll_preview fun(ctx: deck.Context, delta: integer)
 
+---@doc.type
 ---@class deck.StartConfigSpecifier
 ---@field public name? string
 ---@field public view? fun(): deck.View
@@ -156,6 +158,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field public dedup boolean
 ---@field public query string
 
+---@doc.type
 ---@class deck.ConfigSpecifier
 ---@field public guicursor? string
 ---@field public max_history_size? integer
