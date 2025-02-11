@@ -36,11 +36,9 @@ local function shallow_equals(a, b)
   return true
 end
 
-local default_view = {}
-
 ---@param config { max_height: number }
 ---@return deck.View
-function default_view.create(config)
+return function(config)
   local spinner = {
     idx = 1,
     frame = { ".", "..", "...", "...." },
@@ -53,7 +51,7 @@ function default_view.create(config)
     cache = {} --[[@as table<string, table>]],
   }
 
-  local view
+  local view --[[@as deck.View]]
 
   ---@param ctx deck.Context
   ---@return integer
@@ -97,22 +95,24 @@ function default_view.create(config)
       end)
     end
 
-    -- update statusline.
-    spinner.idx = spinner.idx + 1
+    -- update status.
+    do
+      spinner.idx = spinner.idx + 1
 
-    local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
-    vim.api.nvim_set_option_value(
-      'statusline',
-      ('[%s] %s/%s%s'):format(
-        ctx.name,
-        #ctx.get_filtered_items(),
-        #ctx.get_items(),
-        is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
-      ),
-      {
-        win = state.win,
-      }
-    )
+      local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
+      vim.api.nvim_set_option_value(
+        'statusline',
+        ('[%s] %s/%s%s'):format(
+          ctx.name,
+          #ctx.get_filtered_items(),
+          #ctx.get_items(),
+          is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
+        ),
+        {
+          win = state.win,
+        }
+      )
+    end
 
     -- update preview.
     local item = ctx.get_cursor_item()
@@ -184,8 +184,8 @@ function default_view.create(config)
 
     ---Show window.
     show = function(ctx)
+      -- ensure main window.
       if not view.is_visible(ctx) then
-        -- wait for enough items.
         ctx.sync()
 
         -- open win.
@@ -234,7 +234,6 @@ function default_view.create(config)
       state.timer:start(0, 80, function()
         update(ctx)
       end)
-      vim.api.nvim_win_set_cursor(state.win, { ctx.get_cursor(), 0 })
     end,
 
     ---Hide window.
@@ -297,5 +296,3 @@ function default_view.create(config)
   } --[[@as deck.View]]
   return view
 end
-
-return default_view
