@@ -201,6 +201,7 @@ function Context.create(id, source, start_config)
         end
         vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
 
+        local decorators = context.get_decorators()
         for row = toprow, botrow do
           local item = buffer:get_rendered_items()[row + 1]
           if not item then
@@ -210,7 +211,7 @@ function Context.create(id, source, start_config)
           -- create cache.
           if not state.decoration_cache[item] then
             state.decoration_cache[item] = {}
-            for _, decorator in ipairs(context.get_decorators()) do
+            for _, decorator in ipairs(decorators) do
               if not decorator.dynamic then
                 if not decorator.resolve or decorator.resolve(context, item) then
                   for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
@@ -222,7 +223,7 @@ function Context.create(id, source, start_config)
           end
 
           -- apply.
-          for _, decorator in ipairs(context.get_decorators()) do
+          for _, decorator in ipairs(decorators) do
             if decorator.dynamic then
               if not decorator.resolve or decorator.resolve(context, item) then
                 for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
