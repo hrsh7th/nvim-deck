@@ -196,40 +196,43 @@ function Context.create(id, source, start_config)
 
     vim.api.nvim_set_decoration_provider(namespace, {
       on_win = function(_, _, bufnr, toprow, botrow)
-        if bufnr == context.buf then
-          vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
+        if bufnr ~= context.buf then
+          return
+        end
+        vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
 
-          for row = toprow, botrow do
-            local item = buffer:get_rendered_items()[row + 1]
-            if item then
-              -- create cache.
-              if not state.decoration_cache[item] then
-                state.decoration_cache[item] = {}
-                for _, decorator in ipairs(context.get_decorators()) do
-                  if not decorator.dynamic then
-                    if not decorator.resolve or decorator.resolve(context, item) then
-                      for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
-                        table.insert(state.decoration_cache[item], decoration)
-                      end
-                    end
+        for row = toprow, botrow do
+          local item = buffer:get_rendered_items()[row + 1]
+          if not item then
+            -- If `items[row + 1]` is nil, then `items[row + 2]` is also nil.
+            break
+          end
+          -- create cache.
+          if not state.decoration_cache[item] then
+            state.decoration_cache[item] = {}
+            for _, decorator in ipairs(context.get_decorators()) do
+              if not decorator.dynamic then
+                if not decorator.resolve or decorator.resolve(context, item) then
+                  for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
+                    table.insert(state.decoration_cache[item], decoration)
                   end
                 end
-              end
-
-              -- apply.
-              for _, decorator in ipairs(context.get_decorators()) do
-                if decorator.dynamic then
-                  if not decorator.resolve or decorator.resolve(context, item) then
-                    for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
-                      apply_decoration(row, decoration)
-                    end
-                  end
-                end
-              end
-              for _, decoration in ipairs(state.decoration_cache[item]) do
-                apply_decoration(row, decoration)
               end
             end
+          end
+
+          -- apply.
+          for _, decorator in ipairs(context.get_decorators()) do
+            if decorator.dynamic then
+              if not decorator.resolve or decorator.resolve(context, item) then
+                for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
+                  apply_decoration(row, decoration)
+                end
+              end
+            end
+          end
+          for _, decoration in ipairs(state.decoration_cache[item]) do
+            apply_decoration(row, decoration)
           end
         end
       end,
