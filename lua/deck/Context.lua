@@ -715,7 +715,7 @@ function Context.create(id, source, start_config)
           pattern = ('<buffer=%s>'):format(context.buf),
         })()
       else
-        cleanup()
+        kit.fast_schedule(cleanup)
       end
     end,
 
