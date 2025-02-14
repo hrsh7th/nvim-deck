@@ -392,7 +392,10 @@ return function(option)
                 end
                 return state.root
               end)()
-              local path = vim.fn.input('Create: ', parent_item.path .. '/')
+              local path = vim.fn.input(('Create: %s/'):format(parent_item.path), '')
+              if path == '' then
+                return
+              end
               if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
                 return require('deck.notify').show({ { 'Already exists: ' .. path } })
               end
@@ -414,7 +417,11 @@ return function(option)
             local item = ctx.get_cursor_item()
             if item then
               local parent_item = state:get_parent_item(item.data.entry)
-              local path = vim.fn.input('Rename: ', item.data.filename)
+              local path = vim.fn.input(('Rename: %s/'):format(vim.fs.dirname(item.data.filename)),
+                vim.fs.basename(item.data.filename))
+              if path == '' then
+                return
+              end
               IO.cp(item.data.filename, path, { recursive = true }):await()
               IO.rm(item.data.filename, { recursive = true }):await()
               if parent_item then
