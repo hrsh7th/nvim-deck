@@ -1,18 +1,24 @@
 local resolve_filename --[[@as (fun(category: string, filename: string):(string?, string?))?]]
-vim.api.nvim_create_autocmd('BufEnter', {
-  callback = function()
-    if vim.b.deck then
-      do -- mini.icons.
-        local ok, Icons = pcall(require, 'mini.icons')
-        if ok then
-          resolve_filename = function(category, filename)
-            return Icons.get(category, filename)
-          end
+do
+  local function detect()
+    do -- mini.icons.
+      local ok, Icons = pcall(require, 'mini.icons')
+      if ok then
+        resolve_filename = function(category, filename)
+          return Icons.get(category, filename)
         end
       end
     end
-  end,
-})
+  end
+  detect()
+  vim.api.nvim_create_autocmd('BufEnter', {
+    callback = function()
+      if vim.b.deck then
+        detect()
+      end
+    end,
+  })
+end
 
 local Icon = {}
 

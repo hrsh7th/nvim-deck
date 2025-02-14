@@ -252,6 +252,8 @@ return function(option)
       deck.alias_action('default', 'explorer.cd_or_open'),
       deck.alias_action('create', 'explorer.create'),
       deck.alias_action('delete', 'explorer.delete'),
+      deck.alias_action('rename', 'explorer.rename'),
+      deck.alias_action('refresh', 'explorer.refresh'),
       deck.alias_action('open', 'open_keep'),
       deck.alias_action('open_split', 'open_split_keep'),
       deck.alias_action('open_vsplit', 'open_vsplit_keep'),
@@ -402,6 +404,36 @@ return function(option)
               state:refresh(parent_item)
               ctx.execute()
             end
+          end)
+        end,
+      },
+      {
+        name = 'explorer.rename',
+        execute = function(ctx)
+          Async.run(function()
+            local item = ctx.get_cursor_item()
+            if item then
+              local parent_item = state:get_parent_item(item.data.entry)
+              local path = vim.fn.input('Rename: ', item.data.filename)
+              IO.cp(item.data.filename, path, { recursive = true }):await()
+              IO.rm(item.data.filename, { recursive = true }):await()
+              if parent_item then
+                state:refresh(parent_item)
+              end
+              ctx.execute()
+            end
+          end)
+        end,
+      },
+      {
+        name = 'explorer.refresh',
+        execute = function(ctx)
+          Async.run(function()
+            local config = state:get_config()
+            state = State.new(state.root.path)
+            state:set_config(config)
+            state:expand(state.root)
+            ctx.execute()
           end)
         end,
       }
