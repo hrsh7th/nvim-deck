@@ -12,8 +12,8 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field matcher_query string
 ---@field dynamic_query string
 ---@field select_all boolean
----@field select_map table<string, boolean>
----@field dedup_map table<deck.Item, boolean>
+---@field select_map table<deck.Item, boolean>
+---@field dedup_map table<string, boolean>
 ---@field preview_mode boolean
 ---@field is_syncing boolean
 ---@field controller deck.ExecuteContext.Controller?
