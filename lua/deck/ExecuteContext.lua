@@ -32,6 +32,11 @@ function ExecuteContext.create(params)
     ---Get current query.
     get_query = params.get_query,
 
+    ---Get start config.
+    get_config = function()
+      return params.context.get_config()
+    end,
+
     ---Noify item to main context.
     item = function(item_specifier)
       if aborted then
