@@ -71,13 +71,8 @@ function easy.setup(config)
         view = function()
           return require('deck.builtin.view.current_picker')()
         end,
-        actions = {
-          deck.alias_action('open', 'open_keep'),
-          deck.alias_action('open_split', 'open_split_keep'),
-          deck.alias_action('open_vsplit', 'open_vsplit_keep'),
-        },
         dedup = false,
-        disable_decorators = { 'filename' }
+        disable_decorators = { 'filename', 'signs' }
       })
     end)
     -- Register `files` start preset.

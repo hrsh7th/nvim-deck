@@ -226,6 +226,12 @@ return function(option)
   ---@type deck.Source
   return {
     name = 'explorer',
+    events = {
+      BufWinEnter = function()
+        require('deck.builtin.source.recent_dirs'):add(state.root.path)
+        vim.cmd.lcd(vim.fn.fnameescape(state.root.path))
+      end,
+    },
     execute = function(ctx)
       Async.run(function()
         state:expand(state.root)
@@ -246,6 +252,9 @@ return function(option)
       deck.alias_action('default', 'explorer.cd_or_open'),
       deck.alias_action('create', 'explorer.create'),
       deck.alias_action('delete', 'explorer.delete'),
+      deck.alias_action('open', 'open_keep'),
+      deck.alias_action('open_split', 'open_split_keep'),
+      deck.alias_action('open_vsplit', 'open_vsplit_keep'),
       {
         name = 'explorer.cd_or_open',
         execute = function(ctx)
@@ -396,6 +405,26 @@ return function(option)
           end)
         end,
       }
-    }
+    },
+    decorators = {
+      {
+        name = 'explorer.selection',
+        decorate = function(ctx, item)
+          local signs = {}
+          if ctx.get_selected(item) then
+            table.insert(signs, '▌')
+          else
+            table.insert(signs, ' ')
+          end
+          return {
+            {
+              col = 0,
+              sign_text = table.concat(signs),
+              sign_hl_group = 'SignColumn',
+            },
+          }
+        end,
+      }
+    },
   }
 end
