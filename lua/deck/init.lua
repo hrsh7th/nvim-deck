@@ -76,6 +76,7 @@ local Context = require('deck.Context')
 ---@field public item fun(item: deck.ItemSpecifier)
 ---@field public done fun( )
 ---@field public get_query fun(): string
+---@field public get_config fun(): deck.StartConfig
 ---@field public aborted fun(): boolean
 ---@field public on_abort fun(callback: fun())
 

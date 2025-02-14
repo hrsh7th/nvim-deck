@@ -1,7 +1,7 @@
 local kit   = require('deck.kit')
 local IO    = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
-local Icon  = require('deck.x.Icon')
+local misc = require('deck.builtin.source.explorer.misc')
 
 ---@class deck.builtin.source.explorer.Entry
 ---@field public path string
@@ -11,64 +11,6 @@ local Icon  = require('deck.x.Icon')
 ---@field public depth integer
 ---@field public expanded boolean
 ---@field public children? deck.builtin.source.explorer.Item[]
-
----Sort entries.
----@param item deck.builtin.source.explorer.Item
----@return deck.builtin.source.explorer.Item[]
-local function get_children(item)
-  local entries = IO.scandir(item.path):await()
-  table.sort(entries, function(a, b)
-    if a.type ~= b.type then
-      return a.type == 'directory'
-    end
-    return a.path < b.path
-  end)
-  return vim.iter(entries):map(function(entry)
-    return {
-      path = entry.path,
-      type = entry.type,
-      expanded = false,
-      depth = item.depth + 1,
-    }
-  end):totable()
-end
-
----Create display text.
----@param state deck.builtin.source.explorer.State
----@param entry deck.builtin.source.explorer.Entry
----@param depth integer
----@return deck.VirtualText[]
-local function create_display_text(state, entry, depth)
-  local parts = {}
-
-  -- indent.
-  table.insert(parts, { string.rep(' ', depth * 2) })
-  if entry.type == 'directory' then
-    -- expander
-    if state:is_expanded(entry) then
-      table.insert(parts, { '' })
-    else
-      table.insert(parts, { '' })
-    end
-    -- sep
-    table.insert(parts, { ' ' })
-    -- icon
-    local icon, hl = Icon.filename(entry.path)
-    table.insert(parts, { icon or ' ', hl })
-  else
-    -- expander
-    table.insert(parts, { ' ' })
-    -- sep
-    table.insert(parts, { ' ' })
-    -- icon
-    local icon, hl = Icon.filename(entry.path)
-    table.insert(parts, { icon or ' ', hl })
-  end
-  -- sep
-  table.insert(parts, { ' ' })
-  table.insert(parts, { vim.fs.basename(entry.path) })
-  return parts
-end
 
 ---Focus target item.
 ---@param ctx deck.Context
@@ -157,7 +99,7 @@ function State:expand(entry)
   if item and item.type == 'directory' and not item.expanded then
     item.expanded = true
     if not item.children then
-      item.children = get_children(item)
+      item.children = misc.get_children(item, item.depth)
     end
   end
 end
@@ -174,7 +116,7 @@ end
 function State:refresh(entry)
   local item = self:get_item(entry)
   if item and item.type == 'directory' then
-    item.children = get_children(item)
+    item.children = misc.get_children(item, item.depth)
   end
 end
 
@@ -232,12 +174,26 @@ return function(option)
         vim.cmd.lcd(vim.fn.fnameescape(state.root.path))
       end,
     },
+    parse_query = function(query)
+      return {
+        dynamic_query = query
+      }
+    end,
     execute = function(ctx)
+      if ctx.get_query() ~= '' then
+        local narrow = require('deck.builtin.source.explorer.narrow')({
+          cwd = state.root.path,
+          ignore_globs = {},
+        })
+        narrow.execute(ctx)
+        return
+      end
+
       Async.run(function()
         state:expand(state.root)
         for item in state:iter() do
           ctx.item({
-            display_text = create_display_text(state, item, item.depth),
+            display_text = misc.create_display_text(item, item.expanded, item.depth),
             data = {
               filename = item.path,
               entry = item,
