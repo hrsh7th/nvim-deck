@@ -54,43 +54,57 @@ function easy.setup(config)
   -- You can use registered presets by `:Deck` command.
   do
     -- Register `explorer` start preset.
-    deck.register_start_preset('explorer', function()
-      local bufnr = vim.api.nvim_get_current_buf()
+    deck.register_start_preset({
+      name = 'explorer',
+      args = {
+        ['--width'] = {
+          required = false,
+        },
+        ['--cwd'] = {
+          required = false,
+        },
+      },
+      start = function(args)
+        local option = {
+          width = args['--width'] or 40,
+          cwd = args['--cwd'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
+        }
 
-      -- open or move.
-      local existing_win --[[@as integer?]]
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_explorer')
-        if ok and v then
-          existing_win = win
-          break
+        -- open or move.
+        local existing_win --[[@as integer?]]
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_explorer')
+          if ok and v then
+            existing_win = win
+            break
+          end
         end
-      end
-      if existing_win then
-        vim.api.nvim_set_current_win(existing_win)
-      else
-        vim.cmd(('noautocmd keepalt keepjumps %s %s%s +%sbuffer'):format(
-          'topleft',
-          40,
-          'vsplit',
-          vim.api.nvim_create_buf(false, true)
-        ))
-        vim.api.nvim_win_set_var(0, 'deck_explorer', true)
-        vim.api.nvim_set_option_value('winfixwidth', true, { win = 0 })
-      end
+        if existing_win then
+          vim.api.nvim_set_current_win(existing_win)
+        else
+          vim.cmd(('noautocmd keepalt keepjumps %s %s%s +%sbuffer'):format(
+            'topleft',
+            option.width,
+            'vsplit',
+            vim.api.nvim_create_buf(false, true)
+          ))
+          vim.api.nvim_win_set_var(0, 'deck_explorer', true)
+          vim.api.nvim_set_option_value('winfixwidth', true, { win = 0 })
+        end
 
-      deck.start({
-        require('deck.builtin.source.explorer')({
-          cwd = config.get_buffer_path(bufnr),
-        }),
-      }, {
-        view = function()
-          return require('deck.builtin.view.current_picker')()
-        end,
-        dedup = false,
-        disable_decorators = { 'filename', 'signs' }
-      })
-    end)
+        deck.start({
+          require('deck.builtin.source.explorer')({
+            cwd = option.cwd,
+          }),
+        }, {
+          view = function()
+            return require('deck.builtin.view.current_picker')()
+          end,
+          dedup = false,
+          disable_decorators = { 'filename', 'signs' }
+        })
+      end
+    })
     -- Register `files` start preset.
     deck.register_start_preset('files', function()
       deck.start({
