@@ -49,7 +49,7 @@ do
           return vim.api.nvim_win_is_valid(win) and vim.api.nvim_get_option_value('buftype', {
             buf = vim.api.nvim_win_get_buf(win),
           }) == ''
-        end) or win_history[1] or vim.api.nvim_get_current_win()
+        end) or vim.api.nvim_get_current_win()
         for _, item in ipairs(ctx.get_action_items()) do
           vim.api.nvim_set_current_win(win)
 
@@ -93,15 +93,6 @@ do
   action.open = create_open_action('open', {})
   --[=[@doc
     category = "action"
-    name = "open_keep"
-    desc = """
-      Open `item.data.filename` or `item.data.bufnr`.\n
-      But keep the deck window and cursor.
-    """
-  ]=]
-  action.open_keep = create_open_action('open_keep', { keep = true })
-  --[=[@doc
-    category = "action"
     name = "open_split"
     desc = """
       Open `item.data.filename` or `item.data.bufnr`.\n
@@ -118,6 +109,35 @@ do
     """
   ]=]
   action.open_vsplit = create_open_action('open_vsplit', { split = 'vertical' })
+  --[=[@doc
+    category = "action"
+    name = "open_keep"
+    desc = """
+      Open `item.data.filename` or `item.data.bufnr`.\n
+      But keep the deck window and cursor.
+    """
+  ]=]
+  action.open_keep = create_open_action('open_keep', { keep = true })
+  --[=[@doc
+    category = "action"
+    name = "open_split_keep"
+    desc = """
+      Open `item.data.filename` or `item.data.bufnr`.\n
+      Open at the recently normal window with split.
+      But keep the deck window and cursor.
+    """
+  ]=]
+  action.open_split_keep = create_open_action('open_split_keep', { split = 'horizontal', keep = true })
+  --[=[@doc
+    category = "action"
+    name = "open_vsplit_keep"
+    desc = """
+      Open `item.data.filename` or `item.data.bufnr`.\n
+      Open at the recently normal window with vsplit.
+      But keep the deck window and cursor.
+    """
+  ]=]
+  action.open_vsplit_keep = create_open_action('open_vsplit_keep', { split = 'vertical', keep = true })
   --[=[@doc
     category = "action"
     name = "open_tabnew"

@@ -89,7 +89,7 @@ function Context.create(id, source, start_config)
   ---@type deck.Context.State
   local state = {
     status = Context.Status.Waiting,
-    cursor = 1,
+    cursor = vim.api.nvim_win_get_cursor(0)[1],
     query = start_config.query or '',
     matcher_query = '',
     dynamic_query = '',
@@ -665,7 +665,7 @@ function Context.create(id, source, start_config)
         rhs(context)
         state.decoration_cache = {}
       end, {
-        desc = 'deck.action',
+        desc = 'deck.keymap',
         nowait = true,
         buffer = context.buf,
       })

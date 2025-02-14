@@ -3,6 +3,7 @@ local augroup = vim.api.nvim_create_augroup('deck.easy', { clear = true })
 ---@class deck.easy.Config
 ---@field ignore_globs? string[]
 ---@field get_cwd? fun(): string
+---@field get_buffer_path? fun(bufnr: number): string
 
 local easy = {}
 
@@ -10,11 +11,21 @@ local easy = {}
 ---@param config? deck.easy.Config
 function easy.setup(config)
   config = config or {}
-  config.get_cwd = config.get_cwd or vim.fn.getcwd
   config.ignore_globs = config.ignore_globs or {
     '**/node_modules/**',
     '**/.git/**',
   }
+  config.get_cwd = config.get_cwd or vim.fn.getcwd
+  config.get_buffer_path = config.get_buffer_path or function(bufnr)
+    local path = vim.fs.normalize(vim.api.nvim_buf_get_name(bufnr))
+    if vim.fn.isdirectory(path) == 1 then
+      return path
+    end
+    if vim.fn.filereadable(path) == 1 then
+      return vim.fn.fnamemodify(path, ':h')
+    end
+    return config.get_cwd()
+  end
 
   local deck = require('deck')
 
@@ -42,6 +53,33 @@ function easy.setup(config)
   -- Setup start presets.
   -- You can use registered presets by `:Deck` command.
   do
+    -- Register `explorer` start preset.
+    deck.register_start_preset('explorer', function()
+      local bufnr = vim.api.nvim_get_current_buf()
+      vim.cmd(('noautocmd keepalt keepjumps %s %s%s +%sbuffer'):format(
+        'topleft',
+        40,
+        'vsplit',
+        vim.api.nvim_create_buf(false, true)
+      ))
+      vim.api.nvim_set_option_value('winfixwidth', true, { win = 0 })
+      deck.start({
+        require('deck.builtin.source.explorer')({
+          cwd = config.get_buffer_path(bufnr),
+        }),
+      }, {
+        view = function()
+          return require('deck.builtin.view.current_picker')()
+        end,
+        actions = {
+          deck.alias_action('open', 'open_keep'),
+          deck.alias_action('open_split', 'open_split_keep'),
+          deck.alias_action('open_vsplit', 'open_vsplit_keep'),
+        },
+        dedup = false,
+        disable_decorators = { 'filename' }
+      })
+    end)
     -- Register `files` start preset.
     deck.register_start_preset('files', function()
       deck.start({

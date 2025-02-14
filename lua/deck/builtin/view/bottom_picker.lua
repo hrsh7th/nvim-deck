@@ -174,10 +174,11 @@ return function(config)
             break
           end
         end
+
+        -- open or move.
         if existing_deck_win then
           vim.api.nvim_set_current_win(existing_deck_win)
         else
-          -- open new window.
           local height = calc_winheight(ctx)
           vim.cmd.split({
             range = { height },
