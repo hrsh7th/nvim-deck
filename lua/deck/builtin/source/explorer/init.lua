@@ -195,6 +195,7 @@ end
 
 ---@class deck.builtin.source.explorer.Option
 ---@field cwd string
+---@field mode 'drawer' | 'filer'
 ---@field narrow_ignore_globs? string[]
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
@@ -278,15 +279,16 @@ return function(option)
         ctx.done()
       end)
     end,
-    actions = {
+    actions = kit.concat(option.mode == 'drawer' and {
+      deck.alias_action('open', 'open_keep'),
+      deck.alias_action('open_split', 'open_split_keep'),
+      deck.alias_action('open_vsplit', 'open_vsplit_keep'),
+    } or {}, {
       deck.alias_action('default', 'explorer.cd_or_open'),
       deck.alias_action('create', 'explorer.create'),
       deck.alias_action('delete', 'explorer.delete'),
       deck.alias_action('rename', 'explorer.rename'),
       deck.alias_action('refresh', 'explorer.refresh'),
-      deck.alias_action('open', 'open_keep'),
-      deck.alias_action('open_split', 'open_split_keep'),
-      deck.alias_action('open_vsplit', 'open_vsplit_keep'),
       {
         name = 'explorer.get_cwd',
         execute = function()
@@ -573,7 +575,7 @@ return function(option)
           end)
         end,
       }
-    },
+    }),
     decorators = {
       {
         name = 'explorer.selection',

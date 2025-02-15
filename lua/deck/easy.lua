@@ -95,6 +95,7 @@ function easy.setup(config)
         deck.start({
           require('deck.builtin.source.explorer')({
             cwd = option.cwd,
+            mode = 'drawer',
             narrow_ignore_globs = config.ignore_globs,
           }),
         }, {
