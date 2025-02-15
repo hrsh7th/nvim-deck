@@ -12,8 +12,9 @@ local misc = {}
 function misc.create_display_text(entry, is_expanded, depth)
   local parts = {}
 
-  -- indent.
+  -- indent
   table.insert(parts, { string.rep(' ', depth) })
+
   if entry.type == 'directory' then
     -- expander
     if is_expanded then
@@ -21,16 +22,13 @@ function misc.create_display_text(entry, is_expanded, depth)
     else
       table.insert(parts, { '' })
     end
-    -- sep
     table.insert(parts, { ' ' })
     -- icon
     local icon, hl = Icon.filename(entry.path)
     table.insert(parts, { icon or ' ', hl })
   else
-    -- expander
-    table.insert(parts, { ' ' })
-    -- sep
-    table.insert(parts, { ' ' })
+    -- expander area
+    table.insert(parts, { '  ' })
     -- icon
     local icon, hl = Icon.filename(entry.path)
     table.insert(parts, { icon or ' ', hl })
