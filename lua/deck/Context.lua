@@ -60,7 +60,7 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field get_previewer fun(): deck.Previewer?
 ---@field sync fun()
 ---@field keymap fun(mode: string|string[], lhs: string, rhs: fun(ctx: deck.Context))
----@field do_action fun(name: string)
+---@field do_action fun(name: string): any
 ---@field dispose fun()
 ---@field disposed fun(): boolean
 ---@field on_show fun(callback: fun())
@@ -671,22 +671,37 @@ function Context.create(id, source, start_config)
       })
     end,
 
-    ---Do specified action.
-    ---@param name string
-    do_action = function(name)
-      for _, action in ipairs(context.get_actions()) do
-        if action.name == name then
-          if not action.resolve or action.resolve(context) then
-            action.execute(context)
-            state.decoration_cache = {}
-            return
+    do_action = (function()
+      local nested = 0
+      ---Do specified action.
+      ---@param name string
+      ---@return any
+      return function(name)
+        nested = nested + 1
+        local ok, v = pcall(function()
+          for _, action in ipairs(context.get_actions()) do
+            if action.name == name then
+              if not action.resolve or action.resolve(context) then
+                return action.execute(context)
+              end
+            end
+          end
+          error(('Available Action not found: %s'):format(name))
+        end)
+        nested = nested - 1
+        if not ok then
+          if nested > 0 then
+            error(v)
+          else
+            notify.show({
+              { { v, 'WarningMsg' } },
+            })
           end
         end
+        state.decoration_cache = {}
+        return v
       end
-      notify.show({
-        { { ('Available Action not found: %s'):format(name), 'WarningMsg' } },
-      })
-    end,
+    end)(),
 
     ---Dispose context.
     dispose = function()

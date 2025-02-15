@@ -253,6 +253,12 @@ return function(option)
       deck.alias_action('open_split', 'open_split_keep'),
       deck.alias_action('open_vsplit', 'open_vsplit_keep'),
       {
+        name = 'explorer.get_cwd',
+        execute = function()
+          return state.cwd
+        end,
+      },
+      {
         name = 'explorer.cd_or_open',
         execute = function(ctx)
           local item = ctx.get_cursor_item()

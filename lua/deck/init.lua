@@ -93,7 +93,7 @@ local Context = require('deck.Context')
 ---@alias deck.ActionResolveFunction fun(ctx: deck.Context): any
 
 ---@doc.type
----@alias deck.ActionExecuteFunction fun(ctx: deck.Context)
+---@alias deck.ActionExecuteFunction fun(ctx: deck.Context): any
 
 ---@doc.type
 ---@class deck.Decorator
