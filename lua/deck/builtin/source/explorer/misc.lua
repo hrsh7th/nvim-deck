@@ -1,5 +1,6 @@
 local Icon = require('deck.x.Icon')
 local IO = require('deck.kit.IO')
+local System = require('deck.kit.System')
 
 local misc = {}
 
@@ -70,6 +71,84 @@ function misc.get_depth(base, path)
   path = path:gsub('/$', '')
   local diff = path:gsub(vim.pesc(base), ''):gsub('[^/]', '')
   return #vim.split(diff, '/')
+end
+
+do
+  ---@alias deck.builtin.source.explorer.misc.NarrowFinder fun(root_dir: string, ignore_globs: string[], on_abort: (fun(callback: fun())), aborted: (fun(): boolean), on_path: fun(path: string), on_done: fun())
+
+  ---@type deck.builtin.source.explorer.misc.NarrowFinder
+  local function ripgrep(root_dir, ignore_globs, on_abort, _, on_path, on_done)
+    local command = { 'rg', '--files', '-.', '--sort=path' }
+    for _, glob in ipairs(ignore_globs or {}) do
+      table.insert(command, '--glob')
+      table.insert(command, '!' .. glob)
+    end
+
+    root_dir = vim.fs.normalize(root_dir)
+    on_abort(System.spawn(command, {
+      cwd = root_dir,
+      env = {},
+      buffering = System.LineBuffering.new({
+        ignore_empty = true,
+      }),
+      on_stdout = function(text)
+        if vim.startswith(text, './') then
+          text = text:sub(3)
+        end
+        on_path(('%s/%s'):format(root_dir, text))
+      end,
+      on_stderr = function()
+        -- noop
+      end,
+      on_exit = function()
+        on_done()
+      end,
+    }))
+  end
+
+  ---@type deck.builtin.source.explorer.misc.NarrowFinder
+  local function walk(root_dir, ignore_globs, _, aborted, on_path, on_done)
+    local ignore_glob_patterns = vim
+        .iter(ignore_globs or {})
+        :map(function(glob)
+          return vim.glob.to_lpeg(glob)
+        end)
+        :totable()
+
+    IO.walk(root_dir, function(err, entry)
+      if err then
+        return
+      end
+      if aborted() then
+        return IO.WalkStatus.Break
+      end
+      for _, ignore_glob in ipairs(ignore_glob_patterns) do
+        if ignore_glob:match(entry.path) then
+          if entry.type ~= 'file' then
+            return IO.WalkStatus.SkipDir
+          end
+          return
+        end
+      end
+
+      if entry.type == 'file' then
+        on_path(entry.path)
+      end
+    end, {
+      postorder = true,
+    }):next(function()
+      on_done()
+    end)
+  end
+
+  ---@type deck.builtin.source.explorer.misc.NarrowFinder
+  function misc.narrow(root_dir, ignore_globs, on_abort, aborted, on_path, on_done)
+    if vim.fn.executable('rg') == 1 then
+      ripgrep(root_dir, ignore_globs, on_abort, aborted, on_path, on_done)
+    else
+      walk(root_dir, ignore_globs, on_abort, aborted, on_path, on_done)
+    end
+  end
 end
 
 return misc

@@ -160,6 +160,7 @@ end
 
 ---@class deck.builtin.source.explorer.Option
 ---@field cwd string
+---@field narrow_ignore_globs? string[]
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
   local deck = require('deck')
@@ -180,13 +181,51 @@ return function(option)
       }
     end,
     execute = function(ctx)
-      if ctx.get_query() ~= '' then
-        local narrow = require('deck.builtin.source.explorer.narrow')({
-          cwd = state.root.path,
-          ignore_globs = {},
-        })
-        narrow.execute(ctx)
-        return
+      -- narrow.
+      do
+        if ctx.get_query() ~= '' then
+          local added_parents = {}
+          ---@param entry deck.builtin.source.explorer.Entry
+          local function add(entry)
+            local depth = misc.get_depth(option.cwd, entry.path)
+            ctx.item({
+              display_text = misc.create_display_text(entry, entry.type == 'directory', depth),
+              data = {
+                filename = entry.path,
+                entry = entry,
+                depth = depth,
+              },
+            })
+          end
+          misc.narrow(option.cwd, option.narrow_ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
+            ctx.queue(function()
+              local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path):lower())
+              if score == 0 then
+                return
+              end
+              local parents = {}
+              do
+                local parent = vim.fs.dirname(path)
+                while parent and not added_parents[parent] and #option.cwd <= #parent do
+                  added_parents[parent] = true
+                  table.insert(parents, {
+                    path = parent,
+                    type = 'directory',
+                  })
+                  parent = vim.fs.dirname(parent)
+                end
+              end
+              for i = #parents, 1, -1 do
+                add(parents[i])
+              end
+              add({
+                path = path,
+                type = 'file',
+              })
+            end)
+          end, ctx.done)
+          return
+        end
       end
 
       Async.run(function()
