@@ -144,6 +144,7 @@ local Context = require('deck.Context')
 ---@field public filter_bugdet_ms integer
 ---@field public filter_batch_size integer
 ---@field public render_bugdet_ms integer
+---@field public render_batch_size integer
 ---@field public render_delay_ms integer
 
 ---@doc.type

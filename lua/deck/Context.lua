@@ -269,6 +269,10 @@ function Context.create(id, source, start_config)
 
     ---Show context via given view.
     show = function()
+      if context.disposed() then
+        return
+      end
+
       buffer:start_filtering()
 
       local to_show = not context.is_visible()
