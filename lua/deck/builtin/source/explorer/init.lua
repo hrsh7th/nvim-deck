@@ -187,7 +187,7 @@ return function(option)
           local added_parents = {}
           ---@param entry deck.builtin.source.explorer.Entry
           local function add(entry)
-            local depth = misc.get_depth(option.cwd, entry.path)
+            local depth = misc.get_depth_from_path(option.cwd, entry.path)
             ctx.item({
               display_text = misc.create_display_text(entry, entry.type == 'directory', depth),
               data = {
@@ -260,6 +260,11 @@ return function(option)
       },
       {
         name = 'explorer.cd_or_open',
+        resolve = function(ctx)
+          if ctx.get_query() ~= '' then
+            return false
+          end
+        end,
         execute = function(ctx)
           local item = ctx.get_cursor_item()
           if item and item.data.filename then
@@ -276,6 +281,9 @@ return function(option)
       {
         name = 'explorer.expand',
         resolve = function(ctx)
+          if ctx.get_query() ~= '' then
+            return false
+          end
           local item = ctx.get_cursor_item()
           return item and not state:is_expanded(item.data.entry) and item.data.entry.type == 'directory'
         end,
@@ -292,6 +300,11 @@ return function(option)
       },
       {
         name = 'explorer.collapse',
+        resolve = function(ctx)
+          if ctx.get_query() ~= '' then
+            return false
+          end
+        end,
         execute = function(ctx)
           Async.run(function()
             local item = ctx.get_cursor_item()
@@ -313,6 +326,11 @@ return function(option)
       },
       {
         name = 'explorer.cd_up',
+        resolve = function(ctx)
+          if ctx.get_query() ~= '' then
+            return false
+          end
+        end,
         execute = function(ctx)
           deck.start(require('deck.builtin.source.explorer')({
             cwd = vim.fs.dirname(state.root.path),
@@ -322,6 +340,11 @@ return function(option)
       },
       {
         name = 'explorer.toggle_dotfiles',
+        resolve = function(ctx)
+          if ctx.get_query() ~= '' then
+            return false
+          end
+        end,
         execute = function(ctx)
           state:set_config(kit.merge({
             dotfiles = not state:get_config().dotfiles,
@@ -351,36 +374,6 @@ return function(option)
               }
             }
           })
-        end,
-      },
-      {
-        name = 'explorer.delete',
-        execute = function(ctx)
-          Async.run(function()
-            local items = ctx.get_action_items()
-            table.sort(items, function(a, b)
-              return a.data.entry.depth > b.data.entry.depth
-            end)
-
-            if vim.fn.confirm('Delete ' .. #items .. ' items?', 'Yes\nNo') ~= 1 then
-              return
-            end
-
-            local to_refresh = {}
-            for _, item in ipairs(items) do
-              to_refresh[state:get_parent_item(item.data.entry)] = true
-              if item.data.entry.type == 'directory' then
-                vim.fn.delete(item.data.entry.path, 'rf')
-              else
-                vim.fn.delete(item.data.entry.path)
-              end
-            end
-
-            for entry, _ in pairs(to_refresh) do
-              state:refresh(entry)
-            end
-            ctx.execute()
-          end)
         end,
       },
       {
@@ -414,6 +407,36 @@ return function(option)
               state:refresh(parent_item)
               ctx.execute()
             end
+          end)
+        end,
+      },
+      {
+        name = 'explorer.delete',
+        execute = function(ctx)
+          Async.run(function()
+            local items = ctx.get_action_items()
+            table.sort(items, function(a, b)
+              return a.data.entry.depth > b.data.entry.depth
+            end)
+
+            if vim.fn.confirm('Delete ' .. #items .. ' items?', 'Yes\nNo') ~= 1 then
+              return
+            end
+
+            local to_refresh = {}
+            for _, item in ipairs(items) do
+              to_refresh[state:get_parent_item(item.data.entry)] = true
+              if item.data.entry.type == 'directory' then
+                vim.fn.delete(item.data.entry.path, 'rf')
+              else
+                vim.fn.delete(item.data.entry.path)
+              end
+            end
+
+            for entry, _ in pairs(to_refresh) do
+              state:refresh(entry)
+            end
+            ctx.execute()
           end)
         end,
       },

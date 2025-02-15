@@ -13,7 +13,7 @@ function misc.create_display_text(entry, is_expanded, depth)
   local parts = {}
 
   -- indent.
-  table.insert(parts, { string.rep(' ', depth * 2) })
+  table.insert(parts, { string.rep(' ', depth) })
   if entry.type == 'directory' then
     -- expander
     if is_expanded then
@@ -66,11 +66,11 @@ end
 ---Get depth of path.
 ---@param base string
 ---@param path string
-function misc.get_depth(base, path)
+function misc.get_depth_from_path(base, path)
   base = base:gsub('/$', '')
   path = path:gsub('/$', '')
   local diff = path:gsub(vim.pesc(base), ''):gsub('[^/]', '')
-  return #vim.split(diff, '/')
+  return #vim.split(diff, '/') - 1
 end
 
 do
