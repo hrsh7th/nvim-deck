@@ -63,6 +63,7 @@ return function(option)
           if item and item.data.action then
             prev_ctx.show()
             item.data.action.execute(prev_ctx)
+            next_ctx.hide()
             next_ctx.dispose()
           end
         end,
