@@ -1,3 +1,5 @@
+local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
+
 ---@class deck.ExecuteContext.Controller
 ---@field public abort fun()
 
@@ -15,7 +17,34 @@ local ExecuteContext = {}
 function ExecuteContext.create(params)
   local done = false
   local aborted = false
-  local on_aborts = {}
+  local on_aborts = {} ---@type fun()[]
+  local gather_cursor = 0
+  local gather_queue = {} ---@type fun()[]
+  local gather_queue_timer = ScheduledTimer.new()
+  local gather_step
+  gather_step = function()
+    if aborted then
+      return
+    end
+    local config = params.context.get_config().performance
+
+    local c = 0
+    local s = vim.uv.hrtime() / 1e6
+    while gather_cursor < #gather_queue do
+      gather_cursor = gather_cursor + 1
+      gather_queue[gather_cursor]()
+
+      c = c + 1
+      if c >= config.gather_batch_size then
+        c = 0
+        local n = vim.uv.hrtime() / 1e6
+        if n - s > config.gather_budget_ms then
+          gather_queue_timer:start(config.interrupt_ms, 0, gather_step)
+          return
+        end
+      end
+    end
+  end
 
   local execute_context
   execute_context = {
@@ -35,6 +64,17 @@ function ExecuteContext.create(params)
     ---Get start config.
     get_config = function()
       return params.context.get_config()
+    end,
+
+    ---Add task for queue.
+    queue = function(task)
+      if aborted then
+        return
+      end
+      table.insert(gather_queue, task)
+      if not gather_queue_timer:is_running() then
+        gather_queue_timer:start(0, 0, gather_step)
+      end
     end,
 
     ---Noify item to main context.

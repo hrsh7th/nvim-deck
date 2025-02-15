@@ -95,31 +95,33 @@ return function(option)
 
       local seen = {}
       local function on_path(path)
-        local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path):lower())
-        if score == 0 then
-          return
-        end
+        ctx.queue(function()
+          local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path):lower())
+          if score == 0 then
+            return
+          end
 
-        kit.fast_schedule(function()
-          local parents = {}
-          do
-            local parent = vim.fs.dirname(path)
-            while parent and not seen[parent] and #option.cwd <= #parent do
-              seen[parent] = true
-              table.insert(parents, {
-                path = parent,
-                type = 'directory',
-              })
-              parent = vim.fs.dirname(parent)
+          kit.fast_schedule(function()
+            local parents = {}
+            do
+              local parent = vim.fs.dirname(path)
+              while parent and not seen[parent] and #option.cwd <= #parent do
+                seen[parent] = true
+                table.insert(parents, {
+                  path = parent,
+                  type = 'directory',
+                })
+                parent = vim.fs.dirname(parent)
+              end
             end
-          end
-          for i = #parents, 1, -1 do
-            add(parents[i])
-          end
-          add({
-            path = path,
-            type = 'file',
-          })
+            for i = #parents, 1, -1 do
+              add(parents[i])
+            end
+            add({
+              path = path,
+              type = 'file',
+            })
+          end)
         end)
       end
 

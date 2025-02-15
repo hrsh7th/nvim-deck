@@ -1,7 +1,7 @@
 local kit   = require('deck.kit')
 local IO    = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
-local misc = require('deck.builtin.source.explorer.misc')
+local misc  = require('deck.builtin.source.explorer.misc')
 
 ---@class deck.builtin.source.explorer.Entry
 ---@field public path string
@@ -287,19 +287,25 @@ return function(option)
       {
         name = 'explorer.dirs',
         execute = function(explorer_ctx)
-          local ctx = deck.start({
+          deck.start({
             require('deck.builtin.source.recent_dirs')(),
             require('deck.builtin.source.dirs')({
               root_dir = state.root.path,
             })
+          }, {
+            actions = {
+              {
+                name = 'default',
+                execute = function(ctx)
+                  explorer_ctx.focus()
+                  deck.start(require('deck.builtin.source.explorer')({
+                    cwd = ctx.get_cursor_item().data.filename
+                  }), explorer_ctx.get_config())
+                  ctx.hide()
+                end,
+              }
+            }
           })
-          ctx.keymap('n', '<CR>', function()
-            explorer_ctx.focus()
-            deck.start(require('deck.builtin.source.explorer')({
-              cwd = ctx.get_cursor_item().data.filename
-            }), explorer_ctx.get_config())
-            ctx.hide()
-          end)
         end,
       },
       {
