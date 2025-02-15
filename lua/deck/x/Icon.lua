@@ -13,9 +13,7 @@ do
   detect()
   vim.api.nvim_create_autocmd('BufEnter', {
     callback = function()
-      if vim.b.deck then
-        detect()
-      end
+      detect()
     end,
   })
 end
