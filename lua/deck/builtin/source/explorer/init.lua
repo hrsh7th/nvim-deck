@@ -1,7 +1,42 @@
-local kit   = require('deck.kit')
-local IO    = require('deck.kit.IO')
-local Async = require('deck.kit.Async')
-local misc  = require('deck.builtin.source.explorer.misc')
+local kit         = require('deck.kit')
+local IO          = require('deck.kit.IO')
+local Async       = require('deck.kit.Async')
+local misc        = require('deck.builtin.source.explorer.misc')
+local notify      = require('deck.notify')
+
+---@class deck.builtin.source.explorer.Clipboard
+---@field private _entry? { data: any }
+local Clipboard   = {}
+Clipboard.__index = Clipboard
+
+---Create Clipboard object.
+function Clipboard.new()
+  return setmetatable({}, Clipboard)
+end
+
+---Set copy data.
+---@param data any
+function Clipboard:set(data)
+  self._entry = {
+    data = data,
+  }
+end
+
+---Get data.
+---@return any
+function Clipboard:get()
+  if not self._entry then
+    return nil
+  end
+  return self._entry.data
+end
+
+---Clear data.
+function Clipboard:clear()
+  self._entry = nil
+end
+
+Clipboard.instance = Clipboard.new()
 
 ---@class deck.builtin.source.explorer.Entry
 ---@field public path string
@@ -264,6 +299,7 @@ return function(option)
           if ctx.get_query() ~= '' then
             return false
           end
+          return true
         end,
         execute = function(ctx)
           local item = ctx.get_cursor_item()
@@ -304,6 +340,7 @@ return function(option)
           if ctx.get_query() ~= '' then
             return false
           end
+          return true
         end,
         execute = function(ctx)
           Async.run(function()
@@ -330,6 +367,7 @@ return function(option)
           if ctx.get_query() ~= '' then
             return false
           end
+          return true
         end,
         execute = function(ctx)
           deck.start(require('deck.builtin.source.explorer')({
@@ -344,6 +382,7 @@ return function(option)
           if ctx.get_query() ~= '' then
             return false
           end
+          return true
         end,
         execute = function(ctx)
           state:set_config(kit.merge({
@@ -459,6 +498,66 @@ return function(option)
               end
               ctx.execute()
             end
+          end)
+        end,
+      },
+      {
+        name = 'explorer.clipboard',
+        resolve = function(ctx)
+          local depth = nil
+          for _, item in ipairs(ctx.get_action_items()) do
+            if depth and item.data.depth ~= depth then
+              return false
+            end
+            depth = item.data.depth
+          end
+          return true
+        end,
+        execute = function(ctx)
+          local paths = {}
+          for _, item in ipairs(ctx.get_action_items()) do
+            table.insert(paths, item.data.filename)
+          end
+          Clipboard.instance:set({ paths = paths })
+          notify.show(kit.concat(
+            {
+              { 'Save clipboard:' }
+            },
+            vim.iter(paths):map(function(path)
+              return { '  ' .. path }
+            end):totable())
+          )
+        end,
+      },
+      {
+        name = 'explorer.paste',
+        resolve = function()
+          if not Clipboard.instance:get() then
+            return false
+          end
+          for _, path in ipairs(Clipboard.instance:get().paths) do
+            if vim.fn.filereadable(path) == 0 and vim.fn.isdirectory(path) == 0 then
+              return true
+            end
+          end
+          return true
+        end,
+        execute = function(ctx)
+          Async.run(function()
+            local item = ctx.get_cursor_item()
+            if item then
+              local target_item = state:get_item(item.data.entry)
+              if target_item then
+                if target_item.type == 'file' or not state:is_expanded(target_item) then
+                  target_item = state:get_parent_item(target_item) or state.root
+                end
+                for _, path in ipairs(Clipboard.instance:get().paths) do
+                  IO.cp(path, vim.fs.joinpath(target_item.path, vim.fs.basename(path)), { recursive = true }):await()
+                end
+                state:refresh(target_item)
+              end
+            end
+            ctx.execute()
           end)
         end,
       },
