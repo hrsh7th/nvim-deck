@@ -13,7 +13,7 @@ function misc.create_display_text(entry, is_expanded, depth)
   local parts = {}
 
   -- indent
-  table.insert(parts, { string.rep(' ', depth) })
+  table.insert(parts, { string.rep('  ', depth) })
 
   if entry.type == 'directory' then
     -- expander
