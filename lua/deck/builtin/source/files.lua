@@ -39,7 +39,9 @@ local function ripgrep(root_dir, ignore_globs, ctx)
       if vim.startswith(text, './') then
         text = text:sub(3)
       end
-      ctx.item(to_item(('%s/%s'):format(root_dir, text)))
+      ctx.queue(function()
+        ctx.item(to_item(('%s/%s'):format(root_dir, text)))
+      end)
     end,
     on_stderr = function()
       -- noop
@@ -76,7 +78,9 @@ local function walk(root_dir, ignore_globs, ctx)
     end
 
     if entry.type == 'file' then
-      ctx.item(to_item(entry.path))
+      ctx.queue(function()
+        ctx.item(to_item(entry.path))
+      end)
     end
   end):next(function()
     ctx.done()

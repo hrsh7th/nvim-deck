@@ -53,6 +53,12 @@ return function(sources)
                 get_query = function()
                   return ctx.get_query()
                 end,
+                get_config = function()
+                  return ctx.get_config()
+                end,
+                queue = function(callback)
+                  ctx.queue(callback)
+                end,
                 item = function(item)
                   if not source.parse_query then
                     memo[source] = memo[source] or {}
