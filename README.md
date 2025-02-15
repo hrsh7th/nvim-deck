@@ -118,6 +118,7 @@ vim.api.nvim_create_autocmd('User', {
   end
 })
 
+--key-mapping for explorer source (requires `require('deck.easy').setup()`).
 vim.api.nvim_create_autocmd('User', {
   pattern = 'DeckStart:explorer',
   callback = function(e)
