@@ -96,7 +96,10 @@ function easy.setup(config)
           require('deck.builtin.source.explorer')({
             cwd = option.cwd,
             mode = 'drawer',
-            narrow_ignore_globs = config.ignore_globs,
+            narrow = {
+              enable = true,
+              ignore_globs = config.ignore_globs,
+            }
           }),
         }, {
           view = function()

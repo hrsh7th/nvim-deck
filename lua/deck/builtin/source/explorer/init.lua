@@ -196,9 +196,16 @@ end
 ---@class deck.builtin.source.explorer.Option
 ---@field cwd string
 ---@field mode 'drawer' | 'filer'
----@field narrow_ignore_globs? string[]
+---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
+  option = option or {}
+  option.mode = option.mode or 'filer'
+  option.narrow = kit.merge(option.narrow, {
+    enabled = true,
+    ignore_globs = {},
+  })
+
   local deck = require('deck')
   local state = State.new(option.cwd)
 
@@ -218,7 +225,7 @@ return function(option)
     end,
     execute = function(ctx)
       -- narrow.
-      do
+      if option.narrow.enabled then
         if ctx.get_query() ~= '' then
           local added_parents = {}
           ---@param entry deck.builtin.source.explorer.Entry
@@ -233,7 +240,7 @@ return function(option)
               },
             })
           end
-          misc.narrow(option.cwd, option.narrow_ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
+          misc.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
             ctx.queue(function()
               local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path):lower())
               if score == 0 then
@@ -307,9 +314,9 @@ return function(option)
           local item = ctx.get_cursor_item()
           if item and item.data.filename then
             if item.data.entry.type == 'directory' then
-              deck.start(require('deck.builtin.source.explorer')({
-                cwd = item.data.filename
-              }), ctx.get_config())
+              deck.start(require('deck.builtin.source.explorer')(kit.merge({
+                cwd = item.data.filename,
+              }, option)), ctx.get_config())
             else
               ctx.do_action('open')
             end
@@ -372,10 +379,9 @@ return function(option)
           return true
         end,
         execute = function(ctx)
-          deck.start(require('deck.builtin.source.explorer')({
-            cwd = vim.fs.dirname(state.root.path),
-            config = state:get_config(),
-          }), ctx.get_config())
+          deck.start(require('deck.builtin.source.explorer')(kit.merge({
+            cwd = vim.fs.dirname(state.cwd),
+          }, option)), ctx.get_config())
         end,
       },
       {
@@ -407,9 +413,9 @@ return function(option)
                 name = 'default',
                 execute = function(ctx)
                   explorer_ctx.focus()
-                  deck.start(require('deck.builtin.source.explorer')({
+                  deck.start(require('deck.builtin.source.explorer')(kit.merge({
                     cwd = ctx.get_cursor_item().data.filename
-                  }), explorer_ctx.get_config())
+                  }, option)), explorer_ctx.get_config())
                   ctx.hide()
                 end,
               }
