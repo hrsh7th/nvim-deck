@@ -175,13 +175,19 @@ action.delete_file = {
         table.insert(targets, item.data.filename)
       end
     end
-    local yes_no = vim.fn.input(table.concat(targets, '\n') .. '\n-----\nfiles will be deleted (yes/no)? ')
-    if yes_no == 'yes' then
+    if x.confirm(
+          kit.concat(
+            { 'Delete files?' },
+            vim.iter(targets):map(function(item)
+              return ('  %s'):format(item)
+            end):totable()
+          )
+        ) then
       for _, target in ipairs(targets) do
         vim.fn.delete(target, 'rf')
       end
+      ctx.execute()
     end
-    ctx.execute()
   end,
 }
 
@@ -211,13 +217,19 @@ action.delete_buffer = {
         table.insert(targets, item.data.bufnr)
       end
     end
-    local yes_no = vim.fn.input(table.concat(targets, '\n') .. '\n-----\nbuffers will be deleted (yes/no)? ')
-    if yes_no == 'yes' then
+    if x.confirm(
+          kit.concat(
+            { 'Delete buffers?' },
+            vim.iter(targets):map(function(item)
+              return ('  %s'):format(item)
+            end):totable()
+          )
+        ) then
       for _, target in ipairs(targets) do
         vim.api.nvim_buf_delete(target, { force = true })
       end
+      ctx.execute()
     end
-    ctx.execute()
   end,
 }
 

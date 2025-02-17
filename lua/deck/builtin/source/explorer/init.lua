@@ -1,3 +1,4 @@
+local x           = require('deck.x')
 local kit         = require('deck.kit')
 local IO          = require('deck.kit.IO')
 local Async       = require('deck.kit.Async')
@@ -466,7 +467,13 @@ return function(option)
               return a.data.entry.depth > b.data.entry.depth
             end)
 
-            if vim.fn.confirm('Delete ' .. #items .. ' items?', 'Yes\nNo') ~= 1 then
+            if not x.confirm(
+              ('Delete below items?\n%s'):format(
+                vim.iter(items):map(function(item)
+                  return '  ' .. item.data.filename
+                end):join('\n')
+              )
+            ) then
               return
             end
 

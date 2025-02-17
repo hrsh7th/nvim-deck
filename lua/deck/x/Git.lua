@@ -1,3 +1,4 @@
+local x = require('deck.x')
 local kit = require('deck.kit')
 local IO = require('deck.kit.IO')
 local System = require('deck.kit.System')
@@ -603,8 +604,7 @@ function Git:commit(params, callbacks)
         pattern = ('<buffer=%s>'):format(vim.api.nvim_get_current_buf()),
         callback = function()
           Async.run(function()
-            local yes_no = vim.fn.input('Commit? [y(es)/n(o)]: ')
-            if yes_no == 'y' or yes_no == 'yes' then
+            if x.confirm('Commit?') then
               close_callback_once()
               vim.api.nvim_buf_delete(bufnr, { force = true })
 

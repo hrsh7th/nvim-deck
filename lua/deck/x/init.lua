@@ -11,6 +11,25 @@ function x.normalize_display_text(display_text)
   return { display_text or '' }
 end
 
+---Confirm with yes or no.
+---@param maybe_prompt string|string[]
+---@return boolean
+function x.confirm(maybe_prompt)
+  local prompt = ''
+  if type(maybe_prompt) == 'string' then
+    prompt = maybe_prompt
+  else
+    for _, line in ipairs(maybe_prompt) do
+      prompt = prompt .. (line:gsub('\n$', '')) .. '\n'
+    end
+  end
+  prompt = prompt:gsub('\n$', '') .. '\ny(es)/n(o): '
+  local result = vim.fn.input({
+    prompt = prompt,
+  })
+  return vim.tbl_contains({ 'y', 'yes' }, result)
+end
+
 ---Resolve bufnr from deck.Item if can't resolved, return -1.
 ---@param item deck.Item
 ---@return integer
