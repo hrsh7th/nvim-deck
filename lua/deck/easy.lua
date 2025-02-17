@@ -1,3 +1,4 @@
+local x = require('deck.x')
 local augroup = vim.api.nvim_create_augroup('deck.easy', { clear = true })
 
 ---@class deck.easy.Config
@@ -70,27 +71,18 @@ function easy.setup(config)
           cwd = args['--cwd'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
         }
 
-        -- open or move.
-        local existing_win --[[@as integer?]]
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_explorer')
-          if ok and v then
-            existing_win = win
-            break
-          end
-        end
-        if existing_win then
-          vim.api.nvim_set_current_win(existing_win)
-        else
+        x.ensure_win('deck.easy.explorer', function()
           vim.cmd(('noautocmd keepalt keepjumps %s %s%s +%sbuffer'):format(
             'topleft',
             option.width,
             'vsplit',
             vim.api.nvim_create_buf(false, true)
           ))
-          vim.api.nvim_win_set_var(0, 'deck_explorer', true)
-          vim.api.nvim_set_option_value('winfixwidth', true, { win = 0 })
-        end
+          return vim.api.nvim_get_current_win()
+        end, function(win)
+          vim.api.nvim_set_current_win(win)
+          vim.api.nvim_set_option_value('winfixwidth', true, { win = win })
+        end)
 
         deck.start({
           require('deck.builtin.source.explorer')({

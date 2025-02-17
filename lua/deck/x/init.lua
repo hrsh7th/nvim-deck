@@ -27,6 +27,38 @@ function x.resolve_bufnr(item)
   return -1
 end
 
+---Ensure window.
+---@param name string
+---@param opener fun(): integer
+---@param configure? fun(win: integer)
+function x.ensure_win(name, opener, configure)
+  local tab = vim.api.nvim_get_current_tabpage()
+
+  local existing_win --[[@as integer?]]
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if tab == vim.api.nvim_win_get_tabpage(win) then
+      local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_win_name')
+      if ok and v == name then
+        existing_win = win
+        break
+      end
+    end
+  end
+  if existing_win then
+    if configure then
+      configure(existing_win)
+    end
+    return existing_win
+  end
+
+  local win = opener()
+  vim.api.nvim_win_set_var(win, 'deck_win_name', name)
+  if configure then
+    configure(win)
+  end
+  return win
+end
+
 ---Open a preview buffer with the given data.
 ---@param win integer
 ---@param file { contents: string[], filename?: string, filetype?: string, lnum?: integer, col?: integer, end_lnum?: integer, end_col?: integer }

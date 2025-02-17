@@ -1,3 +1,4 @@
+local x = require('deck.x')
 local kit = require('deck.kit')
 local Keymap = require('deck.kit.Vim.Keymap')
 local Context = require('deck.Context')
@@ -165,20 +166,7 @@ return function(config)
       if not view.is_visible(ctx) then
         ctx.sync()
 
-        -- search existing window.
-        local existing_deck_win --[[@type integer?]]
-        for _, win in ipairs(vim.api.nvim_list_wins()) do
-          local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_builtin_view_botom_picker')
-          if ok and v then
-            existing_deck_win = win
-            break
-          end
-        end
-
-        -- open or move.
-        if existing_deck_win then
-          vim.api.nvim_set_current_win(existing_deck_win)
-        else
+        state.win = x.ensure_win('deck.builtin.view.bottom_picker', function()
           local height = calc_winheight(ctx)
           vim.cmd.split({
             range = { height },
@@ -190,14 +178,13 @@ return function(config)
               noautocmd = true,
             },
           })
-        end
-        state.win = vim.api.nvim_get_current_win()
-
-        -- setup window.
-        vim.api.nvim_win_set_var(state.win, 'deck_builtin_view_botom_picker', true)
-        vim.api.nvim_set_option_value('wrap', false, { win = state.win })
-        vim.api.nvim_set_option_value('number', false, { win = state.win })
-        vim.api.nvim_set_option_value('winfixheight', true, { win = state.win })
+          return vim.api.nvim_get_current_win()
+        end, function(win)
+          vim.api.nvim_set_current_win(win)
+          vim.api.nvim_set_option_value('wrap', false, { win = win })
+          vim.api.nvim_set_option_value('number', false, { win = win })
+          vim.api.nvim_set_option_value('winfixheight', true, { win = win })
+        end)
 
         vim.cmd('normal! m`')
         vim.api.nvim_win_set_buf(state.win, ctx.buf)
