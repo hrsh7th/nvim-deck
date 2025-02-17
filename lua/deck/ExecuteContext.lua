@@ -62,9 +62,7 @@ function ExecuteContext.create(params)
     get_query = params.get_query,
 
     ---Get start config.
-    get_config = function()
-      return params.context.get_config()
-    end,
+    get_config = params.context.get_config,
 
     ---Add task for queue.
     queue = function(task)
