@@ -98,6 +98,7 @@ function easy.setup(config)
             return require('deck.builtin.view.current_picker')()
           end,
           dedup = false,
+          history = false,
           disable_decorators = { 'filename', 'signs' }
         })
       end

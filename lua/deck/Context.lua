@@ -276,7 +276,8 @@ function Context.create(id, source, start_config)
       buffer:start_filtering()
 
       local to_show = not context.is_visible()
-      view.show(context)
+      pcall(view.show, context)
+      context.set_cursor(context.get_cursor())
       if to_show then
         --[=[@doc
           category = "autocmd"
@@ -367,19 +368,15 @@ function Context.create(id, source, start_config)
     ---Set cursor row.
     set_cursor = function(cursor)
       cursor = math.max(1, cursor)
-      if state.cursor == cursor then
-        return
-      end
       state.cursor = cursor
 
       if view.is_visible(context) then
         local win = view.get_win() --[[@as integer]]
-        if vim.api.nvim_win_get_cursor(win)[1] == cursor then
-          return
-        end
-        local max = vim.api.nvim_buf_line_count(context.buf)
-        if max >= cursor then
-          vim.api.nvim_win_set_cursor(win, { cursor, 0 })
+        if vim.api.nvim_win_get_cursor(win)[1] ~= cursor then
+          local max = vim.api.nvim_buf_line_count(context.buf)
+          if max >= cursor then
+            vim.api.nvim_win_set_cursor(win, { cursor, 0 })
+          end
         end
       end
     end,

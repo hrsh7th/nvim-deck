@@ -198,6 +198,7 @@ end
 ---@field cwd string
 ---@field mode 'drawer' | 'filer'
 ---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
+---@field reveal? string
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
   option = option or {}
@@ -214,9 +215,18 @@ return function(option)
   return {
     name = 'explorer',
     events = {
-      BufWinEnter = function()
+      BufWinEnter = function(ctx, env)
         require('deck.builtin.source.recent_dirs'):add(state.root.path)
         vim.cmd.lcd(vim.fn.fnameescape(state.root.path))
+
+        if env.first then
+          for item in state:iter() do
+            if item.path == option.reveal then
+              focus(ctx, item)
+              break
+            end
+          end
+        end
       end,
     },
     parse_query = function(query)
@@ -382,6 +392,7 @@ return function(option)
         execute = function(ctx)
           deck.start(require('deck.builtin.source.explorer')(kit.merge({
             cwd = vim.fs.dirname(state.cwd),
+            reveal = state.cwd,
           }, option)), ctx.get_config())
         end,
       },
@@ -468,12 +479,12 @@ return function(option)
             end)
 
             if not x.confirm(
-              ('Delete below items?\n%s'):format(
-                vim.iter(items):map(function(item)
-                  return '  ' .. item.data.filename
-                end):join('\n')
-              )
-            ) then
+                  ('Delete below items?\n%s'):format(
+                    vim.iter(items):map(function(item)
+                      return ('  %s'):format(vim.fs.relpath(state.cwd, item.data.filename))
+                    end):join('\n')
+                  )
+                ) then
               return
             end
 
@@ -517,7 +528,13 @@ return function(option)
         end,
       },
       {
-        name = 'explorer.clipboard',
+        name = 'explorer.ui_open',
+        execute = function(ctx)
+          vim.ui.open(ctx.get_cursor_item().data.filename)
+        end,
+      },
+      {
+        name = 'explorer.clipboard.save_copy',
         resolve = function(ctx)
           local depth = nil
           for _, item in ipairs(ctx.get_action_items()) do
@@ -533,19 +550,47 @@ return function(option)
           for _, item in ipairs(ctx.get_action_items()) do
             table.insert(paths, item.data.filename)
           end
-          Clipboard.instance:set({ paths = paths })
+          Clipboard.instance:set({ type = 'copy', paths = paths })
           notify.show(kit.concat(
             {
-              { 'Save clipboard:' }
+              { 'Save clipboard to copy:' }
             },
             vim.iter(paths):map(function(path)
-              return { '  ' .. path }
+              return { '  ' .. vim.fs.relpath(state.cwd, path) }
             end):totable())
           )
         end,
       },
       {
-        name = 'explorer.paste',
+        name = 'explorer.clipboard.save_move',
+        resolve = function(ctx)
+          local depth = nil
+          for _, item in ipairs(ctx.get_action_items()) do
+            if depth and item.data.depth ~= depth then
+              return false
+            end
+            depth = item.data.depth
+          end
+          return true
+        end,
+        execute = function(ctx)
+          local paths = {}
+          for _, item in ipairs(ctx.get_action_items()) do
+            table.insert(paths, item.data.filename)
+          end
+          Clipboard.instance:set({ type = 'move', paths = paths })
+          notify.show(kit.concat(
+            {
+              { 'Save clipboard to move:' }
+            },
+            vim.iter(paths):map(function(path)
+              return { '  ' .. vim.fs.relpath(state.cwd, path) }
+            end):totable())
+          )
+        end,
+      },
+      {
+        name = 'explorer.clipboard.paste',
         resolve = function()
           if not Clipboard.instance:get() then
             return false
@@ -568,6 +613,9 @@ return function(option)
                 end
                 for _, path in ipairs(Clipboard.instance:get().paths) do
                   IO.cp(path, vim.fs.joinpath(target_item.path, vim.fs.basename(path)), { recursive = true }):await()
+                  if Clipboard.instance:get().type == 'move' then
+                    IO.rm(path, { recursive = true }):await()
+                  end
                 end
                 state:refresh(target_item)
               end
