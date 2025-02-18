@@ -232,6 +232,8 @@ end
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
   option = option or {}
+  option.cwd = vim.fs.normalize(option.cwd)
+  option.reveal = option.reveal and vim.fs.normalize(option.reveal) or nil
   option.mode = option.mode or 'filer'
   option.narrow = kit.merge(option.narrow, {
     enabled = true,
@@ -249,13 +251,30 @@ return function(option)
         require('deck.builtin.source.recent_dirs'):add(state:get_root().path)
         vim.cmd.lcd(vim.fn.fnameescape(state:get_root().path))
 
-        if env.first then
-          for item in state:iter() do
-            if item.path == option.reveal then
-              focus(ctx, item)
-              break
+        if env.first and option.reveal then
+          Async.run(function()
+            local relpath = vim.fs.relpath(state:get_root().path, option.reveal)
+            if relpath then
+              local paths = vim.fn.split(relpath, '/')
+              local current_path = option.cwd
+              while current_path and #paths > 0 do
+                local item = state:get_item({ path = current_path, type = 'directory' })
+                if item then
+                  state:expand(item)
+                end
+                current_path = vim.fs.joinpath(current_path, table.remove(paths, 1))
+              end
+              local target_item = state:get_item({
+                path = option.reveal,
+                type = vim.fn.isdirectory(option.reveal) == 1 and 'directory' or 'file'
+              })
+              if target_item then
+                ctx.execute()
+                ctx.sync()
+                focus(ctx, target_item)
+              end
             end
-          end
+          end):sync(5 * 1000)
         end
       end,
     },

@@ -64,11 +64,15 @@ function easy.setup(config)
         ['--cwd'] = {
           required = false,
         },
+        ['--reveal'] = {
+          required = false,
+        },
       },
       start = function(args)
         local option = {
           width = args['--width'] or 40,
           cwd = args['--cwd'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
+          reveal = args['--reveal'],
         }
 
         x.ensure_win('deck.easy.explorer', function()
@@ -88,6 +92,7 @@ function easy.setup(config)
           require('deck.builtin.source.explorer')({
             cwd = option.cwd,
             mode = 'drawer',
+            reveal = option.reveal or option.cwd,
             narrow = {
               enable = true,
               ignore_globs = config.ignore_globs,
