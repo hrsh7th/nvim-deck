@@ -71,11 +71,8 @@ return function()
       end
     end,
 
+    -- Redraw window.
     redraw = function(ctx)
-      if ctx.is_syncing() then
-        return
-      end
-
       -- update status.
       do
         spinner.idx = spinner.idx + 1

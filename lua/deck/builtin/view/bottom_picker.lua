@@ -107,10 +107,6 @@ return function(config)
 
     ---Redraw window.
     redraw = function(ctx)
-      if ctx.is_syncing() then
-        return
-      end
-
       -- update winheight.
       local curr_height = vim.api.nvim_win_get_height(state.win)
       local next_height = calc_winheight(ctx)

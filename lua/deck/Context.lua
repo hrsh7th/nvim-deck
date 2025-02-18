@@ -110,7 +110,7 @@ function Context.create(id, source, start_config)
   }
 
   local function redraw()
-    if context.is_visible() then
+    if context.is_visible() and not context.is_syncing() then
       view.redraw(context)
       vim.api.nvim_buf_set_extmark(context.buf, context.ns, 0, 0, {
         id = 1,
@@ -678,6 +678,7 @@ function Context.create(id, source, start_config)
       end)
       restore()
       state.is_syncing = false
+
       redraw()
     end,
 
