@@ -45,12 +45,7 @@ end
 ---@return deck.builtin.source.explorer.Item[]
 function misc.get_children(entry, depth)
   local children = IO.scandir(entry.path):await()
-  table.sort(children, function(a, b)
-    if a.type ~= b.type then
-      return a.type == 'directory'
-    end
-    return a.path < b.path
-  end)
+  misc.sort_entries(children)
   return vim.iter(children):map(function(child)
     return {
       path = child.path,
@@ -59,6 +54,17 @@ function misc.get_children(entry, depth)
       depth = depth + 1,
     }
   end):totable()
+end
+
+---Sort entries.
+---@param entries deck.builtin.source.explorer.Entry[]
+function misc.sort_entries(entries)
+  table.sort(entries, function(a, b)
+    if a.type ~= b.type then
+      return a.type == 'directory'
+    end
+    return a.path < b.path
+  end)
 end
 
 ---Get depth of path.
