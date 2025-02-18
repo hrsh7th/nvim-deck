@@ -1,10 +1,12 @@
 local x = require('deck.x')
+local kit = require('deck.kit')
 local augroup = vim.api.nvim_create_augroup('deck.easy', { clear = true })
 
 ---@class deck.easy.Config
 ---@field ignore_globs? string[]
 ---@field get_cwd? fun(): string
 ---@field get_buffer_path? fun(bufnr: number): string
+---@field get_project_root? fun(path: string): string
 
 local easy = {}
 
@@ -19,13 +21,13 @@ function easy.setup(config)
   config.get_cwd = config.get_cwd or vim.fn.getcwd
   config.get_buffer_path = config.get_buffer_path or function(bufnr)
     local path = vim.fs.normalize(vim.api.nvim_buf_get_name(bufnr))
-    if vim.fn.isdirectory(path) == 1 then
+    if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
       return path
     end
-    if vim.fn.filereadable(path) == 1 then
-      return vim.fn.fnamemodify(path, ':h')
-    end
     return config.get_cwd()
+  end
+  config.get_project_root = config.get_project_root or function(path)
+    return kit.findup(path, { '.git', 'package.json', 'tsconfig.json' })
   end
 
   local deck = require('deck')
@@ -71,8 +73,8 @@ function easy.setup(config)
       start = function(args)
         local option = {
           width = args['--width'] or 40,
-          cwd = args['--cwd'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
-          reveal = args['--reveal'],
+          cwd = args['--cwd'] or config.get_project_root(config.get_buffer_path(vim.api.nvim_get_current_buf())),
+          reveal = args['--reveal'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
         }
 
         x.ensure_win('deck.easy.explorer', function()
