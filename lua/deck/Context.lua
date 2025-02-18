@@ -109,7 +109,21 @@ function Context.create(id, source, start_config)
     hide = x.create_events(),
   }
 
+  local function redraw()
+    if context.is_visible() then
+      view.redraw(context)
+      vim.api.nvim_buf_set_extmark(context.buf, context.ns, 0, 0, {
+        id = 1,
+        ui_watched = true
+      })
+    end
+  end
+
   local buffer = Buffer.new(tostring(id), start_config)
+
+  buffer.on_render(function()
+    redraw()
+  end)
 
   ---Execute source.
   local execute_source = function()
@@ -279,6 +293,7 @@ function Context.create(id, source, start_config)
       pcall(view.show, context)
       context.set_cursor(context.get_cursor())
       if to_show then
+        redraw()
         --[=[@doc
           category = "autocmd"
           name = "DeckShow"
@@ -367,6 +382,7 @@ function Context.create(id, source, start_config)
 
     ---Set cursor row.
     set_cursor = function(cursor)
+      local prev_cursor_item = context.get_cursor_item()
       cursor = math.max(1, cursor)
       state.cursor = cursor
 
@@ -377,6 +393,9 @@ function Context.create(id, source, start_config)
           if max >= cursor then
             vim.api.nvim_win_set_cursor(win, { cursor, 0 })
           end
+        end
+        if prev_cursor_item ~= context.get_cursor_item() then
+          redraw()
         end
       end
     end,
@@ -436,6 +455,7 @@ function Context.create(id, source, start_config)
         state.select_all = false
       end
       state.select_map[item] = selected and true or nil
+      redraw()
     end,
 
     ---Get specified item's selected state.
@@ -467,7 +487,7 @@ function Context.create(id, source, start_config)
       end
 
       state.preview_mode = preview_mode
-      view.show(context)
+      redraw()
     end,
 
     ---Get preview mode.
@@ -658,6 +678,7 @@ function Context.create(id, source, start_config)
       end)
       restore()
       state.is_syncing = false
+      redraw()
     end,
 
     ---Set keymap to the deck buffer.

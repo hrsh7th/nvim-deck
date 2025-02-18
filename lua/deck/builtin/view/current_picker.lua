@@ -1,6 +1,5 @@
 local Keymap = require('deck.kit.Vim.Keymap')
 local Context = require('deck.Context')
-local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 
 ---Check the window is visible or not.
 ---@param win? integer
@@ -21,50 +20,11 @@ return function()
 
   local state = {
     win = nil, --[[@type integer?]]
-    win_preview = nil, --[[@type integer?]]
-    timer = ScheduledTimer.new(),
-    cache = {} --[[@as table<string, table>]],
+    preview_win = nil, --[[@type integer?]]
+    preview_cache = {} --[[@as table<string, table>]],
   }
 
   local view --[[@as deck.View]]
-
-  ---@param ctx deck.Context
-  local function update(ctx)
-    if ctx.is_syncing() then
-      return
-    end
-    if not view.is_visible(ctx) then
-      return
-    end
-
-    -- update status.
-    do
-      spinner.idx = spinner.idx + 1
-
-      local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
-      vim.api.nvim_set_option_value(
-        'statusline',
-        ('[%s] %s/%s%s'):format(
-          ctx.name,
-          #ctx.get_filtered_items(),
-          #ctx.get_items(),
-          is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
-        ),
-        {
-          win = state.win,
-        }
-      )
-    end
-
-    -- redraw if cmdline.
-    if vim.fn.mode(1):sub(1, 1) == 'c' then
-      vim.api.nvim__redraw({
-        flush = true,
-        valid = true,
-        win = state.win,
-      })
-    end
-  end
 
   view = {
     ---Get window.
@@ -98,21 +58,50 @@ return function()
         vim.api.nvim_set_option_value('number', false, { win = state.win })
         vim.api.nvim_set_option_value('winfixheight', true, { win = state.win })
       end
-
-      state.timer:stop()
-      state.timer:start(0, 80, function()
-        update(ctx)
-      end)
+      view.redraw(ctx)
     end,
 
     ---Hide window.
     hide = function(ctx)
-      state.timer:stop()
       if view.is_visible(ctx) then
         vim.api.nvim_win_hide(state.win)
       end
-      if is_visible(state.win_preview) then
-        vim.api.nvim_win_hide(state.win_preview)
+      if is_visible(state.preview_win) then
+        vim.api.nvim_win_hide(state.preview_win)
+      end
+    end,
+
+    redraw = function(ctx)
+      if ctx.is_syncing() then
+        return
+      end
+
+      -- update status.
+      do
+        spinner.idx = spinner.idx + 1
+
+        local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
+        vim.api.nvim_set_option_value(
+          'statusline',
+          ('[%s] %s/%s%s'):format(
+            ctx.name,
+            #ctx.get_filtered_items(),
+            #ctx.get_items(),
+            is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
+          ),
+          {
+            win = state.win,
+          }
+        )
+      end
+
+      -- redraw if cmdline.
+      if vim.fn.mode(1):sub(1, 1) == 'c' then
+        vim.api.nvim__redraw({
+          flush = true,
+          valid = true,
+          win = state.win,
+        })
       end
     end,
 

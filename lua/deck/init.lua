@@ -132,6 +132,7 @@ local Context = require('deck.Context')
 ---@field public is_visible fun(ctx: deck.Context): boolean
 ---@field public show fun(ctx: deck.Context)
 ---@field public hide fun(ctx: deck.Context)
+---@field public redraw fun(ctx: deck.Context)
 ---@field public prompt fun(ctx: deck.Context)
 ---@field public scroll_preview fun(ctx: deck.Context, delta: integer)
 

@@ -4,6 +4,8 @@ local symbols = require('deck.symbols')
 local ScheduledTimer = require("deck.kit.Async.ScheduledTimer")
 
 ---@class deck.Buffer
+---@field public on_render fun(callback: fun())
+---@field private _emit_render fun()
 ---@field private _bufnr integer
 ---@field private _done boolean
 ---@field private _start_ms integer
@@ -24,7 +26,10 @@ Buffer.__index = Buffer
 ---@param name string
 ---@param start_config deck.StartConfig
 function Buffer.new(name, start_config)
+  local render = x.create_events()
   return setmetatable({
+    on_render = render.on,
+    _emit_render = render.emit,
     _bufnr = x.create_deck_buf(name),
     _done = false,
     _start_ms = vim.uv.hrtime() / 1e6,
@@ -250,6 +255,7 @@ function Buffer:_step_render()
         self._timer_render:start(config.interrupt_ms, 0, function()
           self:_step_render()
         end)
+        self._emit_render()
         return
       end
     end
@@ -265,6 +271,7 @@ function Buffer:_step_render()
       self:_step_render()
     end)
   end
+  self._emit_render()
 end
 
 return Buffer
