@@ -122,6 +122,7 @@ vim.api.nvim_create_autocmd('User', {
 vim.api.nvim_create_autocmd('User', {
   pattern = 'DeckStart:explorer',
   callback = function(e)
+    local ctx = e.data.ctx --[[@as deck.Context]]
     ctx.keymap('n', 'h', deck.action_mapping('explorer.collapse'))
     ctx.keymap('n', 'l', deck.action_mapping('explorer.expand'))
     ctx.keymap('n', '.', deck.action_mapping('explorer.toggle_dotfiles'))
