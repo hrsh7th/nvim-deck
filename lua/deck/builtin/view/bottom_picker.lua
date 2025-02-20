@@ -136,15 +136,15 @@ return function(config)
         vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
         vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
       end
+    end
 
-      -- redraw if cmdline.
-      if vim.fn.mode(1):sub(1, 1) == 'c' then
-        vim.api.nvim__redraw({
-          flush = true,
-          valid = true,
-          win = state.win,
-        })
-      end
+    -- redraw if cmdline.
+    if vim.fn.mode(1):sub(1, 1) == 'c' then
+      vim.api.nvim__redraw({
+        flush = true,
+        valid = true,
+        win = state.win,
+      })
     end
   end
 
