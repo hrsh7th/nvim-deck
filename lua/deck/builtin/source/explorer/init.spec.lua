@@ -19,6 +19,7 @@ local function setup()
     IO.rm(fixture_target_dir, { recursive = true }):catch(function()
     end):await()
 
+    vim.print(debug.getinfo(1, 'S').source:sub(2))
     local fixture_dir = vim.fs.joinpath(debug.getinfo(1, 'S').source:sub(2):match('(.*/)'), '../../../../../fixtures/fs')
     IO.cp(fixture_dir, fixture_target_dir, { recursive = true }):await()
   end):sync(5 * 1000)
