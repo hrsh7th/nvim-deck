@@ -15,17 +15,18 @@ end)()
 
 ---Ensure fixture directory.
 local function setup()
+  local fixture_dir = vim.fs.joinpath(debug.getinfo(1, 'S').source:sub(2):match('(.*/)'), '../../../../../fixtures/fs')
+  vim.print({
+    fixture_target_dir = fixture_target_dir,
+    fixture_dir = fixture_dir,
+  })
   return Async.run(function()
     IO.rm(fixture_target_dir, { recursive = true }):catch(function()
     end):await()
 
-    local fixture_dir = vim.fs.joinpath(debug.getinfo(1, 'S').source:sub(2):match('(.*/)'), '../../../../../fixtures/fs')
     IO.cp(fixture_dir, fixture_target_dir, { recursive = true }):await()
-
     vim.print({
-      fixture_target_dir = fixture_target_dir,
-      fixture_dir = fixture_dir,
-      stat = vim.uv.fs_stat(fixture_target_dir),
+      fixture_target_dir = vim.uv.fs_stat(fixture_target_dir),
     })
   end):catch(function(error)
     vim.print({
