@@ -60,7 +60,7 @@ end
 ---@param path string
 ---@param depth integer
 function misc.get_item_by_path(path, depth)
-  local stat = IO.fs_stat(path):catch(function()
+  local stat = IO.stat(path):catch(function()
     return nil
   end):await()
   if not stat then
@@ -78,7 +78,7 @@ end
 ---@return deck.builtin.source.explorer.Item?
 function misc.resolve_entry(entry, depth)
   local realpath = entry.path
-  local stat = IO.fs_stat(realpath):catch(function()
+  local stat = IO.stat(realpath):catch(function()
     return nil
   end):await()
   if not stat then

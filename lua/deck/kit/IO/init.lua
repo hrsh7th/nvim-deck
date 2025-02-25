@@ -52,52 +52,25 @@ IO.WalkStatus = {
 }
 
 ---@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_stat = Async.promisify(uv.fs_stat)
-
----@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_statfs = Async.promisify(uv.fs_statfs)
-
----@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_unlink = Async.promisify(uv.fs_unlink)
-
----@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_rmdir = Async.promisify(uv.fs_rmdir)
-
----@type fun(path: string, mode: integer): deck.kit.Async.AsyncTask
-IO.fs_mkdir = Async.promisify(uv.fs_mkdir)
-
----@type fun(from: string, to: string, option?: { excl?: boolean, ficlone?: boolean, ficlone_force?: boolean }): deck.kit.Async.AsyncTask
-IO.fs_copyfile = Async.promisify(uv.fs_copyfile)
+local uv_fs_stat = Async.promisify(uv.fs_stat)
 
 ---@type fun(path: string, flags: deck.kit.IO.UV.AccessMode, mode: integer): deck.kit.Async.AsyncTask
-IO.fs_open = Async.promisify(uv.fs_open)
+local uv_fs_open = Async.promisify(uv.fs_open)
 
 ---@type fun(fd: userdata): deck.kit.Async.AsyncTask
-IO.fs_close = Async.promisify(uv.fs_close)
+local uv_fs_close = Async.promisify(uv.fs_close)
 
 ---@type fun(fd: userdata, chunk_size: integer, offset?: integer): deck.kit.Async.AsyncTask
-IO.fs_read = Async.promisify(uv.fs_read)
+local uv_fs_read = Async.promisify(uv.fs_read)
 
 ---@type fun(fd: userdata, content: string, offset?: integer): deck.kit.Async.AsyncTask
-IO.fs_write = Async.promisify(uv.fs_write)
+local uv_fs_write = Async.promisify(uv.fs_write)
+
+---@type fun(path: string): deck.kit.Async.AsyncTask
+local uv_fs_scandir = Async.promisify(uv.fs_scandir)
 
 ---@type fun(fd: userdata, offset: integer): deck.kit.Async.AsyncTask
-IO.fs_ftruncate = Async.promisify(uv.fs_ftruncate)
-
----@type fun(path: string, chunk_size?: integer): deck.kit.Async.AsyncTask
-IO.fs_opendir = Async.promisify(uv.fs_opendir, { callback = 2 })
-
----@type fun(fd: userdata): deck.kit.Async.AsyncTask
-IO.fs_closedir = Async.promisify(uv.fs_closedir)
-
----@type fun(fd: userdata): deck.kit.Async.AsyncTask
-IO.fs_readdir = Async.promisify(uv.fs_readdir)
-
----@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_scandir = Async.promisify(uv.fs_scandir)
-
----@type fun(path: string): deck.kit.Async.AsyncTask
-IO.fs_realpath = Async.promisify(uv.fs_realpath)
+local uv_fs_ftruncate = Async.promisify(uv.fs_ftruncate)
 
 ---Return if the path is directory.
 ---@param path string
@@ -105,7 +78,7 @@ IO.fs_realpath = Async.promisify(uv.fs_realpath)
 function IO.is_directory(path)
   path = IO.normalize(path)
   return Async.run(function()
-    return IO.fs_stat(path)
+    return uv_fs_stat(path)
         :catch(function()
           return {}
         end)
@@ -119,7 +92,7 @@ end
 function IO.exists(path)
   path = IO.normalize(path)
   return Async.run(function()
-    return IO.fs_stat(path)
+    return uv_fs_stat(path)
         :next(function()
           return true
         end)
@@ -127,6 +100,16 @@ function IO.exists(path)
           return false
         end)
         :await()
+  end)
+end
+
+---Return file stats or throw error.
+---@param path string
+---@return deck.kit.Async.AsyncTask
+function IO.stats(path)
+  path = IO.normalize(path)
+  return Async.run(function()
+    return uv_fs_stat(path):await()
   end)
 end
 
@@ -138,13 +121,13 @@ function IO.read_file(path, chunk_size)
   path = IO.normalize(path)
   chunk_size = chunk_size or 1024
   return Async.run(function()
-    local stat = IO.fs_stat(path):await()
-    local fd = IO.fs_open(path, IO.AccessMode.r, tonumber('755', 8)):await()
+    local stat = uv_fs_stat(path):await()
+    local fd = uv_fs_open(path, IO.AccessMode.r, tonumber('755', 8)):await()
     local ok, res = pcall(function()
       local chunks = {}
       local offset = 0
       while offset < stat.size do
-        local chunk = IO.fs_read(fd, math.min(chunk_size, stat.size - offset), offset):await()
+        local chunk = uv_fs_read(fd, math.min(chunk_size, stat.size - offset), offset):await()
         if not chunk then
           break
         end
@@ -153,7 +136,7 @@ function IO.read_file(path, chunk_size)
       end
       return table.concat(chunks, ''):sub(1, stat.size - 1) -- remove EOF.
     end)
-    IO.fs_close(fd):await()
+    uv_fs_close(fd):await()
     if not ok then
       error(res)
     end
@@ -170,16 +153,16 @@ function IO.write_file(path, content, chunk_size)
   content = content .. '\n' -- add EOF.
   chunk_size = chunk_size or 1024
   return Async.run(function()
-    local fd = IO.fs_open(path, IO.AccessMode.w, tonumber('755', 8)):await()
+    local fd = uv_fs_open(path, IO.AccessMode.w, tonumber('755', 8)):await()
     local ok, err = pcall(function()
       local offset = 0
       while offset < #content do
         local chunk = content:sub(offset + 1, offset + chunk_size)
-        offset = offset + IO.fs_write(fd, chunk, offset):await()
+        offset = offset + uv_fs_write(fd, chunk, offset):await()
       end
-      IO.fs_ftruncate(fd, offset):await()
+      uv_fs_ftruncate(fd, offset):await()
     end)
-    IO.fs_close(fd):await()
+    uv_fs_close(fd):await()
     if not ok then
       error(err)
     end
@@ -196,12 +179,12 @@ function IO.mkdir(path, mode, option)
   option.recursive = option.recursive or false
   return Async.run(function()
     if not option.recursive then
-      IO.fs_mkdir(path, mode):await()
+      uvuv__mkdir(path, mode):await()
     else
       local not_exists = {}
       local current = path
       while current ~= '/' do
-        local stat = IO.fs_stat(current):catch(function() end):await()
+        local stat = uvuv__stat(current):catch(function() end):await()
         if stat then
           break
         end
@@ -209,7 +192,7 @@ function IO.mkdir(path, mode, option)
         current = IO.dirname(current)
       end
       for _, dir in ipairs(not_exists) do
-        IO.fs_mkdir(dir, mode):await()
+        uvuv__mkdir(dir, mode):await()
       end
     end
   end)
@@ -223,7 +206,7 @@ function IO.rm(start_path, option)
   option = option or {}
   option.recursive = option.recursive or false
   return Async.run(function()
-    local stat = IO.fs_stat(start_path):await()
+    local stat = uvuv__stat(start_path):await()
     if stat.type == 'directory' then
       local children = IO.scandir(start_path):await()
       if not option.recursive and #children > 0 then
@@ -234,13 +217,13 @@ function IO.rm(start_path, option)
           error('IO.rm: ' .. tostring(err))
         end
         if entry.type == 'directory' then
-          IO.fs_rmdir(entry.path):await()
+          uvuv__rmdir(entry.path):await()
         else
-          IO.fs_unlink(entry.path):await()
+          uvuv__unlink(entry.path):await()
         end
       end, { postorder = true }):await()
     else
-      IO.fs_unlink(start_path):await()
+      uvuv__unlink(start_path):await()
     end
   end)
 end
@@ -256,7 +239,7 @@ function IO.cp(from, to, option)
   option = option or {}
   option.recursive = option.recursive or false
   return Async.run(function()
-    local stat = IO.fs_stat(from):await()
+    local stat = uvuv__stat(from):await()
     if stat.type == 'directory' then
       if not option.recursive then
         error(('IO.cp: `%s` is a directory.'):format(from))
@@ -269,11 +252,11 @@ function IO.cp(from, to, option)
         if entry.type == 'directory' then
           IO.mkdir(new_path, tonumber(stat.mode, 10), { recursive = true }):await()
         else
-          IO.fs_copyfile(entry.path, new_path):await()
+          uvuv__copyfile(entry.path, new_path):await()
         end
       end):await()
     else
-      IO.fs_copyfile(from, to):await()
+      uvuv__copyfile(from, to):await()
     end
   end)
 end
@@ -351,7 +334,7 @@ end
 function IO.scandir(path)
   path = IO.normalize(path)
   return Async.run(function()
-    local fd = IO.fs_scandir(path):await()
+    local fd = uv_fs_scandir(path):await()
     local entries = {}
     while true do
       local name, type = uv.fs_scandir_next(fd)
@@ -373,7 +356,7 @@ end
 function IO.iter_scandir(path)
   path = IO.normalize(path)
   return Async.run(function()
-    local fd = IO.fs_scandir(path):await()
+    local fd = uv_fs_scandir(path):await()
     return function()
       local name, type = uv.fs_scandir_next(fd)
       if name then
