@@ -158,7 +158,7 @@ end
 function State:dirty(path)
   local item = self:get_item(path)
   if not item or item.type == 'file' then
-    item = self:get_item(vim.fs.dirname(path))
+    item = self:get_item(IO.dirname(path))
   end
   if item then
     item.dirty = true
@@ -247,14 +247,14 @@ function State:get_parent_item(entry)
     return
   end
 
-  local parent_path = vim.fs.dirname(entry.path)
+  local parent_path = IO.dirname(entry.path)
   while parent_path do
     local parent_item = self:get_item(parent_path)
     if parent_item then
       return parent_item
     end
     local prev_parent_path = parent_path
-    parent_path = vim.fs.dirname(parent_path)
+    parent_path = IO.dirname(parent_path)
     if parent_path == prev_parent_path then
       break
     end
@@ -302,8 +302,8 @@ return function(option)
   end
 
   option = option or {}
-  option.cwd = vim.fs.normalize(option.cwd)
-  option.reveal = option.reveal and vim.fs.normalize(option.reveal) or nil
+  option.cwd = IO.normalize(option.cwd)
+  option.reveal = option.reveal and IO.normalize(option.reveal) or nil
   option.mode = option.mode or 'filer'
   option.narrow = kit.merge(option.narrow, {
     enabled = true,
@@ -337,7 +337,7 @@ return function(option)
                   state:expand(item)
                 end
                 local prev_path = current_path
-                current_path = vim.fs.joinpath(current_path, table.remove(paths, 1))
+                current_path = IO.join(current_path, table.remove(paths, 1))
                 if current_path == prev_path then
                   break
                 end
@@ -383,7 +383,7 @@ return function(option)
               end
               local parents = {}
               do
-                local parent = vim.fs.dirname(path)
+                local parent = IO.dirname(path)
                 while parent and not added_parents[parent] and #option.cwd <= #parent do
                   added_parents[parent] = true
                   table.insert(parents, {
@@ -391,7 +391,7 @@ return function(option)
                     type = 'directory',
                   })
                   local prev_parent = parent
-                  parent = vim.fs.dirname(parent)
+                  parent = IO.dirname(parent)
                   if parent == prev_parent then
                     break
                   end
@@ -536,7 +536,7 @@ return function(option)
         end,
         execute = function(ctx)
           ctx.do_action('explorer.get_api').set_cwd(
-            vim.fs.dirname(state:get_root().path),
+            IO.dirname(state:get_root().path),
             state:get_root().path
           )
         end,
@@ -602,7 +602,7 @@ return function(option)
               if path == '' then
                 return
               end
-              path = vim.fs.joinpath(parent_item.path, path)
+              path = IO.join(parent_item.path, path)
 
               if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
                 return require('deck.notify').show({ { 'Already exists: ' .. path } })
@@ -673,7 +673,7 @@ return function(option)
                 if path == '' then
                   return
                 end
-                path = vim.fs.joinpath(parent_item.path, path)
+                path = IO.join(parent_item.path, path)
 
                 operation.rename({
                   {
@@ -785,14 +785,14 @@ return function(option)
                       return {
                         type = 'rename',
                         path = path,
-                        path_new = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
+                        path_new = IO.join(paste_target_item.path, vim.fs.basename(path)),
                         kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
                       } ---@as deck.x.operation.Rename
                     end):totable()
                   ):await()
                 else
                   for _, path in ipairs(clipboard.paths) do
-                    local target_path = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path))
+                    local target_path = IO.join(paste_target_item.path, vim.fs.basename(path))
                     IO.cp(path, target_path, { recursive = true }):await()
                   end
                 end

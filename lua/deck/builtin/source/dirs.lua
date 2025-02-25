@@ -31,7 +31,7 @@ local function fd(root_dir, ignore_globs, ctx)
     table.insert(command, glob)
   end
 
-  root_dir = vim.fs.normalize(root_dir)
+  root_dir = IO.normalize(root_dir)
   ctx.on_abort(System.spawn(command, {
     cwd = root_dir,
     env = {},
@@ -39,7 +39,7 @@ local function fd(root_dir, ignore_globs, ctx)
       ignore_empty = true,
     }),
     on_stdout = function(text)
-      ctx.item(to_item(vim.fs.joinpath(root_dir, text)))
+      ctx.item(to_item(IO.join(root_dir, text)))
     end,
     on_stderr = function()
       -- noop
@@ -107,9 +107,9 @@ end
 ]=]
 ---@param option { root_dir: string, ignore_globs?: string[] }
 return function(option)
-  local root_dir = vim.fs.normalize(vim.fn.fnamemodify(option.root_dir, ':p'))
+  local root_dir = IO.normalize(vim.fn.fnamemodify(option.root_dir, ':p'))
   if vim.fn.filereadable(root_dir) == 1 then
-    root_dir = vim.fs.dirname(root_dir)
+    root_dir = IO.dirname(root_dir)
   end
   local ignore_globs = option.ignore_globs or {}
 

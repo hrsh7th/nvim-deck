@@ -16,13 +16,13 @@ end)()
 ---Ensure fixture directory.
 local function setup()
   vim.print({
-    normalized = vim.fs.normalize('D:\\\\tmp\\deck-fixture-fs'),
+    normalized = IO.normalize('D:\\\\tmp\\deck-fixture-fs'),
   })
   return Async.run(function()
     IO.rm(fixture_target_dir, { recursive = true }):catch(function()
     end):await()
 
-    local fixture_dir = vim.fs.joinpath(debug.getinfo(1, 'S').source:sub(2):gsub('\\', '/'):match('(.*/)'), '../../../../../fixtures/fs')
+    local fixture_dir = IO.join(debug.getinfo(1, 'S').source:sub(2):gsub('\\', '/'):match('(.*/)'), '../../../../../fixtures/fs')
     IO.cp(fixture_dir, fixture_target_dir, { recursive = true }):await()
     vim.print({
       fixture_target_dir = vim.uv.fs_stat(fixture_target_dir),

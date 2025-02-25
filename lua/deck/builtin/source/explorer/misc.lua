@@ -86,7 +86,7 @@ function misc.resolve_entry(entry, depth)
   end
   return {
     name = vim.fs.basename(entry.path),
-    path = vim.fs.normalize(realpath),
+    path = IO.normalize(realpath),
     type = stat.type == 'directory' and 'directory' or 'file',
     link = entry.type == 'link',
     expanded = false,
@@ -126,7 +126,7 @@ do
       table.insert(command, '!' .. glob)
     end
 
-    root_dir = vim.fs.normalize(root_dir)
+    root_dir = IO.normalize(root_dir)
     on_abort(System.spawn(command, {
       cwd = root_dir,
       env = {},
@@ -134,7 +134,7 @@ do
         ignore_empty = true,
       }),
       on_stdout = function(text)
-        on_path(vim.fs.joinpath(root_dir, text))
+        on_path(IO.join(root_dir, text))
       end,
       on_stderr = function()
         -- noop
@@ -197,7 +197,7 @@ function misc.dirpath(path)
   if vim.fn.isdirectory(path) == 1 then
     return path
   end
-  return vim.fs.dirname(path)
+  return IO.dirname(path)
 end
 
 return misc
