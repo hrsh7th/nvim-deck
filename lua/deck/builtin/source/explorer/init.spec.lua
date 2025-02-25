@@ -26,7 +26,7 @@ local function setup()
       '../../../../../fixtures/fs'
     )
     IO.cp(fixture_dir, fixture_target_dir, { recursive = true }):await()
-  end):sync(5 * 1000)
+  end):sync(10 * 1000)
 end
 
 ---@return deck.Context
