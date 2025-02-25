@@ -1,8 +1,6 @@
 local uv = vim.uv
 local Async = require('deck.kit.Async')
 
-local is_windows = uv.os_uname().sysname:lower() == 'windows'
-
 ---@see https://github.com/luvit/luvit/blob/master/deps/fs.lua
 local IO = {}
 
@@ -108,10 +106,10 @@ function IO.is_directory(path)
   path = IO.normalize(path)
   return Async.run(function()
     return IO.fs_stat(path)
-      :catch(function()
-        return {}
-      end)
-      :await().type == 'directory'
+        :catch(function()
+          return {}
+        end)
+        :await().type == 'directory'
   end)
 end
 
@@ -122,13 +120,13 @@ function IO.exists(path)
   path = IO.normalize(path)
   return Async.run(function()
     return IO.fs_stat(path)
-      :next(function()
-        return true
-      end)
-      :catch(function()
-        return false
-      end)
-      :await()
+        :next(function()
+          return true
+        end)
+        :catch(function()
+          return false
+        end)
+        :await()
   end)
 end
 
@@ -435,6 +433,8 @@ end
 ---@param path string
 ---@return string
 function IO.join(base, path)
+  base = base:gsub('\\', '/')
+  path = path:gsub('\\', '/')
   if base:sub(-1) == '/' then
     base = base:sub(1, -2)
   end
@@ -445,26 +445,19 @@ end
 ---@param path string
 ---@return string
 function IO.dirname(path)
+  path = path:gsub('\\', '/')
   if path:sub(-1) == '/' then
     path = path:sub(1, -2)
   end
   return (path:gsub('/[^/]+$', ''))
 end
 
-if is_windows then
-  ---Return the path is absolute or not.
-  ---@param path string
-  ---@return boolean
-  function IO.is_absolute(path)
-    return path:sub(1, 1) == '/' or path:match('^%a://')
-  end
-else
-  ---Return the path is absolute or not.
-  ---@param path string
-  ---@return boolean
-  function IO.is_absolute(path)
-    return path:sub(1, 1) == '/'
-  end
+---Return the path is absolute or not.
+---@param path string
+---@return boolean
+function IO.is_absolute(path)
+  path = path:gsub('\\', '/')
+  return path:sub(1, 1) == '/' or path:match('^%a://')
 end
 
 return IO
