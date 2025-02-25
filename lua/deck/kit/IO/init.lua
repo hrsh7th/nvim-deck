@@ -460,7 +460,7 @@ end
 ---@return boolean
 function IO.is_absolute(path)
   path = path:gsub('\\', '/')
-  return path:sub(1, 1) == '/' or path:match('^%a://')
+  return path:sub(1, 1) == '/' or path:match('^%a:/')
 end
 
 return IO
