@@ -86,7 +86,7 @@ function misc.resolve_entry(entry, depth)
   end
   return {
     name = vim.fs.basename(entry.path),
-    path = realpath,
+    path = vim.fs.normalize(realpath),
     type = stat.type == 'directory' and 'directory' or 'file',
     link = entry.type == 'link',
     expanded = false,
