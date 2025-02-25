@@ -392,9 +392,7 @@ end
 ---@param path string
 ---@return string
 function IO.normalize(path)
-  if is_windows then
-    path = path:gsub('\\', '/')
-  end
+  path = path:gsub('\\', '/')
 
   -- remove trailing slash.
   if #path > 1 and path:sub(-1) == '/' then
