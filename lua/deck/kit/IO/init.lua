@@ -128,7 +128,7 @@ end
 ---Return file stats or throw error.
 ---@param path string
 ---@return deck.kit.Async.AsyncTask
-function IO.stats(path)
+function IO.stat(path)
   path = IO.normalize(path)
   return Async.run(function()
     return uv_fs_stat(path):await()
