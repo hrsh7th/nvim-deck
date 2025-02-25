@@ -15,6 +15,9 @@ end)()
 
 ---Ensure fixture directory.
 local function setup()
+  vim.print({
+    normalized = vim.fs.normalize('D:\\\\tmp\\deck-fixture-fs'),
+  })
   return Async.run(function()
     IO.rm(fixture_target_dir, { recursive = true }):catch(function()
     end):await()
