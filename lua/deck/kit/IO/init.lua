@@ -54,6 +54,18 @@ IO.WalkStatus = {
 ---@type fun(path: string): deck.kit.Async.AsyncTask
 local uv_fs_stat = Async.promisify(uv.fs_stat)
 
+---@type fun(path: string): deck.kit.Async.AsyncTask
+local uv_fs_unlink = Async.promisify(uv.fs_unlink)
+
+---@type fun(path: string): deck.kit.Async.AsyncTask
+local uv_fs_rmdir = Async.promisify(uv.fs_rmdir)
+
+---@type fun(path: string, mode: integer): deck.kit.Async.AsyncTask
+local uv_fs_mkdir = Async.promisify(uv.fs_mkdir)
+
+---@type fun(from: string, to: string, option?: { excl?: boolean, ficlone?: boolean, ficlone_force?: boolean }): deck.kit.Async.AsyncTask
+local uv_fs_copyfile = Async.promisify(uv.fs_copyfile)
+
 ---@type fun(path: string, flags: deck.kit.IO.UV.AccessMode, mode: integer): deck.kit.Async.AsyncTask
 local uv_fs_open = Async.promisify(uv.fs_open)
 
@@ -66,11 +78,14 @@ local uv_fs_read = Async.promisify(uv.fs_read)
 ---@type fun(fd: userdata, content: string, offset?: integer): deck.kit.Async.AsyncTask
 local uv_fs_write = Async.promisify(uv.fs_write)
 
+---@type fun(fd: userdata, offset: integer): deck.kit.Async.AsyncTask
+local uv_fs_ftruncate = Async.promisify(uv.fs_ftruncate)
+
 ---@type fun(path: string): deck.kit.Async.AsyncTask
 local uv_fs_scandir = Async.promisify(uv.fs_scandir)
 
----@type fun(fd: userdata, offset: integer): deck.kit.Async.AsyncTask
-local uv_fs_ftruncate = Async.promisify(uv.fs_ftruncate)
+---@type fun(path: string): deck.kit.Async.AsyncTask
+local uv_fs_realpath = Async.promisify(uv.fs_realpath)
 
 ---Return if the path is directory.
 ---@param path string
@@ -100,6 +115,13 @@ function IO.exists(path)
           return false
         end)
         :await()
+  end)
+end
+
+function IO.realpath(path)
+  path = IO.normalize(path)
+  return Async.run(function()
+    return uv_fs_realpath(path):await()
   end)
 end
 
@@ -179,12 +201,12 @@ function IO.mkdir(path, mode, option)
   option.recursive = option.recursive or false
   return Async.run(function()
     if not option.recursive then
-      uvuv__mkdir(path, mode):await()
+      uv_fs_mkdir(path, mode):await()
     else
       local not_exists = {}
       local current = path
       while current ~= '/' do
-        local stat = uvuv__stat(current):catch(function() end):await()
+        local stat = uv_fs_stat(current):catch(function() end):await()
         if stat then
           break
         end
@@ -192,7 +214,7 @@ function IO.mkdir(path, mode, option)
         current = IO.dirname(current)
       end
       for _, dir in ipairs(not_exists) do
-        uvuv__mkdir(dir, mode):await()
+        uv_fs_mkdir(dir, mode):await()
       end
     end
   end)
@@ -206,7 +228,7 @@ function IO.rm(start_path, option)
   option = option or {}
   option.recursive = option.recursive or false
   return Async.run(function()
-    local stat = uvuv__stat(start_path):await()
+    local stat = uv_fs_stat(start_path):await()
     if stat.type == 'directory' then
       local children = IO.scandir(start_path):await()
       if not option.recursive and #children > 0 then
@@ -217,13 +239,13 @@ function IO.rm(start_path, option)
           error('IO.rm: ' .. tostring(err))
         end
         if entry.type == 'directory' then
-          uvuv__rmdir(entry.path):await()
+          uv_fs_rmdir(entry.path):await()
         else
-          uvuv__unlink(entry.path):await()
+          uv_fs_unlink(entry.path):await()
         end
       end, { postorder = true }):await()
     else
-      uvuv__unlink(start_path):await()
+      uv_fs_unlink(start_path):await()
     end
   end)
 end
@@ -239,7 +261,7 @@ function IO.cp(from, to, option)
   option = option or {}
   option.recursive = option.recursive or false
   return Async.run(function()
-    local stat = uvuv__stat(from):await()
+    local stat = uv_fs_stat(from):await()
     if stat.type == 'directory' then
       if not option.recursive then
         error(('IO.cp: `%s` is a directory.'):format(from))
@@ -252,11 +274,11 @@ function IO.cp(from, to, option)
         if entry.type == 'directory' then
           IO.mkdir(new_path, tonumber(stat.mode, 10), { recursive = true }):await()
         else
-          uvuv__copyfile(entry.path, new_path):await()
+          uv_fs_copyfile(entry.path, new_path):await()
         end
       end):await()
     else
-      uvuv__copyfile(from, to):await()
+      uv_fs_copyfile(from, to):await()
     end
   end)
 end
