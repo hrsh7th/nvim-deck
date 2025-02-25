@@ -8,7 +8,7 @@ end
 
 local fixture_target_dir = (function()
   if vim.uv.os_uname().sysname:lower() == 'windows' then
-    return 'C://tmp/deck-fixture-fs'
+    return 'D://tmp/deck-fixture-fs'
   end
   return '/tmp/deck-fixture-fs'
 end)()

@@ -1,6 +1,7 @@
 local x           = require('deck.x')
 local operation   = require('deck.x.operation')
 local kit         = require('deck.kit')
+local IO          = require('deck.kit.IO')
 local Async       = require('deck.kit.Async')
 local misc        = require('deck.builtin.source.explorer.misc')
 local notify      = require('deck.notify')
@@ -790,15 +791,10 @@ return function(option)
                     end):totable()
                   ):await()
                 else
-                  operation.create(
-                    vim.iter(clipboard.paths):map(function(path)
-                      return {
-                        type = 'create',
-                        path = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
-                        kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
-                      } ---@as deck.x.operation.Create
-                    end):totable()
-                  ):await()
+                  for _, path in ipairs(clipboard.paths) do
+                    local target_path = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path))
+                    IO.cp(path, target_path, { recursive = true }):await()
+                  end
                 end
                 state:refresh()
                 ctx.execute()
