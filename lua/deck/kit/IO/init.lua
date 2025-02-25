@@ -404,11 +404,6 @@ function IO.normalize(path)
     path = path:sub(1, -2)
   end
 
-  -- skip if the path already absolute.
-  if IO.is_absolute(path) then
-    return path
-  end
-
   -- homedir.
   if path:sub(1, 1) == '~' then
     path = IO.join(uv.os_homedir() or vim.fs.normalize('~'), path:sub(2))
@@ -416,7 +411,7 @@ function IO.normalize(path)
 
   -- absolute.
   if IO.is_absolute(path) then
-    return path:sub(-1) == '/' and path:sub(1, -2) or path
+    return path
   end
 
   -- resolve relative path.
@@ -442,7 +437,11 @@ end
 function IO.join(base, path)
   base = base:gsub('\\', '/')
   path = path:gsub('\\', '/')
-  return (vim.fs.joinpath(base, path):gsub('\\', '/'))
+  while path:find('^%.%./') do
+    base = IO.dirname(base)
+    path = path:sub(4)
+  end
+  return base .. '/' .. path
 end
 
 ---Return the path of the current working directory.
