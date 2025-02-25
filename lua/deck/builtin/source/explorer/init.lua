@@ -44,6 +44,8 @@ Clipboard.instance = Clipboard.new()
 ---@field public type 'directory' | 'file'
 
 ---@class deck.builtin.source.explorer.Item: deck.builtin.source.explorer.Entry
+---@field public name string
+---@field public link boolean
 ---@field public dirty boolean
 ---@field public depth integer
 ---@field public expanded boolean
@@ -80,12 +82,11 @@ function State.new(cwd)
     _config = {
       dotfiles = false,
     },
-    _root = {
-      path = cwd,
-      type = 'directory',
-      expanded = true,
-      depth = 0,
-    },
+    _root = Async.run(function()
+      local item = misc.get_item_by_path(cwd, 0)
+      item.expanded = true
+      return item
+    end):sync(10 * 1000),
   }, State)
 end
 
@@ -180,7 +181,7 @@ function State:refresh(force)
       if should_retrive then
         item.dirty = false
         local prev_children = item.children or {}
-        local next_children = misc.get_children(item, item.depth)
+        local next_children = misc.get_children(item, item.depth + 1)
         local new_children = {}
 
         -- keep.
@@ -483,7 +484,7 @@ return function(option)
           return item and not state:is_expanded(item.data.entry) and item.data.entry.type == 'directory'
         end,
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local item = ctx.get_cursor_item()
             if item and not state:is_expanded(item.data.entry) then
               state:expand(ctx.get_cursor_item().data.entry)
@@ -502,7 +503,7 @@ return function(option)
           return true
         end,
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local item = ctx.get_cursor_item()
             if item then
               local target_item = state:get_item(item.data.entry.path)
@@ -582,7 +583,7 @@ return function(option)
       {
         name = 'explorer.create',
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local item = ctx.get_cursor_item()
             if item then
               local parent_item = (function()
@@ -621,7 +622,7 @@ return function(option)
       {
         name = 'explorer.delete',
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local items = ctx.get_action_items()
             table.sort(items, function(a, b)
               return a.data.entry.depth > b.data.entry.depth
@@ -662,7 +663,7 @@ return function(option)
       {
         name = 'explorer.rename',
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local item = ctx.get_cursor_item()
             if item then
               local parent_item = state:get_parent_item(item.data.entry)
@@ -765,7 +766,7 @@ return function(option)
           return true
         end,
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             local item = ctx.get_cursor_item()
             if item then
               local paste_target_item = state:get_item(item.data.entry.path)
@@ -777,25 +778,27 @@ return function(option)
 
                 local clipboard = Clipboard.instance:get()
                 if clipboard.type == 'move' then
-                  operation.rename(vim.iter(clipboard.paths):map(function(path)
-                    state:dirty(path)
-                    ---@type deck.x.operation.Rename
-                    return {
-                      type = 'rename',
-                      path = path,
-                      path_new = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
-                      kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
-                    }
-                  end):totable()):await()
+                  operation.rename(
+                    vim.iter(clipboard.paths):map(function(path)
+                      state:dirty(path)
+                      return {
+                        type = 'rename',
+                        path = path,
+                        path_new = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
+                        kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
+                      } ---@as deck.x.operation.Rename
+                    end):totable()
+                  ):await()
                 else
-                  operation.create(vim.iter(clipboard.paths):map(function(path)
-                    ---@type deck.x.operation.Create
-                    return {
-                      type = 'create',
-                      path = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
-                      kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
-                    }
-                  end):totable()):await()
+                  operation.create(
+                    vim.iter(clipboard.paths):map(function(path)
+                      return {
+                        type = 'create',
+                        path = vim.fs.joinpath(paste_target_item.path, vim.fs.basename(path)),
+                        kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
+                      } ---@as deck.x.operation.Create
+                    end):totable()
+                  ):await()
                 end
                 state:refresh()
                 ctx.execute()
@@ -807,7 +810,7 @@ return function(option)
       {
         name = 'explorer.refresh',
         execute = function(ctx)
-          Async.run(function()
+          return Async.run(function()
             state:refresh(true)
             ctx.execute()
           end)

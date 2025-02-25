@@ -57,6 +57,9 @@ IO.WalkStatus = {
 IO.fs_stat = Async.promisify(uv.fs_stat)
 
 ---@type fun(path: string): deck.kit.Async.AsyncTask
+IO.fs_statfs = Async.promisify(uv.fs_statfs)
+
+---@type fun(path: string): deck.kit.Async.AsyncTask
 IO.fs_unlink = Async.promisify(uv.fs_unlink)
 
 ---@type fun(path: string): deck.kit.Async.AsyncTask
