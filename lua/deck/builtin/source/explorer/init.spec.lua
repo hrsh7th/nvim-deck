@@ -27,6 +27,10 @@ local function setup()
       fixture_dir = fixture_dir,
       stat = vim.uv.fs_stat(fixture_target_dir),
     })
+  end):catch(function(error)
+    vim.print({
+      error = error
+    })
   end):sync(5 * 1000)
 end
 
@@ -64,6 +68,7 @@ describe('deck.builtin.source.explorer', function()
   end)
 
   it('basic', function()
+    vim.print('start basic test')
     setup()
     local ctx = start(fixture_target_dir)
     do_action_with_path(ctx, 'explorer.expand', 'dir1')
