@@ -145,7 +145,6 @@ return function()
         -- setup window.
         vim.api.nvim_set_option_value('wrap', false, { win = state.win })
         vim.api.nvim_set_option_value('number', false, { win = state.win })
-        vim.api.nvim_set_option_value('winfixheight', true, { win = state.win })
       end
 
       state.timer:start(0, RedrawInterval, function()
