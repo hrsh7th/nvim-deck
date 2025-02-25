@@ -63,7 +63,6 @@ describe('deck.builtin.source.explorer', function()
   end)
 
   it('basic', function()
-    vim.print('start basic test')
     setup()
     local ctx = start(fixture_target_dir)
     do_action_with_path(ctx, 'explorer.expand', 'dir1')

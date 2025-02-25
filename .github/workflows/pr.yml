@@ -19,7 +19,7 @@ jobs:
         include:
         - os: "windows-latest"
           toolchain: "msvc"
-          luaVersion: "5.1"
+          luaVersion: "luajit-openresty"
           neovim: "nightly"
 
     runs-on: ${{ matrix.os }}
