@@ -306,6 +306,7 @@ function IO.walk(start_path, callback, option)
         return status
       end
       for entry in iter_entries do
+        entry.path = IO.normalize(entry.path)
         if entry.type == 'directory' then
           if walk_pre(entry) == IO.WalkStatus.Break then
             return IO.WalkStatus.Break
@@ -326,6 +327,7 @@ function IO.walk(start_path, callback, option)
         return callback(iter_entries, dir)
       end
       for entry in iter_entries do
+        entry.path = IO.normalize(entry.path)
         if entry.type == 'directory' then
           if walk_post(entry) == IO.WalkStatus.Break then
             return IO.WalkStatus.Break
@@ -418,7 +420,7 @@ function IO.normalize(path)
   end
 
   -- resolve relative path.
-  local up = assert(uv.cwd())
+  local up = assert(uv.cwd()):gsub('\\', '/')
   up = up:sub(-1) == '/' and up:sub(1, -2) or up
   while true do
     if path:sub(1, 3) == '../' then
