@@ -19,7 +19,7 @@ jobs:
         include:
         - os: "windows-latest"
           toolchain: "msvc"
-          luaVersion: "luajit-2.1.0-beta3"
+          luaVersion: "luajit-openresty"
           neovim: "nightly"
 
     runs-on: ${{ matrix.os }}
@@ -47,7 +47,7 @@ jobs:
         luaVersion: "${{ matrix.luaVersion }}"
 
     - name: Install LuaRocks
-      uses: luarocks/gh-actions-luarocks@v5
+      uses: luarocks/gh-actions-luarocks@master
 
     - name: Build Test Dependencies
       run: |
