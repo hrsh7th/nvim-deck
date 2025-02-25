@@ -19,13 +19,13 @@ local function setup()
     IO.rm(fixture_target_dir, { recursive = true }):catch(function()
     end):await()
 
-    local fixture_dir = IO.join(IO.normalize(debug.getinfo(1, 'S').source:sub(2):gsub('\\', '/')):match('(.*/)'), '../../../../../fixtures/fs')
-    vim.print(fixture_dir)
+    local fixture_dir = IO.join(
+      IO.normalize(
+        debug.getinfo(1, 'S').source:sub(2):gsub('\\', '/'):match('(.*/)')
+      ),
+      '../../../../../fixtures/fs'
+    )
     IO.cp(fixture_dir, fixture_target_dir, { recursive = true }):await()
-  end):catch(function(error)
-    vim.print({
-      error = error
-    })
   end):sync(5 * 1000)
 end
 
