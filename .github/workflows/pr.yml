@@ -20,14 +20,6 @@ jobs:
         - os: "windows-latest"
           toolchain: "msvc"
           luaVersion: "5.1"
-          neovim: "v0.10.0"
-        - os: "windows-latest"
-          toolchain: "msvc"
-          luaVersion: "5.1"
-          neovim: "stable"
-        - os: "windows-latest"
-          toolchain: "msvc"
-          luaVersion: "5.1"
           neovim: "nightly"
 
     runs-on: ${{ matrix.os }}
