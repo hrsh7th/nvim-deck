@@ -442,10 +442,7 @@ end
 function IO.join(base, path)
   base = base:gsub('\\', '/')
   path = path:gsub('\\', '/')
-  if base:sub(-1) == '/' then
-    base = base:sub(1, -2)
-  end
-  return base .. '/' .. path
+  return (vim.fs.joinpath(base, path):gsub('\\', '/'))
 end
 
 ---Return the path of the current working directory.
