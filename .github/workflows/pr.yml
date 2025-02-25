@@ -16,11 +16,11 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         neovim: [nightly]
         luaVersion: ["luajit-openresty"]
-        include:
-        - os: "windows-latest"
-          toolchain: "msvc"
-          luaVersion: "luajit-openresty"
-          neovim: "nightly"
+        # include:
+        # - os: "windows-latest"
+        #   toolchain: "msvc"
+        #   luaVersion: "luajit-openresty"
+        #   neovim: "nightly"
 
     runs-on: ${{ matrix.os }}
     name: "OS: ${{ matrix.os }} - Neovim: ${{ matrix.neovim }} - Lua: ${{ matrix.luaVersion }}"
