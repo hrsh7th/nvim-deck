@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   docs:
+    if: github.repository == 'hrsh7th/nvim-deck'
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
