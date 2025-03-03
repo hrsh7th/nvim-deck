@@ -181,17 +181,18 @@ function Context.create(id, source, start_config)
 
   --Setup decoration provider.
   do
-    local decor = {}
+    ---@type vim.api.keyset.set_extmark
+    local decor = {
+      hl_mode = 'combine',
+    }
 
     ---@param row integer
     ---@param decoration deck.Decoration
     local function apply_decoration(row, decoration)
-      kit.clear(decor)
       decor.end_row = decoration.end_col and row
       decor.end_col = decoration.end_col
       decor.hl_eol = decoration.hl_eol
       decor.hl_group = decoration.hl_group
-      decor.hl_mode = 'combine'
       decor.virt_text = decoration.virt_text
       decor.virt_text_pos = decoration.virt_text_pos
       decor.virt_text_win_col = decoration.virt_text_win_col
