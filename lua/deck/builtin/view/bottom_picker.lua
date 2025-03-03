@@ -136,6 +136,11 @@ return function(config)
         valid = true,
         win = state.win,
       })
+      vim.api.nvim__redraw({
+        flush = true,
+        valid = true,
+        win = state.preview_win,
+      })
     end
   end
 
@@ -260,6 +265,11 @@ return function(config)
           },
         })
       end)
+      vim.api.nvim__redraw({
+        flush = true,
+        valid = true,
+        win = state.preview_win,
+      })
     end,
   } --[[@as deck.View]]
   return view

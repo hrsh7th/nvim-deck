@@ -101,6 +101,11 @@ return function()
         valid = true,
         win = state.win,
       })
+      vim.api.nvim__redraw({
+        flush = true,
+        valid = true,
+        win = state.preview_win,
+      })
     end
   end
 
