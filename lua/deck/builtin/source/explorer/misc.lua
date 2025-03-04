@@ -25,13 +25,17 @@ function misc.create_display_text(item, is_expanded, depth)
     table.insert(parts, { ' ' })
     -- icon
     local icon, hl = Icon.filename(item.path)
-    table.insert(parts, { icon or ' ', hl })
+    if icon then
+      table.insert(parts, { icon, hl })
+    end
   else
     -- expander area
     table.insert(parts, { '  ' })
     -- icon
     local icon, hl = Icon.filename(item.path)
-    table.insert(parts, { icon or ' ', hl })
+    if icon then
+      table.insert(parts, { icon, hl })
+    end
   end
   -- sep
   table.insert(parts, { ' ' })
