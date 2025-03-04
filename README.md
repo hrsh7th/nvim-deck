@@ -60,6 +60,19 @@ nvim-deck revolves around four core concepts:
   - Instead of this, nvim-deck allows you to customize by controlling
     |deck.Context| object.
 
+# Dependencies
+
+### Required
+
+- Neovim nightly
+
+### Optional
+
+- [ripgrep](https://github.com/BurntSushi/ripgrep): grep and finding files
+- [folke/snacks.nvim](https://github.com/folke/snacks.nvim): previewing images
+- [echasnovski/mini.icons](https://github.com/echasnovski/mini.icons): file icons
+- [Nerd Fonts](https://www.nerdfonts.com): icons
+
 # Setup
 
 Here’s an example of how to set up `nvim-deck`:
