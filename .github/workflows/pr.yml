@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        neovim: [nightly]
+        neovim: [stable, nightly]
         luaVersion: ["luajit-openresty"]
         # include:
         # - os: "windows-latest"

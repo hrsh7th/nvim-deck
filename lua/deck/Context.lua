@@ -292,7 +292,7 @@ function Context.create(id, source, start_config)
       buffer:start_filtering()
 
       local to_show = not context.is_visible()
-      pcall(view.show, context)
+      view.show(context)
       context.set_cursor(context.get_cursor())
       if to_show then
         redraw()
@@ -319,7 +319,7 @@ function Context.create(id, source, start_config)
       buffer:abort_filtering()
 
       local to_hide = context.is_visible()
-      pcall(view.hide, context)
+      view.hide(context)
       if to_hide then
         if start_config.auto_abort then
           state.controller.abort()

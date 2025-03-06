@@ -150,7 +150,8 @@ return function()
     hide = function(ctx)
       state.timer:stop()
       if view.is_visible(ctx) then
-        vim.api.nvim_win_hide(state.win)
+        -- `nvim_win_hide()` fails if `state.win` is the last window.
+        pcall(vim.api.nvim_win_hide, state.win)
       end
       if is_visible(state.preview_win) then
         vim.api.nvim_win_hide(state.preview_win)

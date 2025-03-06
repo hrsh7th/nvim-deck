@@ -329,8 +329,10 @@ return function(option)
 
         if env.first and option.reveal then
           Async.run(function()
-            local relpath = vim.fs.relpath(state:get_root().path, option.reveal)
-            if relpath then
+            local root = state:get_root().path
+            -- both paths are already normalized
+            if vim.startswith(root, option.reveal) then
+              local relpath = option.reveal:sub(#root + #'/' + 1)
               local paths = vim.fn.split(relpath, '/')
               local current_path = option.cwd
               while current_path and #paths > 0 do

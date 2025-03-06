@@ -64,7 +64,7 @@ nvim-deck revolves around four core concepts:
 
 ### Required
 
-- Neovim nightly
+- Neovim stable or later
 
 ### Optional
 
