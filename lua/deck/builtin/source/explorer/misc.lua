@@ -28,6 +28,9 @@ function misc.create_display_text(item, is_expanded, depth)
     if icon then
       table.insert(parts, { icon, hl })
     end
+    -- sep
+    table.insert(parts, { ' ' })
+    table.insert(parts, { item.name, 'Directory' })
   else
     -- expander area
     table.insert(parts, { '  ' })
@@ -36,10 +39,10 @@ function misc.create_display_text(item, is_expanded, depth)
     if icon then
       table.insert(parts, { icon, hl })
     end
+    -- sep
+    table.insert(parts, { ' ' })
+    table.insert(parts, { item.name })
   end
-  -- sep
-  table.insert(parts, { ' ' })
-  table.insert(parts, { item.name })
   return parts
 end
 
