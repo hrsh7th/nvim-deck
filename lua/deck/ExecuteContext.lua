@@ -117,7 +117,7 @@ function ExecuteContext.create(params)
 
     --- Noify done to main context.
     done = function()
-      vim.schedule(function()
+      local function on_done()
         if aborted then
           return
         end
@@ -126,7 +126,12 @@ function ExecuteContext.create(params)
         end
         done = true
         params.on_done()
-      end)
+      end
+      if gather_cursor < #gather_queue then
+        execute_context.queue(on_done)
+      else
+        on_done()
+      end
     end,
   } --[[@as deck.ExecuteContext]]
 
