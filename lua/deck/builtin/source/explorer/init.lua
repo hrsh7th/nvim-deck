@@ -106,6 +106,12 @@ function State:get_root()
   return self._root
 end
 
+---@param item deck.builtin.source.explorer.Item
+---@return boolean
+function State:is_hidden_item(item)
+  return not self._config.dotfiles and item.path:find('/.', nil, true) ~= nil
+end
+
 ---@return fun(): deck.builtin.source.explorer.Item
 function State:iter()
   ---@param item deck.builtin.source.explorer.Item
@@ -113,9 +119,7 @@ function State:iter()
     coroutine.yield(item)
     if item.expanded and item.children then
       for _, child in ipairs(item.children) do
-        local filter = false
-        filter = filter or (vim.fs.basename(child.path):sub(1, 1) == '.' and not self._config.dotfiles)
-        if not filter then
+        if not self:is_hidden_item(child) then
           iter(child)
         end
       end
@@ -373,7 +377,7 @@ return function(option)
             local item = Async.run(function()
               return misc.get_item_by_path(entry.path, depth)
             end):sync(1 * 1000)
-            if item then
+            if item and not state:is_hidden_item(item) then
               ctx.item({
                 display_text = misc.create_display_text(item, item.type == 'directory', depth),
                 data = {
@@ -470,12 +474,6 @@ return function(option)
       },
       {
         name = 'explorer.cd_or_open',
-        resolve = function(ctx)
-          if ctx.get_query() ~= '' then
-            return false
-          end
-          return true
-        end,
         execute = function(ctx)
           local item = ctx.get_cursor_item()
           if item and item.data.filename then
@@ -540,24 +538,12 @@ return function(option)
       },
       {
         name = 'explorer.cd_up',
-        resolve = function(ctx)
-          if ctx.get_query() ~= '' then
-            return false
-          end
-          return true
-        end,
         execute = function(ctx)
           ctx.do_action('explorer.get_api').set_cwd(IO.dirname(state:get_root().path), state:get_root().path)
         end,
       },
       {
         name = 'explorer.toggle_dotfiles',
-        resolve = function(ctx)
-          if ctx.get_query() ~= '' then
-            return false
-          end
-          return true
-        end,
         execute = function(ctx)
           state:set_config(kit.merge({
             dotfiles = not state:get_config().dotfiles,
