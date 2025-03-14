@@ -24,7 +24,7 @@ return function(config)
           end
         end
       end),
-      200
+      100
     )
     function calc_width(ctx, view)
       update_width(ctx, view)

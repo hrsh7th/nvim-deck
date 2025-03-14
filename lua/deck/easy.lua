@@ -1,4 +1,3 @@
-local x = require('deck.x')
 local kit = require('deck.kit')
 local augroup = vim.api.nvim_create_augroup('deck.easy', { clear = true })
 
@@ -86,19 +85,10 @@ function easy.setup(config)
           reveal = args['--reveal'] or config.get_buffer_path(vim.api.nvim_get_current_buf()),
         }
 
-        x.ensure_win('deck.easy.explorer', function()
-          vim.cmd(('noautocmd keepalt keepjumps %s %s%s +%sbuffer'):format('topleft', option.width, 'vsplit', vim.api.nvim_create_buf(false, true)))
-          return vim.api.nvim_get_current_win()
-        end, function(win)
-          vim.api.nvim_set_current_win(win)
-          vim.api.nvim_set_option_value('winfixwidth', true, { win = win })
-        end)
-
         deck.start({
           require('deck.builtin.source.explorer')({
             cwd = option.cwd,
             mode = 'drawer',
-            min_width = option.width,
             reveal = option.reveal or option.cwd,
             narrow = {
               enable = true,
@@ -107,7 +97,7 @@ function easy.setup(config)
           }),
         }, {
           view = function()
-            return require('deck.builtin.view.current_picker')()
+            return require('deck.builtin.view.drawer_picker')({ auto_resize = true, min_width = option.width })
           end,
           dedup = false,
           history = false,

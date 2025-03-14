@@ -289,11 +289,6 @@ end
   desc = "Mode of explorer."
 
   [[options]]
-  name = "min_width"
-  type = "number"
-  desc = "Minimum explorer window size."
-
-  [[options]]
   name = "narrow"
   type = "{ enabled?: boolean, ignore_globs?: string[] }"
   desc = "Narrow finder options."
@@ -306,7 +301,6 @@ end
 ---@class deck.builtin.source.explorer.Option
 ---@field cwd string
 ---@field mode 'drawer' | 'filer'
----@field min_width? number
 ---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
 ---@field reveal? string
 ---@param option deck.builtin.source.explorer.Option
@@ -319,7 +313,6 @@ return function(option)
   option.cwd = IO.normalize(option.cwd)
   option.reveal = option.reveal and IO.normalize(option.reveal) or nil
   option.mode = option.mode or 'filer'
-  option.min_width = option.min_width or math.floor(vim.o.columns * 0.2)
   option.narrow = kit.merge(option.narrow, {
     enabled = true,
     ignore_globs = {},
@@ -332,38 +325,6 @@ return function(option)
   return {
     name = 'explorer',
     events = {
-      Start = function(ctx)
-        local function auto_resize()
-          local auto = state:get_config().auto_resize and vim.api.nvim_get_current_buf() == ctx.buf and option.mode == 'drawer'
-
-          local fix_width = option.min_width or 1
-          if auto then
-            local width = 0
-            for _, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
-              width = math.max(width, vim.fn.strdisplaywidth(text))
-            end
-            fix_width = math.max(width + 3, fix_width)
-          end
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_get_buf(win) == ctx.buf then
-              vim.api.nvim_win_set_width(win, fix_width)
-              break
-            end
-          end
-        end
-
-        -- on redraw.
-        ctx.on_redraw(kit.throttle(kit.fast_schedule_wrap(auto_resize), 200) --[[@as fun()]])
-
-        -- on BufEnter.
-        x.autocmd('BufEnter', function()
-          auto_resize()
-        end)
-
-        -- init.
-        auto_resize()
-      end,
-
       BufWinEnter = function(ctx, env)
         require('deck.builtin.source.recent_dirs'):add(state:get_root().path)
 
@@ -581,15 +542,6 @@ return function(option)
         name = 'explorer.cd_up',
         execute = function(ctx)
           ctx.do_action('explorer.get_api').set_cwd(IO.dirname(state:get_root().path), state:get_root().path)
-        end,
-      },
-      {
-        name = 'explorer.toggle_auto_resize',
-        execute = function(ctx)
-          state:set_config(kit.merge({
-            auto_resize = not state:get_config().auto_resize,
-          }, state:get_config()))
-          ctx.execute()
         end,
       },
       {
