@@ -31,18 +31,16 @@ do
     };
   ]])
   ffi.metatype('deck_scorelist_node_t', { __index = Node })
-  local tree_ctype = ffi.metatype(
-    ffi.typeof([[
-      struct {
-        uint32_t capacity;
-        uint32_t len;
-        deck_scorelist_node_t *root;
-        deck_scorelist_node_t *leftmost;
-        deck_scorelist_node_t nodes[?];
-      }
-    ]]),
-    { __index = ScoreList }
-  )
+  local scorelist_ctype = ffi.typeof([[
+    struct {
+      uint32_t capacity;
+      uint32_t len;
+      deck_scorelist_node_t *root;
+      deck_scorelist_node_t *leftmost;
+      deck_scorelist_node_t nodes[?];
+    }
+  ]])
+  ffi.metatype(scorelist_ctype, { __index = ScoreList })
 
   ---@param list deck.x.ScoreList
   ---@param capacity integer
@@ -60,7 +58,7 @@ do
   ---@return self
   function ScoreList.new(capacity)
     local nelem = capacity + 1
-    local self = tree_ctype(nelem) --[[@as deck.x.ScoreList]]
+    local self = scorelist_ctype(nelem) --[[@as deck.x.ScoreList]]
     init(self, capacity)
     return self
   end
@@ -68,7 +66,7 @@ do
   function ScoreList:clear()
     local capacity = self.capacity
     local nelem = capacity + 1
-    ffi.fill(self, ffi.sizeof(tree_ctype, nelem) --[[@as integer]])
+    ffi.fill(self, ffi.sizeof(scorelist_ctype, nelem) --[[@as integer]])
     return init(self, capacity)
   end
 end
@@ -79,6 +77,7 @@ end
 function ScoreList:insert(score, item_index)
   local key = score
   local value = item_index
+
   local ret = nil ---@type integer?
   if self.len == self.capacity then
     if key <= self.leftmost.key then
