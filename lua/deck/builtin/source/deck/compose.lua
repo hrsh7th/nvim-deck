@@ -69,24 +69,48 @@ return function(sources)
     end,
     events = events_proxy,
     actions = vim.iter(sources):fold({}, function(acc, source)
-      return kit.concat(acc, source.actions or {})
+      ---@type deck.ActionResolveFunction
+      local resolve_source = function(ctx)
+        for _, item in ipairs(ctx.get_action_items()) do
+          if item[symbols.source] ~= source then
+            return false
+          end
+        end
+        return true
+      end
+      return kit.concat(acc, vim.iter(source.actions or {}):map(function(action)
+        local resolve_action = action.resolve
+        action.resolve = function(ctx)
+          if resolve_source(ctx) then
+            return resolve_action(ctx)
+          end
+          return true
+        end
+        return action
+      end):totable())
     end),
     decorators = kit.concat(
       vim.iter(sources):fold({}, function(acc, source)
         return kit.concat(acc, source.decorators or {})
       end),
       {
-        {
-          name = 'source_name',
-          decorate = function(_, item)
-            return {
+        (function()
+          local source_name_decor_map = {}
+          for _, source in ipairs(sources) do
+            source_name_decor_map[source.name] = {
               col = 0,
-              virt_text = { { ('%s'):format(item[symbols.source].name), 'Comment' } },
+              virt_text = { { ('%s'):format(source.name), 'Comment' } },
               virt_text_pos = 'right_align',
               hl_mode = 'combine',
             }
-          end,
-        },
+          end
+          return {
+            name = 'source_name',
+            decorate = function(_, item)
+              return source_name_decor_map[item[symbols.source].name]
+            end
+          }
+        end)()
       }
     ),
     previewers = vim.iter(sources):fold({}, function(acc, source)

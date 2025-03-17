@@ -219,6 +219,7 @@ function Buffer:_step_render()
   end
   max_count = max_count == 0 and vim.o.lines or max_count
 
+  -- check render condition.
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
   should_render = should_render or (#items_filtered - self._cursor_rendered) > max_count
@@ -230,6 +231,12 @@ function Buffer:_step_render()
     return
   end
 
+  -- clear obsolete items for item count decreasing (e.g. filtering, re-execute).
+  for i = self._cursor_rendered + 1, #self._items_rendered do
+    self._items_rendered[i] = nil
+  end
+
+  -- rendering.
   kit.clear(rendering_lines)
   while self._cursor_rendered < #items_filtered do
     self._cursor_rendered = self._cursor_rendered + 1
@@ -241,11 +248,7 @@ function Buffer:_step_render()
     c = c + 1
     if c >= config.render_batch_size then
       c = 0
-
       vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
-      for i = self._cursor_rendered + 1, #self._items_rendered do
-        self._items_rendered[i] = nil
-      end
       kit.clear(rendering_lines)
 
       local n = vim.uv.hrtime() / 1e6
@@ -259,24 +262,18 @@ function Buffer:_step_render()
     end
   end
   vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
-  for i = self._cursor_rendered + 1, #self._items_rendered do
-    self._items_rendered[i] = nil
-  end
-  -- ↑ all currently received items are rendered.
-
   self._emit_render()
 
-  if self._timer_filter:is_running() then
+  -- continue rendering timer.
+  local finished = not self._timer_filter:is_running() and self._done
+  if not finished then
     self._timer_render:start(config.render_interrupt_ms, 0, function()
       self:_step_render()
     end)
-    return
-  end
-
-  -- emit for `is_filtering()` change.
-  vim.schedule(function()
+  else
+    self._timer_render:stop()
     self._emit_render()
-  end)
+  end
 end
 
 ---Return whether buffer is aborted or not.

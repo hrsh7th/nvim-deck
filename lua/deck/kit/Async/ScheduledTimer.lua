@@ -60,6 +60,7 @@ function ScheduledTimer:start(ms, repeat_ms, callback)
     on_tick()
     return
   end
+  self._timer:stop()
   self._timer:start(ms, 0, on_tick)
 end
 
