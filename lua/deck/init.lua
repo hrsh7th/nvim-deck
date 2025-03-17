@@ -133,13 +133,13 @@ local Context = require('deck.Context')
 ---@field public is_visible fun(ctx: deck.Context): boolean
 ---@field public show fun(ctx: deck.Context)
 ---@field public hide fun(ctx: deck.Context)
----@field public redraw fun(ctx: deck.Context)
 ---@field public prompt fun(ctx: deck.Context)
 ---@field public scroll_preview fun(ctx: deck.Context, delta: integer)
 
 ---@doc.type
 ---@class deck.PerformanceConfig
 ---@field public sync_timeout_ms integer
+---@field public redraw_tick_ms integer
 ---@field public gather_budget_ms integer
 ---@field public gather_batch_size integer
 ---@field public gather_interrupt_ms integer
@@ -227,6 +227,7 @@ local internal = {
       history = true,
       performance = {
         sync_timeout_ms = 400,
+        redraw_tick_ms = 96,
         gather_budget_ms = 16,
         gather_batch_size = 200,
         gather_interrupt_ms = 8,
@@ -234,9 +235,9 @@ local internal = {
         filter_batch_size = 200,
         filter_interrupt_ms = 8,
         render_bugdet_ms = 16,
-        render_batch_size = 500,
+        render_batch_size = 2000,
         render_interrupt_ms = 8,
-        render_delay_ms = 800,
+        render_delay_ms = 280,
       },
       dedup = true,
       query = '',

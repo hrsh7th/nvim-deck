@@ -6,6 +6,7 @@ return function(config)
     if config.max_height <= buf_height then
       return config.max_height
     end
+
     local extmarks = vim.api.nvim_buf_get_extmarks(ctx.buf, ctx.ns, 0, -1, {
       type = 'virt_lines',
       details = true,

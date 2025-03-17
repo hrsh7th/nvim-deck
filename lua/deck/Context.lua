@@ -4,9 +4,11 @@ local notify = require('deck.notify')
 local symbols = require('deck.symbols')
 local Buffer = require('deck.Buffer')
 local ExecuteContext = require('deck.ExecuteContext')
+local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 
 ---@class deck.Context.State
 ---@field status deck.Context.Status
+---@field timer deck.kit.Async.ScheduledTimer
 ---@field cursor integer
 ---@field query string
 ---@field matcher_query string
@@ -64,7 +66,8 @@ local ExecuteContext = require('deck.ExecuteContext')
 ---@field dispose fun()
 ---@field disposed fun(): boolean
 ---@field on_dispose fun(callback: fun()): fun()
----@field on_redraw fun(callback: fun())
+---@field on_redraw_sync fun(callback: fun())
+---@field on_redraw_tick fun(callback: fun())
 ---@field on_show fun(callback: fun())
 ---@field on_hide fun(callback: fun())
 
@@ -89,6 +92,7 @@ function Context.create(id, source, start_config)
   ---@type deck.Context.State
   local state = {
     status = Context.Status.Waiting,
+    timer = ScheduledTimer.new(),
     cursor = 1,
     query = start_config.query or '',
     matcher_query = '',
@@ -105,27 +109,22 @@ function Context.create(id, source, start_config)
 
   local events = {
     dispose = x.create_events(),
-    redraw = x.create_events(),
+    redraw_tick = x.create_events(),
+    redraw_sync = x.create_events(),
     show = x.create_events(),
     hide = x.create_events(),
   }
 
+  local dirty = false
   local function redraw()
     if context.is_visible() and not context.is_syncing() then
-      events.redraw.emit(nil)
-      view.redraw(context)
-      vim.api.nvim_buf_set_extmark(context.buf, context.ns, 0, 0, {
-        id = 1,
-        ui_watched = true,
-      })
+      dirty = true
+      events.redraw_sync.emit(nil)
     end
   end
 
   local buffer = Buffer.new(tostring(id), start_config)
-
-  buffer.on_render(function()
-    redraw()
-  end)
+  buffer.on_render(redraw)
 
   ---Execute source.
   local execute_source = function()
@@ -138,6 +137,7 @@ function Context.create(id, source, start_config)
     ---@type deck.Context.State
     state = {
       status = Context.Status.Waiting,
+      timer = state.timer,
       cursor = state.cursor,
       query = state.query,
       matcher_query = state.matcher_query,
@@ -293,10 +293,22 @@ function Context.create(id, source, start_config)
       end
 
       buffer:start_filtering()
+      state.timer:stop()
+      state.timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms, function()
+        if dirty or buffer:is_filtering() then
+          dirty = false
+          events.redraw_tick.emit(nil)
+          if vim.api.nvim_get_mode().mode == 'c' then
+            vim.api.nvim__redraw({ flush = true })
+          end
+        end
+      end)
 
       local to_show = not context.is_visible()
       view.show(context)
       context.set_cursor(context.get_cursor())
+      events.redraw_sync.emit(nil)
+      events.redraw_tick.emit(nil)
       if to_show then
         redraw()
         --[=[@doc
@@ -320,6 +332,7 @@ function Context.create(id, source, start_config)
     ---Hide context via given view.
     hide = function()
       buffer:abort_filtering()
+      state.timer:stop()
 
       local to_hide = context.is_visible()
       view.hide(context)
@@ -806,7 +819,10 @@ function Context.create(id, source, start_config)
     on_dispose = events.dispose.on,
 
     ---Subscribe update event.
-    on_redraw = events.redraw.on,
+    on_redraw_sync = events.redraw_sync.on,
+
+    ---Subscribe update event.
+    on_redraw_tick = events.redraw_tick.on,
 
     ---Subscribe show event.
     on_show = events.show.on,
@@ -831,7 +847,7 @@ function Context.create(id, source, start_config)
       end
       first = false
 
-      redraw()
+      context.show()
     end, {
       pattern = ('<buffer=%s>'):format(context.buf),
     }))
