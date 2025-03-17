@@ -81,7 +81,7 @@ function ScoreList:insert(score, item_index)
   local value = item_index
   local ret = nil ---@type integer?
   if self.len == self.capacity then
-    if key < self.leftmost.key then
+    if key <= self.leftmost.key then
       return item_index
     end
     ret = self.leftmost:item_index()
