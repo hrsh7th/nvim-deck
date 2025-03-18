@@ -26,7 +26,7 @@ describe('deck.x.ScoreList', function()
     it('should be able to insert many nodes', function()
       local list = ScoreList.new(2 ^ 20)
       for i = 1, list.capacity do
-        list:insert(math.random(), i)
+        list:insert(math.random(1000), i)
       end
       list:_check_valid()
     end)
@@ -35,7 +35,7 @@ describe('deck.x.ScoreList', function()
       local list = ScoreList.new(1000)
       math.randomseed(0)
       for i = 1, list.capacity do
-        assert.is_nil(list:insert(math.random(), i))
+        assert.is_nil(list:insert(math.random(1000), i))
       end
     end)
   end)

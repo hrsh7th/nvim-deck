@@ -11,8 +11,8 @@ local ffi = require('ffi')
 local ScoreList = {}
 
 ---@class deck.x.ScoreList.Node
----@field package value integer
----@field package key number
+---@field package _value integer
+---@field package _key number
 ---@field package parent deck.x.ScoreList.Node
 ---@field package left deck.x.ScoreList.Node
 ---@field package right deck.x.ScoreList.Node
@@ -22,9 +22,9 @@ do
   ffi.cdef([[
     typedef struct deck_scorelist_node deck_scorelist_node_t;
     typedef struct deck_scorelist_node {
-      // value < 0: red, value == 0: null (black), 0 < value: black
-      int32_t value;
-      float key;
+      int32_t _value;
+      // key < 0: red, key == 0: null (black), 0 < key: black
+      float _key;
       deck_scorelist_node_t *parent;
       deck_scorelist_node_t *left;
       deck_scorelist_node_t *right;
@@ -71,19 +71,16 @@ do
   end
 end
 
----@param score number float
----@param item_index integer must be 1 or more integer
----@return integer? `item_index` of the dropped node
-function ScoreList:insert(score, item_index)
-  local key = score
-  local value = item_index
-
+---@param key number must be greater than 0
+---@param value integer must be greater than or equal to 1
+---@return integer? -- dropped value
+function ScoreList:insert(key, value)
   local ret = nil ---@type integer?
   if self.len == self.capacity then
-    if key <= self.leftmost.key then
-      return item_index
+    if key <= self.leftmost:key() then
+      return value
     end
-    ret = self.leftmost:item_index()
+    ret = self.leftmost:value()
   elseif self.len == 0 then
     return self:set_root_node(key, value)
   end
@@ -91,7 +88,7 @@ function ScoreList:insert(score, item_index)
   local leaf = self:acquire_leaf_node(key, value)
   local n = self.root
   while true do
-    if n.key < key then
+    if n:key() < key then
       if n.right:is_null() then
         leaf.parent = n
         n.right = leaf
@@ -118,7 +115,7 @@ function ScoreList:insert(score, item_index)
   end
 end
 
---- `self.capacity` must be 1 or greater
+--- `self.capacity` must be greater than or equal to 1
 ---@private
 ---@param key number
 ---@param value integer
@@ -127,8 +124,8 @@ function ScoreList:set_root_node(key, value)
   self.len = 1
   self.root = n
   self.leftmost = n
-  n.key = key
-  n.value = value -- black
+  n._key = key -- black
+  n._value = value
   n.parent = self.nodes[0]
   n.left = self.nodes[0]
   n.right = self.nodes[0]
@@ -160,8 +157,8 @@ function ScoreList:acquire_leaf_node(key, value)
   end
   n.left = self.nodes[0]
   n.right = self.nodes[0]
-  n.key = key
-  n.value = -value -- red
+  n._key = -key -- red
+  n._value = value
   return n
 end
 
@@ -184,28 +181,28 @@ do
 end
 
 ---@return number
-function Node:score()
-  return self.key
+function Node:key()
+  return math.abs(self._key)
 end
 
 ---@return integer
-function Node:item_index()
-  return math.abs(self.value)
+function Node:value()
+  return self._value
 end
 
 ---@package
 ---@return boolean
 function Node:is_black()
-  return 0 <= self.value
+  return 0 <= self._key
 end
 ---@package
 ---@return boolean
 function Node:is_red()
-  return self.value < 0
+  return self._key < 0
 end
 ---@package
 function Node:reverse_color()
-  self.value = -self.value
+  self._key = -self._key
 end
 ---@package
 ---@param n deck.x.ScoreList.Node
@@ -219,7 +216,7 @@ end
 ---@package
 ---@return boolean
 function Node:is_null()
-  return self.value == 0
+  return self._key == 0
 end
 --- `self` must not be null node.
 --- faster than `node == list.root`
@@ -378,7 +375,7 @@ do
       for _ = 1, depth do
         buf:put('|  ')
       end
-      buf:putf('%s(%s): %s\n', n:is_red() and 'R' or 'B', n:score(), n:item_index())
+      buf:putf('%s(%s): %s\n', n:is_red() and 'R' or 'B', n:key(), n:value())
     end)
     return buf:tostring()
   end
@@ -392,8 +389,8 @@ function ScoreList:_check_valid()
   local last_key = 0
   for n in self:iter() do
     i = i + 1
-    assert(last_key <= n.key, 'unsorted')
-    last_key = n.key
+    assert(last_key <= n:key(), 'unsorted')
+    last_key = n:key()
 
     if n:is_red() then
       assert(n.left:is_black(), 'double red')
@@ -426,7 +423,7 @@ if arg and arg[1] == 'bench' then
   local list = ScoreList.new(100000)
   local t = os.clock()
   for i = 1, list.capacity * 1000 do
-    list:insert(math.random(), i)
+    list:insert(1 + math.random() * 1000, i)
   end
   t = os.clock() - t
   print(t)
