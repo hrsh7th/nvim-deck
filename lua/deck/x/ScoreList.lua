@@ -164,19 +164,58 @@ end
 
 do
   ---@param n deck.x.ScoreList.Node
-  local function iter_node(n)
+  local function iter(n)
     if n:is_null() then
       return
     end
-    iter_node(n.left)
+    iter(n.left)
     coroutine.yield(n)
-    return iter_node(n.right)
+    return iter(n.right)
   end
 
-  ---@return fun(n: deck.x.ScoreList.Node): deck.x.ScoreList.Node
+  ---@return fun(n: deck.x.ScoreList.Node): node: deck.x.ScoreList.Node?
   ---@return deck.x.ScoreList.Node
   function ScoreList:iter()
-    return coroutine.wrap(iter_node), self.root
+    return coroutine.wrap(iter), self.root
+  end
+
+  ---@param n deck.x.ScoreList.Node
+  ---@param i integer
+  ---@return nil dummy
+  ---@return integer index
+  local function iter_with_index(n, i)
+    if n:is_null() then
+      return nil, i
+    end
+    local _
+    _, i = iter_with_index(n.left, i)
+    _, i = coroutine.yield(i + 1, n)
+    return iter_with_index(n.right, i)
+  end
+
+  ---@return fun(n: deck.x.ScoreList.Node, i: integer): index: integer?, node: deck.x.ScoreList.Node?
+  ---@return deck.x.ScoreList.Node
+  ---@return integer
+  function ScoreList:iter_with_index()
+    return coroutine.wrap(iter_with_index), self.root, 0
+  end
+
+  ---@param list deck.x.ScoreList
+  ---@param i integer
+  ---@return integer?
+  ---@return deck.x.ScoreList.Node?
+  local function iter_unordered(list, i)
+    local j = i + 1
+    if j <= list.len then
+      return j, list.nodes[j]
+    end
+  end
+
+  ---@return fun(t: deck.x.ScoreList, i: integer): internal_index: integer?, node: deck.x.ScoreList.Node?
+  ---@return deck.x.ScoreList
+  ---@return integer
+  function ScoreList:iter_unordered()
+    return iter_unordered, self, 0
   end
 end
 
