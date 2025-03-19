@@ -11,8 +11,8 @@ local ffi = require('ffi')
 local ScoreList = {}
 
 ---@class deck.x.ScoreList.Node
+---@field package _key number `< 0`: red, `0`: null (black), `> 0`: black
 ---@field package _value integer
----@field package _key number
 ---@field package parent deck.x.ScoreList.Node
 ---@field package left deck.x.ScoreList.Node
 ---@field package right deck.x.ScoreList.Node
@@ -22,9 +22,8 @@ do
   ffi.cdef([[
     typedef struct deck_scorelist_node deck_scorelist_node_t;
     typedef struct deck_scorelist_node {
-      int32_t _value;
-      // key < 0: red, key == 0: null (black), 0 < key: black
       float _key;
+      int32_t _value;
       deck_scorelist_node_t *parent;
       deck_scorelist_node_t *left;
       deck_scorelist_node_t *right;
@@ -226,7 +225,7 @@ end
 
 ---@return integer
 function Node:value()
-  return self._value
+  return math.abs(self._value)
 end
 
 ---@package
