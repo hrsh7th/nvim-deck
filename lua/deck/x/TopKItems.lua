@@ -2,20 +2,20 @@ local ffi = require('ffi')
 
 --- This is a sorted list for managing the matching scores of `deck.Item`,
 --- built on top of the Red-Black Tree.
----@class deck.x.ScoreList
+---@class deck.x.TopKItems
 ---@field public capacity integer
 ---@field public len integer
----@field package root deck.x.ScoreList.Node
----@field package leftmost deck.x.ScoreList.Node
----@field package nodes { [integer]: deck.x.ScoreList.Node } 1-based index (`[0]` is reserved for null node)
-local ScoreList = {}
+---@field package root deck.x.TopKItems.Node
+---@field package leftmost deck.x.TopKItems.Node
+---@field package nodes { [integer]: deck.x.TopKItems.Node } 1-based index (`[0]` is reserved for null node)
+local TopKItems = {}
 
----@class deck.x.ScoreList.Node
+---@class deck.x.TopKItems.Node
 ---@field package _key number `< 0`: red, `0`: null (black), `> 0`: black
 ---@field package _value integer
----@field package parent deck.x.ScoreList.Node
----@field package left deck.x.ScoreList.Node
----@field package right deck.x.ScoreList.Node
+---@field package parent deck.x.TopKItems.Node
+---@field package left deck.x.TopKItems.Node
+---@field package right deck.x.TopKItems.Node
 local Node = {}
 
 do
@@ -39,9 +39,9 @@ do
       deck_scorelist_node_t nodes[?];
     }
   ]])
-  ffi.metatype(scorelist_ctype, { __index = ScoreList })
+  ffi.metatype(scorelist_ctype, { __index = TopKItems })
 
-  ---@param list deck.x.ScoreList
+  ---@param list deck.x.TopKItems
   ---@param capacity integer
   local function init(list, capacity)
     list.capacity = capacity
@@ -55,14 +55,14 @@ do
 
   ---@param capacity integer must be 0 or more integer
   ---@return self
-  function ScoreList.new(capacity)
+  function TopKItems.new(capacity)
     local nelem = capacity + 1
-    local self = scorelist_ctype(nelem) --[[@as deck.x.ScoreList]]
+    local self = scorelist_ctype(nelem) --[[@as deck.x.TopKItems]]
     init(self, capacity)
     return self
   end
 
-  function ScoreList:clear()
+  function TopKItems:clear()
     local capacity = self.capacity
     local nelem = capacity + 1
     ffi.fill(self, ffi.sizeof(scorelist_ctype, nelem) --[[@as integer]])
@@ -73,7 +73,7 @@ end
 ---@param key number must be greater than 0
 ---@param value integer must be greater than or equal to 1
 ---@return integer? -- dropped value
-function ScoreList:insert(key, value)
+function TopKItems:insert(key, value)
   local ret = nil ---@type integer?
   if self.len == self.capacity then
     if key <= self.leftmost:key() then
@@ -118,7 +118,7 @@ end
 ---@private
 ---@param key number
 ---@param value integer
-function ScoreList:set_root_node(key, value)
+function TopKItems:set_root_node(key, value)
   local n = self.nodes[1]
   self.len = 1
   self.root = n
@@ -134,9 +134,9 @@ end
 ---@private
 ---@param key number
 ---@param value integer
----@return deck.x.ScoreList.Node
-function ScoreList:acquire_leaf_node(key, value)
-  local n ---@type deck.x.ScoreList.Node
+---@return deck.x.TopKItems.Node
+function TopKItems:acquire_leaf_node(key, value)
+  local n ---@type deck.x.TopKItems.Node
   if self.len == self.capacity then
     n = self.leftmost
     if n.right:is_null() then
@@ -162,7 +162,7 @@ function ScoreList:acquire_leaf_node(key, value)
 end
 
 do
-  ---@param n deck.x.ScoreList.Node
+  ---@param n deck.x.TopKItems.Node
   local function iter(n)
     if n:is_null() then
       return
@@ -172,13 +172,13 @@ do
     return iter(n.right)
   end
 
-  ---@return fun(n: deck.x.ScoreList.Node): node: deck.x.ScoreList.Node?
-  ---@return deck.x.ScoreList.Node
-  function ScoreList:iter()
+  ---@return fun(n: deck.x.TopKItems.Node): node: deck.x.TopKItems.Node?
+  ---@return deck.x.TopKItems.Node
+  function TopKItems:iter()
     return coroutine.wrap(iter), self.root
   end
 
-  ---@param n deck.x.ScoreList.Node
+  ---@param n deck.x.TopKItems.Node
   ---@param i integer
   ---@return nil dummy
   ---@return integer index
@@ -192,17 +192,17 @@ do
     return iter_with_index(n.right, i)
   end
 
-  ---@return fun(n: deck.x.ScoreList.Node, i: integer): index: integer?, node: deck.x.ScoreList.Node?
-  ---@return deck.x.ScoreList.Node
+  ---@return fun(n: deck.x.TopKItems.Node, i: integer): index: integer?, node: deck.x.TopKItems.Node?
+  ---@return deck.x.TopKItems.Node
   ---@return integer
-  function ScoreList:iter_with_index()
+  function TopKItems:iter_with_index()
     return coroutine.wrap(iter_with_index), self.root, 0
   end
 
-  ---@param list deck.x.ScoreList
+  ---@param list deck.x.TopKItems
   ---@param i integer
   ---@return integer?
-  ---@return deck.x.ScoreList.Node?
+  ---@return deck.x.TopKItems.Node?
   local function iter_unordered(list, i)
     local j = i + 1
     if j <= list.len then
@@ -210,10 +210,10 @@ do
     end
   end
 
-  ---@return fun(t: deck.x.ScoreList, i: integer): internal_index: integer?, node: deck.x.ScoreList.Node?
-  ---@return deck.x.ScoreList
+  ---@return fun(t: deck.x.TopKItems, i: integer): internal_index: integer?, node: deck.x.TopKItems.Node?
+  ---@return deck.x.TopKItems
   ---@return integer
-  function ScoreList:iter_unordered()
+  function TopKItems:iter_unordered()
     return iter_unordered, self, 0
   end
 end
@@ -243,7 +243,7 @@ function Node:reverse_color()
   self._key = -self._key
 end
 ---@package
----@param n deck.x.ScoreList.Node
+---@param n deck.x.TopKItems.Node
 function Node:swap_color(n)
   if self:is_black() ~= n:is_black() then
     self:reverse_color()
@@ -266,7 +266,7 @@ end
 
 --- `self` must be black node.
 ---@package
----@param list deck.x.ScoreList
+---@param list deck.x.TopKItems
 function Node:fix_double_red(list)
   local n = self
   while true do
@@ -311,7 +311,7 @@ end
 
 --- `self` must be black node.
 ---@package
----@param t deck.x.ScoreList
+---@param t deck.x.TopKItems
 function Node:fix_left_double_black(t)
   local n = self
   while true do
@@ -354,7 +354,7 @@ function Node:fix_left_double_black(t)
 end
 
 ---@package
----@param list deck.x.ScoreList
+---@param list deck.x.TopKItems
 function Node:rotate_left(list)
   local c = self.right
   if self:is_root() then
@@ -374,7 +374,7 @@ function Node:rotate_left(list)
 end
 
 ---@package
----@param list deck.x.ScoreList
+---@param list deck.x.TopKItems
 function Node:rotate_right(list)
   local c = self.left
   if self:is_root() then
@@ -395,8 +395,8 @@ end
 
 do
   ---@param depth integer
-  ---@param n deck.x.ScoreList.Node
-  ---@param callback fun(depth: integer, n: deck.x.ScoreList.Node)
+  ---@param n deck.x.TopKItems.Node
+  ---@param callback fun(depth: integer, n: deck.x.TopKItems.Node)
   local function walk(depth, n, callback)
     if n:is_null() then
       return
@@ -407,7 +407,7 @@ do
   end
 
   ---@return string
-  function ScoreList:_display()
+  function TopKItems:_display()
     local buf = require('string.buffer').new(self.len * 20)
     walk(0, self.root, function(depth, n)
       for _ = 1, depth do
@@ -419,7 +419,7 @@ do
   end
 end
 
-function ScoreList:_check_valid()
+function TopKItems:_check_valid()
   assert(self.root:is_black(), 'red root')
 
   local i = 0
@@ -458,7 +458,7 @@ end
 
 if arg and arg[1] == 'bench' then
   math.randomseed(1)
-  local list = ScoreList.new(100000)
+  local list = TopKItems.new(100000)
   local t = os.clock()
   for i = 1, list.capacity * 1000 do
     list:insert(1 + math.random() * 1000, i)
@@ -469,4 +469,4 @@ if arg and arg[1] == 'bench' then
   return
 end
 
-return ScoreList
+return TopKItems
