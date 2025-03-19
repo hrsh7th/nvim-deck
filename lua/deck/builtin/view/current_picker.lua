@@ -1,9 +1,5 @@
-local kit = require('deck.kit')
 local Keymap = require('deck.kit.Vim.Keymap')
-local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 local Context = require('deck.Context')
-
-local RedrawInterval = 80
 
 ---Check the window is visible or not.
 ---@param win? integer
@@ -25,90 +21,10 @@ return function()
   local state = {
     win = nil, --[[@type integer?]]
     preview_win = nil, --[[@type integer?]]
-    preview_cache = {},--[[@as table<string, table>]]
-    timer = ScheduledTimer.new(),
-    dirty = false,
+    disposes = {}
   }
 
   local view --[[@as deck.View]]
-
-  ---Redraw dirty.
-  ---@param ctx deck.Context
-  local function redraw_dirty(ctx)
-    if not state.dirty then
-      return
-    end
-    state.dirty = false
-
-    -- update status.
-    do
-      spinner.idx = spinner.idx + 1
-
-      local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
-      vim.api.nvim_set_option_value('statusline', ('[%s] %s/%s%s'):format(ctx.name, #ctx.get_filtered_items(), #ctx.get_items(), is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''), {
-        win = state.win,
-      })
-    end
-
-    -- update preview.
-    local item = ctx.get_cursor_item()
-    local deps = {
-      item = item,
-      preview_mode = ctx.get_preview_mode(),
-      width = vim.api.nvim_win_get_width(state.win),
-    }
-    if not kit.shallow_equals(state.preview_cache or {}, deps) then
-      state.preview_cache = deps
-
-      if not item or not ctx.get_preview_mode() or not ctx.get_previewer() then
-        if is_visible(state.preview_win) then
-          vim.api.nvim_win_hide(state.preview_win)
-          state.preview_win = nil
-        end
-      else
-        local available_width = vim.o.columns - deps.width
-        local preview_width = math.floor(available_width * 0.8)
-        local win_config = {
-          noautocmd = true,
-          relative = 'editor',
-          width = preview_width,
-          height = math.floor(vim.o.lines * 0.8),
-          row = math.floor(vim.o.lines * 0.1),
-          col = deps.width + math.max(1, math.floor(available_width * 0.1) - 2),
-          style = 'minimal',
-          border = 'rounded',
-        }
-        if not is_visible(state.preview_win) then
-          state.preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
-        else
-          win_config.noautocmd = nil
-          vim.api.nvim_win_set_config(state.preview_win, win_config)
-        end
-        ctx.get_previewer().preview(ctx, item, { win = state.preview_win })
-        vim.api.nvim_set_option_value('wrap', false, { win = state.preview_win })
-        vim.api.nvim_set_option_value('winhighlight', 'Normal:Normal,FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal', { win = state.preview_win })
-        vim.api.nvim_set_option_value('number', true, { win = state.preview_win })
-        vim.api.nvim_set_option_value('numberwidth', 5, { win = state.preview_win })
-        vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
-        vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
-      end
-    end
-
-    -- redraw if cmdline.
-    if vim.fn.mode(1):sub(1, 1) == 'c' then
-      vim.api.nvim__redraw({
-        flush = true,
-        valid = true,
-        win = state.win,
-      })
-      vim.api.nvim__redraw({
-        flush = true,
-        valid = true,
-        win = state.preview_win,
-      })
-    end
-  end
-
   view = {
     ---Get window.
     ---@return integer?
@@ -141,14 +57,69 @@ return function()
         vim.api.nvim_set_option_value('number', false, { win = state.win })
       end
 
-      state.timer:start(0, RedrawInterval, function()
-        redraw_dirty(ctx)
-      end)
+      for _, dispose in ipairs(state.disposes) do
+        dispose()
+      end
+
+      -- update statusline.
+      table.insert(state.disposes, ctx.on_redraw_tick(function()
+        spinner.idx = spinner.idx + 1
+        local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
+        vim.api.nvim_set_option_value('statusline', ('[%s] %s/%s%s'):format(
+          ctx.name,
+          #ctx.get_filtered_items(),
+          #ctx.get_items(),
+          is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
+        ), {
+          win = state.win,
+        })
+      end))
+
+      table.insert(state.disposes, ctx.on_redraw_tick(function()
+        local item = ctx.get_cursor_item()
+        if not item or not ctx.get_preview_mode() then
+          if is_visible(state.preview_win) then
+            vim.api.nvim_win_hide(state.preview_win)
+            state.preview_win = nil
+          end
+        else
+          local width = vim.api.nvim_win_get_width(state.win)
+          local available_width = vim.o.columns - width
+          local preview_width = math.floor(available_width * 0.8)
+          local win_config = {
+            noautocmd = true,
+            relative = 'editor',
+            width = preview_width,
+            height = math.floor(vim.o.lines * 0.8),
+            row = math.floor(vim.o.lines * 0.1),
+            col = width + math.max(1, math.floor(available_width * 0.1) - 2),
+            style = 'minimal',
+            border = 'rounded',
+          }
+          if not is_visible(state.preview_win) then
+            state.preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
+          else
+            win_config.noautocmd = nil
+            vim.api.nvim_win_set_config(state.preview_win, win_config)
+          end
+          ctx.get_previewer().preview(ctx, item, { win = state.preview_win })
+          vim.api.nvim_set_option_value('wrap', false, { win = state.preview_win })
+          vim.api.nvim_set_option_value('winhighlight',
+            'Normal:Normal,FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal', { win = state.preview_win })
+          vim.api.nvim_set_option_value('number', true, { win = state.preview_win })
+          vim.api.nvim_set_option_value('numberwidth', 5, { win = state.preview_win })
+          vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
+          vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
+        end
+      end))
     end,
 
     ---Hide window.
     hide = function(ctx)
-      state.timer:stop()
+      for _, dispose in ipairs(state.disposes) do
+        dispose()
+      end
+
       if view.is_visible(ctx) then
         -- `nvim_win_hide()` fails if `state.win` is the last window.
         pcall(vim.api.nvim_win_hide, state.win)
