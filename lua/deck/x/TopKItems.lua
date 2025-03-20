@@ -12,7 +12,7 @@ local TopKItems = {}
 
 ---@class deck.x.TopKItems.Node
 ---@field package _key number `< 0`: red, `0`: null (black), `> 0`: black
----@field package _value integer
+---@field package _value integer `< 0`: not yet rendered, `0`: null, `> 0`: already rendered
 ---@field package parent deck.x.TopKItems.Node
 ---@field package left deck.x.TopKItems.Node
 ---@field package right deck.x.TopKItems.Node
@@ -124,7 +124,7 @@ function TopKItems:set_root_node(key, value)
   self.root = n
   self.leftmost = n
   n._key = key -- black
-  n._value = value
+  n._value = -value
   n.parent = self.nodes[0]
   n.left = self.nodes[0]
   n.right = self.nodes[0]
@@ -157,7 +157,7 @@ function TopKItems:acquire_leaf_node(key, value)
   n.left = self.nodes[0]
   n.right = self.nodes[0]
   n._key = -key -- red
-  n._value = value
+  n._value = -value
   return n
 end
 
