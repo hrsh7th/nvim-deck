@@ -70,6 +70,216 @@ do
   end
 end
 
+---@param n deck.x.TopKItems.Node
+---@return boolean
+local function is_black(n)
+  return 0 <= n._key
+end
+---@param n deck.x.TopKItems.Node
+---@return boolean
+local function is_red(n)
+  return n._key < 0
+end
+---@param n deck.x.TopKItems.Node
+local function reverse_color(n)
+  n._key = -n._key
+end
+---@param n deck.x.TopKItems.Node
+---@param other deck.x.TopKItems.Node
+local function swap_color(n, other)
+  if is_black(n) ~= is_black(other) then
+    reverse_color(n)
+    reverse_color(other)
+  end
+end
+--- faster than `node == list.nodes[0]`
+---@param n deck.x.TopKItems.Node
+---@return boolean
+local function is_null(n)
+  return n._key == 0
+end
+--- `n` must not be null node.
+--- faster than `node == list.root`
+---@param n deck.x.TopKItems.Node
+---@return boolean
+local function is_root(n)
+  return is_null(n.parent)
+end
+
+---@param n deck.x.TopKItems.Node
+---@param list deck.x.TopKItems
+local function rotate_left(n, list)
+  local c = n.right
+  if is_root(n) then
+    list.root = c
+  elseif n == n.parent.left then
+    n.parent.left = c
+  else
+    n.parent.right = c
+  end
+  c.parent = n.parent
+  n.parent = c
+  if not is_null(c.left) then
+    c.left.parent = n
+  end
+  n.right = c.left
+  c.left = n
+end
+
+---@param n deck.x.TopKItems.Node
+---@param list deck.x.TopKItems
+local function rotate_right(n, list)
+  local c = n.left
+  if is_root(n) then
+    list.root = c
+  elseif n == n.parent.left then
+    n.parent.left = c
+  else
+    n.parent.right = c
+  end
+  c.parent = n.parent
+  n.parent = c
+  if not is_null(c.right) then
+    c.right.parent = n
+  end
+  n.left = c.right
+  c.right = n
+end
+
+--- `self` must be black node.
+---@param n deck.x.TopKItems.Node
+---@param list deck.x.TopKItems
+local function fix_double_red(n, list)
+  while true do
+    if is_red(n.left) and is_red(n.right) then
+      --     B(n)
+      -- R(.)    R(.)
+      reverse_color(n.left)
+      reverse_color(n.right)
+      if is_root(n) then
+        return
+      end
+      reverse_color(n)
+    elseif is_red(n.left) then
+      --     B(n)
+      -- R(.)    B(.)
+      if is_red(n.left.right) then
+        rotate_left(n.left, list)
+      end
+      reverse_color(n)
+      reverse_color(n.left)
+      return rotate_right(n, list)
+    elseif is_red(n.right) then
+      --     B(n)
+      -- B(.)    R(.)
+      if is_red(n.right.left) then
+        rotate_right(n.right, list)
+      end
+      reverse_color(n)
+      reverse_color(n.right)
+      return rotate_left(n, list)
+    else
+      --     B(n)
+      -- B(.)    B(.)
+      return
+    end
+    if is_black(n.parent) then
+      return
+    end
+    n = n.parent.parent
+  end
+end
+
+--- `self` must be black node.
+---@param n deck.x.TopKItems.Node
+---@param t deck.x.TopKItems
+local function fix_left_double_black(n, t)
+  while true do
+    local b = n.parent.right
+    if is_red(b) then
+      --     B(p)
+      -- B(n)    R(b)
+      reverse_color(b)
+      reverse_color(n.parent)
+      rotate_left(n.parent, t)
+    elseif is_red(b.right) then
+      --     ?(p)
+      -- B(n)    B(b)
+      --       ?(.) R(.)
+      reverse_color(b.right)
+      swap_color(n.parent, b)
+      return rotate_left(n.parent, t)
+    elseif is_red(b.left) then
+      --     ?(p)
+      -- B(n)    B(b)
+      --       R(.) B(.)
+      reverse_color(b.left)
+      swap_color(n.parent, b.left)
+      rotate_right(b, t)
+      return rotate_left(n.parent, t)
+    else
+      --     ?(p)
+      -- B(n)    B(b)
+      --       B(.) B(.)
+      reverse_color(b)
+      n = n.parent
+      if is_root(n) then
+        return
+      end
+      if is_red(n) then
+        return reverse_color(n)
+      end
+    end
+  end
+end
+
+--- The caller must manually set `parent` field of the returned node.
+---@param items deck.x.TopKItems
+---@param key number
+---@param value integer
+---@return deck.x.TopKItems.Node
+local function acquire_leaf_node(items, key, value)
+  local n ---@type deck.x.TopKItems.Node
+  if items.len == items.capacity then
+    n = items.leftmost
+    if is_null(n.right) then
+      n.parent.left = items.nodes[0]
+      items.leftmost = n.parent
+    else
+      n.parent.left = n.right
+      n.right.parent = n.parent
+      items.leftmost = n.right
+    end
+    if is_black(n) then
+      fix_left_double_black(n, items)
+    end
+  else
+    items.len = items.len + 1
+    n = items.nodes[items.len]
+  end
+  n.left = items.nodes[0]
+  n.right = items.nodes[0]
+  n._key = -key -- red
+  n._value = -value
+  return n
+end
+
+--- `items.capacity` must be greater than or equal to 1
+---@param items deck.x.TopKItems
+---@param key number
+---@param value integer
+local function set_root_node(items, key, value)
+  local n = items.nodes[1]
+  items.len = 1
+  items.root = n
+  items.leftmost = n
+  n._key = key -- black
+  n._value = -value
+  n.parent = items.nodes[0]
+  n.left = items.nodes[0]
+  n.right = items.nodes[0]
+end
+
 ---@param key number must be greater than 0
 ---@param value integer must be greater than or equal to 1
 ---@return integer? -- dropped value
@@ -81,31 +291,31 @@ function TopKItems:insert(key, value)
     end
     ret = self.leftmost:value()
   elseif self.len == 0 then
-    return self:set_root_node(key, value)
+    return set_root_node(self, key, value)
   end
 
-  local leaf = self:acquire_leaf_node(key, value)
+  local leaf = acquire_leaf_node(self, key, value)
   local n = self.root
   while true do
     if n:key() < key then
-      if n.right:is_null() then
+      if is_null(n.right) then
         leaf.parent = n
         n.right = leaf
-        if n:is_red() then
-          n.parent:fix_double_red(self)
+        if is_red(n) then
+          fix_double_red(n.parent, self)
         end
         return ret
       end
       n = n.right
     else
-      if n.left:is_null() then
+      if is_null(n.left) then
         leaf.parent = n
         n.left = leaf
         if n == self.leftmost then
           self.leftmost = leaf
         end
-        if n:is_red() then
-          n.parent:fix_double_red(self)
+        if is_red(n) then
+          fix_double_red(n.parent, self)
         end
         return ret
       end
@@ -114,57 +324,10 @@ function TopKItems:insert(key, value)
   end
 end
 
---- `self.capacity` must be greater than or equal to 1
----@private
----@param key number
----@param value integer
-function TopKItems:set_root_node(key, value)
-  local n = self.nodes[1]
-  self.len = 1
-  self.root = n
-  self.leftmost = n
-  n._key = key -- black
-  n._value = -value
-  n.parent = self.nodes[0]
-  n.left = self.nodes[0]
-  n.right = self.nodes[0]
-end
-
---- The caller must manually set `parent` field of the returned node.
----@private
----@param key number
----@param value integer
----@return deck.x.TopKItems.Node
-function TopKItems:acquire_leaf_node(key, value)
-  local n ---@type deck.x.TopKItems.Node
-  if self.len == self.capacity then
-    n = self.leftmost
-    if n.right:is_null() then
-      n.parent.left = self.nodes[0]
-      self.leftmost = n.parent
-    else
-      n.parent.left = n.right
-      n.right.parent = n.parent
-      self.leftmost = n.right
-    end
-    if n:is_black() then
-      n:fix_left_double_black(self)
-    end
-  else
-    self.len = self.len + 1
-    n = self.nodes[self.len]
-  end
-  n.left = self.nodes[0]
-  n.right = self.nodes[0]
-  n._key = -key -- red
-  n._value = -value
-  return n
-end
-
 do
   ---@param n deck.x.TopKItems.Node
   local function iter(n)
-    if n:is_null() then
+    if is_null(n) then
       return
     end
     iter(n.right)
@@ -183,7 +346,7 @@ do
   ---@return nil dummy
   ---@return integer index
   local function iter_with_index(n, i)
-    if n:is_null() then
+    if is_null(n) then
       return nil, i
     end
     local _
@@ -228,177 +391,12 @@ function Node:value()
   return math.abs(self._value)
 end
 
----@package
----@return boolean
-function Node:is_black()
-  return 0 <= self._key
-end
----@package
----@return boolean
-function Node:is_red()
-  return self._key < 0
-end
----@package
-function Node:reverse_color()
-  self._key = -self._key
-end
----@package
----@param n deck.x.TopKItems.Node
-function Node:swap_color(n)
-  if self:is_black() ~= n:is_black() then
-    self:reverse_color()
-    n:reverse_color()
-  end
-end
---- faster than `node == list.nodes[0]`
----@package
----@return boolean
-function Node:is_null()
-  return self._key == 0
-end
---- `self` must not be null node.
---- faster than `node == list.root`
----@package
----@return boolean
-function Node:is_root()
-  return self.parent:is_null()
-end
-
---- `self` must be black node.
----@package
----@param list deck.x.TopKItems
-function Node:fix_double_red(list)
-  local n = self
-  while true do
-    if n.left:is_red() and n.right:is_red() then
-      --     B(n)
-      -- R(.)    R(.)
-      n.left:reverse_color()
-      n.right:reverse_color()
-      if n:is_root() then
-        return
-      end
-      n:reverse_color()
-    elseif n.left:is_red() then
-      --     B(n)
-      -- R(.)    B(.)
-      if n.left.right:is_red() then
-        n.left:rotate_left(list)
-      end
-      n:reverse_color()
-      n.left:reverse_color()
-      return n:rotate_right(list)
-    elseif n.right:is_red() then
-      --     B(n)
-      -- B(.)    R(.)
-      if n.right.left:is_red() then
-        n.right:rotate_right(list)
-      end
-      n:reverse_color()
-      n.right:reverse_color()
-      return n:rotate_left(list)
-    else
-      --     B(n)
-      -- B(.)    B(.)
-      return
-    end
-    if n.parent:is_black() then
-      return
-    end
-    n = n.parent.parent
-  end
-end
-
---- `self` must be black node.
----@package
----@param t deck.x.TopKItems
-function Node:fix_left_double_black(t)
-  local n = self
-  while true do
-    local b = n.parent.right
-    if b:is_red() then
-      --     B(p)
-      -- B(n)    R(b)
-      b:reverse_color()
-      n.parent:reverse_color()
-      n.parent:rotate_left(t)
-    elseif b.right:is_red() then
-      --     ?(p)
-      -- B(n)    B(b)
-      --       ?(.) R(.)
-      b.right:reverse_color()
-      n.parent:swap_color(b)
-      return n.parent:rotate_left(t)
-    elseif b.left:is_red() then
-      --     ?(p)
-      -- B(n)    B(b)
-      --       R(.) B(.)
-      b.left:reverse_color()
-      n.parent:swap_color(b.left)
-      b:rotate_right(t)
-      return n.parent:rotate_left(t)
-    else
-      --     ?(p)
-      -- B(n)    B(b)
-      --       B(.) B(.)
-      b:reverse_color()
-      n = n.parent
-      if n:is_root() then
-        return
-      end
-      if n:is_red() then
-        return n:reverse_color()
-      end
-    end
-  end
-end
-
----@package
----@param list deck.x.TopKItems
-function Node:rotate_left(list)
-  local c = self.right
-  if self:is_root() then
-    list.root = c
-  elseif self == self.parent.left then
-    self.parent.left = c
-  else
-    self.parent.right = c
-  end
-  c.parent = self.parent
-  self.parent = c
-  if not c.left:is_null() then
-    c.left.parent = self
-  end
-  self.right = c.left
-  c.left = self
-end
-
----@package
----@param list deck.x.TopKItems
-function Node:rotate_right(list)
-  local c = self.left
-  if self:is_root() then
-    list.root = c
-  elseif self == self.parent.left then
-    self.parent.left = c
-  else
-    self.parent.right = c
-  end
-  c.parent = self.parent
-  self.parent = c
-  if not c.right:is_null() then
-    c.right.parent = self
-  end
-  self.left = c.right
-  c.right = self
-end
-
 do
   ---@param depth integer
   ---@param n deck.x.TopKItems.Node
   ---@param callback fun(depth: integer, n: deck.x.TopKItems.Node)
   local function walk(depth, n, callback)
-    if n:is_null() then
+    if is_null(n) then
       return
     end
     walk(depth + 1, n.right, callback)
@@ -413,14 +411,14 @@ do
       for _ = 1, depth do
         buf:put('|  ')
       end
-      buf:putf('%s(%s): %s\n', n:is_red() and 'R' or 'B', n:key(), n:value())
+      buf:putf('%s(%s): %s\n', is_red(n) and 'R' or 'B', n:key(), n:value())
     end)
     return buf:tostring()
   end
 end
 
 function TopKItems:_check_valid()
-  assert(self.root:is_black(), 'red root')
+  assert(is_black(self.root), 'red root')
 
   local i = 0
   local black_depth
@@ -430,16 +428,16 @@ function TopKItems:_check_valid()
     assert(n:key() <= last_key, 'unsorted')
     last_key = n:key()
 
-    if n:is_red() then
-      assert(n.left:is_black(), 'double red')
-      assert(n.right:is_black(), 'double red')
+    if is_red(n) then
+      assert(is_black(n.left), 'double red')
+      assert(is_black(n.right), 'double red')
     end
 
-    if n.left:is_null() and n.right:is_null() then
+    if is_null(n.left) and is_null(n.right) then
       local d = 0
       local m = n
-      while not m:is_null() do
-        if m:is_black() then
+      while not is_null(m) do
+        if is_black(m) then
           d = d + 1
         end
         m = m.parent
