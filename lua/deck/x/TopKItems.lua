@@ -18,29 +18,29 @@ local TopKItems = {}
 ---@field package right deck.x.TopKItems.Node
 local Node = {}
 
-do
-  ffi.cdef([[
-    typedef struct deck_scorelist_node deck_scorelist_node_t;
-    typedef struct deck_scorelist_node {
-      float _key;
-      int32_t _value;
-      deck_scorelist_node_t *parent;
-      deck_scorelist_node_t *left;
-      deck_scorelist_node_t *right;
-    };
-  ]])
-  ffi.metatype('deck_scorelist_node_t', { __index = Node })
-  local scorelist_ctype = ffi.typeof([[
-    struct {
-      uint32_t capacity;
-      uint32_t len;
-      deck_scorelist_node_t *root;
-      deck_scorelist_node_t *leftmost;
-      deck_scorelist_node_t nodes[?];
-    }
-  ]])
-  ffi.metatype(scorelist_ctype, { __index = TopKItems })
+ffi.cdef([[
+  typedef struct deck_scorelist_node deck_scorelist_node_t;
+  typedef struct deck_scorelist_node {
+    float _key;
+    int32_t _value;
+    deck_scorelist_node_t *parent;
+    deck_scorelist_node_t *left;
+    deck_scorelist_node_t *right;
+  };
+]])
+ffi.metatype('deck_scorelist_node_t', { __index = Node })
+local scorelist_ctype = ffi.typeof([[
+  struct {
+    uint32_t capacity;
+    uint32_t len;
+    deck_scorelist_node_t *root;
+    deck_scorelist_node_t *leftmost;
+    deck_scorelist_node_t nodes[?];
+  }
+]])
+ffi.metatype(scorelist_ctype, { __index = TopKItems })
 
+do
   ---@param list deck.x.TopKItems
   ---@param capacity integer
   local function init(list, capacity)
@@ -167,9 +167,9 @@ do
     if n:is_null() then
       return
     end
-    iter(n.left)
+    iter(n.right)
     coroutine.yield(n)
-    return iter(n.right)
+    return iter(n.left)
   end
 
   ---@return fun(n: deck.x.TopKItems.Node): node: deck.x.TopKItems.Node?
@@ -187,9 +187,9 @@ do
       return nil, i
     end
     local _
-    _, i = iter_with_index(n.left, i)
+    _, i = iter_with_index(n.right, i)
     _, i = coroutine.yield(i + 1, n)
-    return iter_with_index(n.right, i)
+    return iter_with_index(n.left, i)
   end
 
   ---@return fun(n: deck.x.TopKItems.Node, i: integer): index: integer?, node: deck.x.TopKItems.Node?
@@ -424,10 +424,10 @@ function TopKItems:_check_valid()
 
   local i = 0
   local black_depth
-  local last_key = 0
+  local last_key = math.huge
   for n in self:iter() do
     i = i + 1
-    assert(last_key <= n:key(), 'unsorted')
+    assert(n:key() <= last_key, 'unsorted')
     last_key = n:key()
 
     if n:is_red() then
