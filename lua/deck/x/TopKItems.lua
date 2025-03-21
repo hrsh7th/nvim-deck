@@ -1,7 +1,5 @@
 local ffi = require('ffi')
 
---- This is a sorted list for managing the matching scores of `deck.Item`,
---- built on top of the Red-Black Tree.
 ---@class deck.x.TopKItems
 ---@field public capacity integer
 ---@field public len integer
@@ -19,45 +17,45 @@ local TopKItems = {}
 local Node = {}
 
 ffi.cdef([[
-  typedef struct deck_scorelist_node deck_scorelist_node_t;
-  typedef struct deck_scorelist_node {
+  typedef struct deck_topk_items_node deck_topk_items_node_t;
+  typedef struct deck_topk_items_node {
     float _key;
     int32_t _value;
-    deck_scorelist_node_t *parent;
-    deck_scorelist_node_t *left;
-    deck_scorelist_node_t *right;
+    deck_topk_items_node_t *parent;
+    deck_topk_items_node_t *left;
+    deck_topk_items_node_t *right;
   };
 ]])
-ffi.metatype('deck_scorelist_node_t', { __index = Node })
-local scorelist_ctype = ffi.typeof([[
+ffi.metatype('deck_topk_items_node_t', { __index = Node })
+local topk_items_ctype = ffi.typeof([[
   struct {
     uint32_t capacity;
     uint32_t len;
-    deck_scorelist_node_t *root;
-    deck_scorelist_node_t *leftmost;
-    deck_scorelist_node_t nodes[?];
+    deck_topk_items_node_t *root;
+    deck_topk_items_node_t *leftmost;
+    deck_topk_items_node_t nodes[?];
   }
 ]])
-ffi.metatype(scorelist_ctype, { __index = TopKItems })
+ffi.metatype(topk_items_ctype, { __index = TopKItems })
 
 do
-  ---@param list deck.x.TopKItems
+  ---@param items deck.x.TopKItems
   ---@param capacity integer
-  local function init(list, capacity)
-    list.capacity = capacity
-    local null = list.nodes[0]
+  local function init(items, capacity)
+    items.capacity = capacity
+    local null = items.nodes[0]
     null.parent = null
     null.left = null
     null.right = null
-    list.root = null
-    list.leftmost = null
+    items.root = null
+    items.leftmost = null
   end
 
   ---@param capacity integer must be 0 or more integer
   ---@return self
   function TopKItems.new(capacity)
     local nelem = capacity + 1
-    local self = scorelist_ctype(nelem) --[[@as deck.x.TopKItems]]
+    local self = topk_items_ctype(nelem) --[[@as deck.x.TopKItems]]
     init(self, capacity)
     return self
   end
@@ -65,9 +63,19 @@ do
   function TopKItems:clear()
     local capacity = self.capacity
     local nelem = capacity + 1
-    ffi.fill(self, ffi.sizeof(scorelist_ctype, nelem) --[[@as integer]])
+    ffi.fill(self, ffi.sizeof(topk_items_ctype, nelem) --[[@as integer]])
     return init(self, capacity)
   end
+end
+
+---@return number
+function Node:key()
+  return math.abs(self._key)
+end
+
+---@return integer
+function Node:value()
+  return math.abs(self._value)
 end
 
 ---@param n deck.x.TopKItems.Node
@@ -92,14 +100,14 @@ local function swap_color(n, other)
     reverse_color(other)
   end
 end
---- faster than `node == list.nodes[0]`
+--- faster than `node == items.nodes[0]`
 ---@param n deck.x.TopKItems.Node
 ---@return boolean
 local function is_null(n)
   return n._key == 0
 end
 --- `n` must not be null node.
---- faster than `node == list.root`
+--- faster than `node == items.root`
 ---@param n deck.x.TopKItems.Node
 ---@return boolean
 local function is_root(n)
@@ -107,11 +115,11 @@ local function is_root(n)
 end
 
 ---@param n deck.x.TopKItems.Node
----@param list deck.x.TopKItems
-local function rotate_left(n, list)
+---@param items deck.x.TopKItems
+local function rotate_left(n, items)
   local c = n.right
   if is_root(n) then
-    list.root = c
+    items.root = c
   elseif n == n.parent.left then
     n.parent.left = c
   else
@@ -127,11 +135,11 @@ local function rotate_left(n, list)
 end
 
 ---@param n deck.x.TopKItems.Node
----@param list deck.x.TopKItems
-local function rotate_right(n, list)
+---@param items deck.x.TopKItems
+local function rotate_right(n, items)
   local c = n.left
   if is_root(n) then
-    list.root = c
+    items.root = c
   elseif n == n.parent.left then
     n.parent.left = c
   else
@@ -148,8 +156,8 @@ end
 
 --- `self` must be black node.
 ---@param n deck.x.TopKItems.Node
----@param list deck.x.TopKItems
-local function fix_double_red(n, list)
+---@param items deck.x.TopKItems
+local function fix_double_red(n, items)
   while true do
     if is_red(n.left) and is_red(n.right) then
       --     B(n)
@@ -164,20 +172,20 @@ local function fix_double_red(n, list)
       --     B(n)
       -- R(.)    B(.)
       if is_red(n.left.right) then
-        rotate_left(n.left, list)
+        rotate_left(n.left, items)
       end
       reverse_color(n)
       reverse_color(n.left)
-      return rotate_right(n, list)
+      return rotate_right(n, items)
     elseif is_red(n.right) then
       --     B(n)
       -- B(.)    R(.)
       if is_red(n.right.left) then
-        rotate_right(n.right, list)
+        rotate_right(n.right, items)
       end
       reverse_color(n)
       reverse_color(n.right)
-      return rotate_left(n, list)
+      return rotate_left(n, items)
     else
       --     B(n)
       -- B(.)    B(.)
@@ -362,14 +370,14 @@ do
     return coroutine.wrap(iter_with_index), self.root, 0
   end
 
-  ---@param list deck.x.TopKItems
+  ---@param items deck.x.TopKItems
   ---@param i integer
   ---@return integer?
   ---@return deck.x.TopKItems.Node?
-  local function iter_unordered(list, i)
+  local function iter_unordered(items, i)
     local j = i + 1
-    if j <= list.len then
-      return j, list.nodes[j]
+    if j <= items.len then
+      return j, items.nodes[j]
     end
   end
 
@@ -379,16 +387,6 @@ do
   function TopKItems:iter_unordered()
     return iter_unordered, self, 0
   end
-end
-
----@return number
-function Node:key()
-  return math.abs(self._key)
-end
-
----@return integer
-function Node:value()
-  return math.abs(self._value)
 end
 
 do
@@ -456,14 +454,14 @@ end
 
 if arg and arg[1] == 'bench' then
   math.randomseed(1)
-  local list = TopKItems.new(100000)
+  local items = TopKItems.new(100000)
   local t = os.clock()
-  for i = 1, list.capacity * 1000 do
-    list:insert(1 + math.random() * 1000, i)
+  for i = 1, items.capacity * 1000 do
+    items:insert(1 + math.random() * 1000, i)
   end
   t = os.clock() - t
   print(t)
-  list:_check_valid()
+  items:_check_valid()
   return
 end
 
