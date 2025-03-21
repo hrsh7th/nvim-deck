@@ -73,6 +73,7 @@ end
 ---Create buffer object.
 ---@return deck.kit.buffer.Buffer
 function kit.buffer_tbl()
+  local tmp_get = {}
   local buf = {}
   ---@type deck.kit.buffer.Buffer
   local buffer
@@ -82,7 +83,7 @@ function kit.buffer_tbl()
     end,
     get = function(byte_size)
       if byte_size == nil then
-        local data = table.concat(buf)
+        local data = table.concat(buf, '')
         kit.clear(buf)
         return data
       end
@@ -90,18 +91,18 @@ function kit.buffer_tbl()
         return ''
       end
 
-      local data = {}
+      kit.clear(tmp_get)
       local off = 0
       local i = 1
       while i <= #buf do
         local b = buf[i]
         if off + #b >= byte_size then
           local data_size = byte_size - off
-          if #b == data_size then
-            table.insert(data, b)
+          if #b <= data_size then
+            table.insert(tmp_get, b)
             table.remove(buf, i)
           else
-            table.insert(data, b:sub(1, data_size))
+            table.insert(tmp_get, b:sub(1, data_size))
             buf[i] = b:sub(data_size + 1)
           end
           break
@@ -109,7 +110,7 @@ function kit.buffer_tbl()
         i = i + 1
         off = off + #b
       end
-      return table.concat(data)
+      return table.concat(tmp_get, '')
     end,
     len = function()
       local len = 0
