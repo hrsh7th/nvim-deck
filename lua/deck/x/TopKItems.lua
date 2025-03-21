@@ -352,22 +352,22 @@ do
   ---@param n deck.x.TopKItems.Node
   ---@param i integer
   ---@return nil dummy
-  ---@return integer index
-  local function iter_with_index(n, i)
+  ---@return integer rank
+  local function iter_with_rank(n, i)
     if is_null(n) then
       return nil, i
     end
     local _
-    _, i = iter_with_index(n.right, i)
+    _, i = iter_with_rank(n.right, i)
     _, i = coroutine.yield(i + 1, n)
-    return iter_with_index(n.left, i)
+    return iter_with_rank(n.left, i)
   end
 
-  ---@return fun(n: deck.x.TopKItems.Node, i: integer): index: integer?, node: deck.x.TopKItems.Node?
+  ---@return fun(n: deck.x.TopKItems.Node, i: integer): rank: integer?, node: deck.x.TopKItems.Node?
   ---@return deck.x.TopKItems.Node
   ---@return integer
-  function TopKItems:iter_with_index()
-    return coroutine.wrap(iter_with_index), self.root, 0
+  function TopKItems:iter_with_rank()
+    return coroutine.wrap(iter_with_rank), self.root, 0
   end
 
   ---@param items deck.x.TopKItems
@@ -386,6 +386,60 @@ do
   ---@return integer
   function TopKItems:iter_unordered()
     return iter_unordered, self, 0
+  end
+end
+
+do
+  ---@param n deck.x.TopKItems.Node
+  ---@return integer
+  local function _get_size(n)
+    return 1 + (is_null(n.left) and 0 or _get_size(n.left)) + (is_null(n.right) and 0 or _get_size(n.right))
+  end
+  ---@param n deck.x.TopKItems.Node
+  ---@return integer
+  local function get_size(n)
+    return is_null(n) and 0 or _get_size(n)
+  end
+
+  ---@param n deck.x.TopKItems.Node must not be the root node
+  ---@param len integer
+  ---@return integer rank
+  local function get_rank_from_left(n, len)
+    local r = get_size(n.left) -- exclude `n`
+    repeat
+      if n == n.parent.right then
+        r = r + 1 + get_size(n.parent.left)
+      end
+      n = n.parent
+    until is_root(n)
+    return len - r
+  end
+
+  ---@param n deck.x.TopKItems.Node must not be the root node
+  ---@return integer rank
+  local function get_rank_from_right(n)
+    local r = 1 + get_size(n.right) -- include `n`
+    repeat
+      if n == n.parent.left then
+        r = r + 1 + get_size(n.parent.right)
+      end
+      n = n.parent
+    until is_root(n)
+    return r
+  end
+
+  --- This function is very slow.
+  --- If you want to get the ranks of multiple nodes, using `iter_with_rank()` is recommended.
+  ---@param n deck.x.TopKItems.Node
+  ---@return integer rank
+  function TopKItems:get_rank(n)
+    if is_root(n) then
+      return 1 + get_size(n.right)
+    elseif n:key() < self.root:key() then
+      return get_rank_from_left(n, self.len)
+    else
+      return get_rank_from_right(n)
+    end
   end
 end
 

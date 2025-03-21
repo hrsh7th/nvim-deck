@@ -1,6 +1,6 @@
 local TopKItems = require('deck.x.TopKItems')
 
-describe('deck.x.TopKItemIndexes', function()
+describe('deck.x.TopKItems', function()
   describe('.new()', function()
     it('should create a new instance', function()
       local items = TopKItems.new(5000)
@@ -36,6 +36,32 @@ describe('deck.x.TopKItemIndexes', function()
       math.randomseed(0)
       for i = 1, items.capacity do
         assert.is_nil(items:insert(math.random(1000), i))
+      end
+    end)
+  end)
+
+  describe('.iter_with_rank()', function()
+    it('should iterate rank correctly', function()
+      local items = TopKItems.new(10000)
+      for i = 1, items.capacity do
+        items:insert(math.random(10000), i)
+      end
+      local expected = 1
+      for actual in items:iter_with_rank() do
+        assert.are.equals(expected, actual)
+        expected = expected + 1
+      end
+    end)
+  end)
+
+  describe('.get_rank()', function()
+    it('should return rank correctly', function()
+      local items = TopKItems.new(10000)
+      for i = 1, items.capacity do
+        items:insert(math.random(10000), i)
+      end
+      for rank, n in items:iter_with_rank() do
+        assert.are.equals(rank, items:get_rank(n))
       end
     end)
   end)
