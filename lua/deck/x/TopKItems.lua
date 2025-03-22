@@ -106,9 +106,8 @@ end
 local function is_null(n)
   return n._key == 0
 end
---- `n` must not be null node.
 --- faster than `node == items.root`
----@param n deck.x.TopKItems.Node
+---@param n deck.x.TopKItems.Node must not be the null node
 ---@return boolean
 local function is_root(n)
   return is_null(n.parent)
@@ -154,8 +153,7 @@ local function rotate_right(n, items)
   c.right = n
 end
 
---- `self` must be black node.
----@param n deck.x.TopKItems.Node
+---@param n deck.x.TopKItems.Node must be the black node
 ---@param items deck.x.TopKItems
 local function fix_double_red(n, items)
   while true do
@@ -198,8 +196,7 @@ local function fix_double_red(n, items)
   end
 end
 
---- `self` must be black node.
----@param n deck.x.TopKItems.Node
+---@param n deck.x.TopKItems.Node must be the black node
 ---@param t deck.x.TopKItems
 local function fix_left_double_black(n, t)
   while true do
@@ -272,8 +269,7 @@ local function acquire_leaf_node(items, key, value)
   return n
 end
 
---- `items.capacity` must be greater than or equal to 1
----@param items deck.x.TopKItems
+---@param items deck.x.TopKItems `capacity` must be greater than or equal to 1
 ---@param key number
 ---@param value integer
 local function set_root_node(items, key, value)
@@ -368,24 +364,6 @@ do
   ---@return integer
   function TopKItems:iter_with_rank()
     return coroutine.wrap(iter_with_rank), self.root, 0
-  end
-
-  ---@param items deck.x.TopKItems
-  ---@param i integer
-  ---@return integer?
-  ---@return deck.x.TopKItems.Node?
-  local function iter_unordered(items, i)
-    local j = i + 1
-    if j <= items.len then
-      return j, items.nodes[j]
-    end
-  end
-
-  ---@return fun(t: deck.x.TopKItems, i: integer): internal_index: integer?, node: deck.x.TopKItems.Node?
-  ---@return deck.x.TopKItems
-  ---@return integer
-  function TopKItems:iter_unordered()
-    return iter_unordered, self, 0
   end
 end
 
