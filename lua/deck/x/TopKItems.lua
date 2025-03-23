@@ -365,9 +365,7 @@ do
   function TopKItems:iter_with_rank()
     return coroutine.wrap(iter_with_rank), self.root, 0
   end
-end
 
-do
   ---@param n deck.x.TopKItems.Node
   ---@return integer
   local function _get_size(n)
@@ -379,45 +377,55 @@ do
     return is_null(n) and 0 or _get_size(n)
   end
 
-  ---@param n deck.x.TopKItems.Node must not be the root node
-  ---@param len integer
-  ---@return integer rank
-  local function get_rank_from_left(n, len)
-    local r = get_size(n.left) -- exclude `n`
-    repeat
-      if n == n.parent.right then
-        r = r + 1 + get_size(n.parent.left)
-      end
-      n = n.parent
-    until is_root(n)
-    return len - r
-  end
-
-  ---@param n deck.x.TopKItems.Node must not be the root node
-  ---@return integer rank
-  local function get_rank_from_right(n)
-    local r = 1 + get_size(n.right) -- include `n`
-    repeat
-      if n == n.parent.left then
-        r = r + 1 + get_size(n.parent.right)
-      end
-      n = n.parent
-    until is_root(n)
-    return r
-  end
-
-  --- This function is very slow.
-  --- If you want to get the ranks of multiple nodes, using `iter_with_rank()` is recommended.
   ---@param n deck.x.TopKItems.Node
+  ---@param i integer
+  ---@return nil dummy
   ---@return integer rank
-  function TopKItems:get_rank(n)
-    if is_root(n) then
-      return 1 + get_size(n.right)
-    elseif n:key() < self.root:key() then
-      return get_rank_from_left(n, self.len)
-    else
-      return get_rank_from_right(n)
+  local function iter_with_rank_from(n, i)
+    if is_null(n) then
+      return nil, i
     end
+    local _
+    _, i = coroutine.yield(i + 1, n)
+    _, i = iter_with_rank(n.left, i)
+    while not is_root(n) do
+      if n == n.parent.right then
+        return iter_with_rank_from(n.parent, i)
+      end
+      n = n.parent
+    end
+    return nil, i
+  end
+
+  ---@param start deck.x.TopKItems.Node
+  ---@return fun(n: deck.x.TopKItems.Node, i: integer): rank: integer?, node: deck.x.TopKItems.Node?
+  ---@return deck.x.TopKItems.Node
+  ---@return integer
+  function TopKItems:iter_with_rank_from(start)
+    local rank ---@type integer
+    if is_root(start) then
+      rank = get_size(start.right)
+    elseif start:key() < self.root:key() then
+      local n = start
+      rank = get_size(n.left)
+      repeat
+        if n == n.parent.right then
+          rank = rank + 1 + get_size(n.parent.left)
+        end
+        n = n.parent
+      until is_root(n)
+      rank = self.len - rank - 1
+    else
+      local n = start
+      rank = get_size(n.right)
+      repeat
+        if n == n.parent.left then
+          rank = rank + 1 + get_size(n.parent.right)
+        end
+        n = n.parent
+      until is_root(n)
+    end
+    return coroutine.wrap(iter_with_rank_from), start, rank
   end
 end
 

@@ -41,28 +41,60 @@ describe('deck.x.TopKItems', function()
   end)
 
   describe('.iter_with_rank()', function()
-    it('should iterate rank correctly', function()
-      local items = TopKItems.new(10000)
+    describe('should return an iterator that', function()
+      local items = TopKItems.new(5000)
       for i = 1, items.capacity do
         items:insert(math.random(10000), i)
       end
-      local expected = 1
-      for actual in items:iter_with_rank() do
-        assert.are.equals(expected, actual)
-        expected = expected + 1
-      end
+
+      it('returns the rank correctly', function()
+        local expected = 1
+        for actual in items:iter_with_rank() do
+          assert.are.equals(expected, actual)
+          expected = expected + 1
+        end
+      end)
+
+      it('returns the node correctly', function()
+        local nodes = {} ---@type deck.x.TopKItems.Node[]
+        for node in items:iter() do
+          table.insert(nodes, node)
+        end
+        for rank, node in items:iter_with_rank() do
+          assert.are.equals(nodes[rank], node)
+        end
+      end)
     end)
   end)
 
-  describe('.get_rank()', function()
-    it('should return rank correctly', function()
-      local items = TopKItems.new(10000)
+  describe('.iter_with_rank_from()', function()
+    describe('should return an iterator that', function()
+      local items = TopKItems.new(500)
       for i = 1, items.capacity do
         items:insert(math.random(10000), i)
       end
-      for rank, n in items:iter_with_rank() do
-        assert.are.equals(rank, items:get_rank(n))
+      local nodes = {} ---@type deck.x.TopKItems.Node[]
+      for rank, node in items:iter_with_rank() do
+        nodes[rank] = node
       end
+
+      it('returns the rank correctly', function()
+        for rank, node in ipairs(nodes) do
+          local expected_rank = rank
+          for actual_rank in items:iter_with_rank_from(node) do
+            assert.are.equals(expected_rank, actual_rank)
+            expected_rank = expected_rank + 1
+          end
+        end
+      end)
+
+      it('returns the node correctly', function()
+        for _, node in ipairs(nodes) do
+          for rank, actual_node in items:iter_with_rank_from(node) do
+            assert.are.equals(nodes[rank], actual_node)
+          end
+        end
+      end)
     end)
   end)
 end)
