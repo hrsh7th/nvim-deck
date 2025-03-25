@@ -199,6 +199,19 @@ function Buffer:_step_filter()
   end
 end
 
+---Get max win height.
+---@param bufnr integer
+---@return integer
+local function get_max_winheight(bufnr)
+  local height = 0
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    if vim.api.nvim_win_get_buf(win) == bufnr then
+      height = math.max(vim.api.nvim_win_get_height(win), height)
+    end
+  end
+  return height == 0 and vim.o.lines or height
+end
+
 ---Rendering step.
 function Buffer:_step_render()
   if self:_is_aborted() then
@@ -210,18 +223,9 @@ function Buffer:_step_render()
   local s = vim.uv.hrtime() / 1e6
   local c = 0
 
-  -- get max win height.
-  local max_count = 0
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_get_buf(win) == self._bufnr then
-      max_count = math.max(vim.api.nvim_win_get_height(win), max_count)
-    end
-  end
-  max_count = max_count == 0 and vim.o.lines or max_count
-
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
-  should_render = should_render or (#items_filtered - self._cursor_rendered) > max_count
+  should_render = should_render or (#items_filtered - self._cursor_rendered) > get_max_winheight(self._bufnr)
   should_render = should_render or (self._done and not self._timer_filter:is_running())
   if not should_render then
     self._timer_render:start(config.render_interrupt_ms, 0, function()
@@ -243,9 +247,7 @@ function Buffer:_step_render()
       c = 0
 
       vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
-      for i = self._cursor_rendered + 1, #self._items_rendered do
-        self._items_rendered[i] = nil
-      end
+      x.truncate(self._items_rendered, self._cursor_rendered)
       kit.clear(rendering_lines)
 
       local n = vim.uv.hrtime() / 1e6
@@ -259,9 +261,7 @@ function Buffer:_step_render()
     end
   end
   vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
-  for i = self._cursor_rendered + 1, #self._items_rendered do
-    self._items_rendered[i] = nil
-  end
+  x.truncate(self._items_rendered, self._cursor_rendered)
   -- ↑ all currently received items are rendered.
 
   self._emit_render()
