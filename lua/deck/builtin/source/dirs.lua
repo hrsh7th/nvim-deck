@@ -1,24 +1,22 @@
 local IO = require('deck.kit.IO')
 local System = require('deck.kit.System')
 
-local home = vim.fn.fnamemodify('~', ':p')
+local home = IO.normalize(vim.fn.expand('~'))
+local home_pre_pat = '^' .. vim.pesc(home)
 
 ---@param filename string
 ---@return deck.Item
 local function to_item(filename)
   local display_text = filename
-  if #filename > #home and vim.startswith(filename, home) then
-    display_text = ('~/%s'):format(filename:sub(#home + 1))
+  if vim.startswith(display_text, home) then
+    display_text = display_text:gsub(home_pre_pat, '~')
   end
-  if vim.endswith(display_text, '/') then
-    display_text = display_text:sub(1, #display_text - 1)
-  end
-  return {
+  local item = {
     display_text = display_text,
-    data = {
-      filename = filename,
-    },
+    filename = filename,
   }
+  item.data = item
+  return item
 end
 
 ---@alias deck.builtin.source.dirs.Finder fun(root_dir: string, ignore_globs: string[], ctx: deck.ExecuteContext)
