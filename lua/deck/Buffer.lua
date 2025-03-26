@@ -252,7 +252,7 @@ function Buffer:_iter_inserted_spans()
     local items_filtered = self:get_filtered_items()
     while true do
       last = math.min(first + batch_size, #items_filtered)
-      if last <= first then
+      if last < first then
         break
       end
       coroutine.yield(first, last)
