@@ -2,23 +2,6 @@ local kit = require('deck.kit')
 
 local x = {}
 
-if table.move then
-  local EMPTY = {}
-  ---@param array any[]
-  ---@param len integer
-  function x.truncate(array, len)
-    table.move(EMPTY, 1, #array - len, len + 1, array)
-  end
-else
-  ---@param array any[]
-  ---@param len integer
-  function x.truncate(array, len)
-    for i = len + 1, #array do
-      array[i] = nil
-    end
-  end
-end
-
 ---Normalize display_text.
 ---@param display_text string|deck.VirtualText
 ---@return deck.VirtualText
