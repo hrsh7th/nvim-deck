@@ -6,7 +6,7 @@ local ffi = require('ffi')
 ---@field package root deck.x.TopKItems.Node
 ---@field package leftmost deck.x.TopKItems.Node
 ---@field package rightmost_unrendered deck.x.TopKItems.Node
----@field package nodes { [integer]: deck.x.TopKItems.Node } 1-based index (`[0]` is reserved for null node)
+---@field package nodes { [integer]: deck.x.TopKItems.Node } 1-based index (`[0]` is reserved for the null node)
 local TopKItems = {}
 
 ---@class deck.x.TopKItems.Node
@@ -20,6 +20,7 @@ local Node = {}
 ffi.cdef([[
   typedef struct deck_topk_items_node deck_topk_items_node_t;
   typedef struct deck_topk_items_node {
+    // NOTE: LuaJIT uses `double` for the number type, so there may be differences.
     float _key;
     int32_t _value;
     deck_topk_items_node_t *parent;

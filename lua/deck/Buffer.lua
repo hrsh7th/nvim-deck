@@ -177,12 +177,6 @@ function Buffer:_step_filter()
       local item = self._items[i]
       local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
       if score > 0 then
-        -- local st = (' %s: '):format(score)
-        -- if item.display_text:sub(1, 1) ~= ' ' then
-        --   item.display_text = st .. item.display_text
-        -- elseif not vim.startswith(item.display_text, st) then
-        --   item.display_text = item.display_text:gsub('.+: ', st)
-        -- end
         local dropped = self._topk_items:insert(score, i)
         if dropped then
           self._items_filtered[#self._items_filtered + 1] = self._items[dropped]
