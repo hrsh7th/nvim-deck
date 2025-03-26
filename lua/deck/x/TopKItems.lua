@@ -446,9 +446,17 @@ do
   end
 end
 
+---@return boolean
+function TopKItems:has_unrendered()
+  return self.rightmost_unrendered ~= self.nodes[0]
+end
+
 ---@param filtered_items deck.Item[]
 ---@param items deck.Item[]
 function TopKItems:update_filtered_items(filtered_items, items)
+  if not self:has_unrendered() then
+    return
+  end
   for rank, node in self:iter_with_rank_from(self.rightmost_unrendered) do
     filtered_items[rank] = items[node:value()]
   end

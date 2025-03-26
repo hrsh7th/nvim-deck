@@ -273,21 +273,24 @@ function Buffer:_step_render()
   end
 
   kit.clear(rendering_lines)
+  if self._topk_items:has_unrendered() then
+    -- FIXME: don't update `self._items_rendered` at once
+    table.move(items_filtered, 1, self._topk_items.len, 1, self._items_rendered)
+  end
   for first, last in self:_iter_inserted_spans() do
     for i = first, last do
-      self._cursor_rendered = math.max(i, self._cursor_rendered)
       local item = items_filtered[i]
-      if not item then
-        error(('filtered: %s, topk: %s, i: %s'):format(#items_filtered, self._topk_items.len, i))
-      end
       self._items_rendered[i] = item
       rendering_lines[#rendering_lines + 1] = item.display_text
     end
-    vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
+    vim.api.nvim_buf_set_lines(self._bufnr, first - 1, first - 1, false, rendering_lines)
+    kit.clear(rendering_lines)
+
+    self._cursor_rendered = math.max(last, self._cursor_rendered)
+    vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered, -1, false, {})
     for i = self._cursor_rendered + 1, #self._items_rendered do
       self._items_rendered[i] = nil
     end
-    kit.clear(rendering_lines)
 
     local n = vim.uv.hrtime() / 1e6
     if n - s > config.render_bugdet_ms then
@@ -298,7 +301,7 @@ function Buffer:_step_render()
       return
     end
   end
-  vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
+  vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered, -1, false, {})
   for i = self._cursor_rendered + 1, #self._items_rendered do
     self._items_rendered[i] = nil
   end
