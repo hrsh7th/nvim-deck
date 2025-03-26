@@ -1,4 +1,5 @@
 local x = require('deck.x')
+local TopKItems = require('deck.x.TopKItems')
 local kit = require('deck.kit')
 local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 
@@ -17,6 +18,7 @@ local rendering_lines = {}
 ---@field private _items_rendered deck.Item[]
 ---@field private _cursor_filtered integer
 ---@field private _cursor_rendered integer
+---@field private _topk_items deck.x.TopKItems
 ---@field private _timer_filter deck.kit.Async.ScheduledTimer
 ---@field private _timer_render deck.kit.Async.ScheduledTimer
 ---@field private _start_config deck.StartConfig
@@ -41,6 +43,7 @@ function Buffer.new(name, start_config)
     _items_rendered = {},
     _cursor_filtered = 0,
     _cursor_rendered = 0,
+    _topk_items = TopKItems.new(1000),
     _timer_filter = ScheduledTimer.new(),
     _timer_render = ScheduledTimer.new(),
     _start_config = start_config,
@@ -57,6 +60,7 @@ end
 function Buffer:stream_start()
   kit.clear(self._items)
   kit.clear(self._items_filtered)
+  self._topk_items:clear()
   self._done = false
   self._start_ms = vim.uv.hrtime() / 1e6
   self._cursor_filtered = 0
@@ -113,6 +117,7 @@ end
 ---@param query string
 function Buffer:update_query(query)
   kit.clear(self._items_filtered)
+  self._topk_items:clear()
   self._query = query
   self._cursor_filtered = 0
   self._cursor_rendered = 0
@@ -172,7 +177,16 @@ function Buffer:_step_filter()
       local item = self._items[i]
       local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
       if score > 0 then
-        self._items_filtered[#self._items_filtered + 1] = item
+        -- local st = (' %s: '):format(score)
+        -- if item.display_text:sub(1, 1) ~= ' ' then
+        --   item.display_text = st .. item.display_text
+        -- elseif not vim.startswith(item.display_text, st) then
+        --   item.display_text = item.display_text:gsub('.+: ', st)
+        -- end
+        local dropped = self._topk_items:insert(score, i)
+        if dropped then
+          self._items_filtered[#self._items_filtered + 1] = self._items[dropped]
+        end
       end
       self._cursor_filtered = i
 
@@ -182,6 +196,7 @@ function Buffer:_step_filter()
         c = 0
         local n = vim.uv.hrtime() / 1e6
         if n - s > config.filter_bugdet_ms then
+          self._topk_items:update_filtered_items(self._items_filtered, self._items)
           self._timer_filter:start(config.filter_interrupt_ms, 0, function()
             self:_step_filter()
           end)
@@ -192,6 +207,7 @@ function Buffer:_step_filter()
   end
   -- ↑ all currently received items are filtered.
 
+  self._topk_items:update_filtered_items(self._items_filtered, self._items)
   if not self._done then
     self._timer_filter:start(config.filter_interrupt_ms, 0, function()
       self:_step_filter()
@@ -212,6 +228,39 @@ local function get_max_winheight(bufnr)
   return height == 0 and vim.o.lines or height
 end
 
+---@return fun(): first: integer?, last: integer?
+function Buffer:_iter_inserted_spans()
+  return coroutine.wrap(function()
+    local batch_size = self._start_config.performance.render_batch_size
+    local first, last
+    while true do
+      first, last = self._topk_items:take_unrendered_span(batch_size)
+      if not first then
+        first = self._cursor_rendered + 1
+        break
+      end
+      if last then
+        coroutine.yield(first, last)
+      elseif self._topk_items.len < self._cursor_rendered then
+        coroutine.yield(first, self._topk_items.len)
+        first = self._cursor_rendered + 1
+        break
+      else
+        break
+      end
+    end
+    local items_filtered = self:get_filtered_items()
+    while true do
+      last = math.min(first + batch_size, #items_filtered)
+      if last <= first then
+        break
+      end
+      coroutine.yield(first, last)
+      first = last + 1
+    end
+  end)
+end
+
 ---Rendering step.
 function Buffer:_step_render()
   if self:_is_aborted() then
@@ -221,7 +270,6 @@ function Buffer:_step_render()
   local config = self._start_config.performance
   local items_filtered = self:get_filtered_items()
   local s = vim.uv.hrtime() / 1e6
-  local c = 0
 
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
@@ -235,29 +283,27 @@ function Buffer:_step_render()
   end
 
   kit.clear(rendering_lines)
-  while self._cursor_rendered < #items_filtered do
-    self._cursor_rendered = self._cursor_rendered + 1
-    local item = items_filtered[self._cursor_rendered]
-    self._items_rendered[self._cursor_rendered] = item
-    rendering_lines[#rendering_lines + 1] = item.display_text
-
-    -- interrupt.
-    c = c + 1
-    if c >= config.render_batch_size then
-      c = 0
-
-      vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
-      x.truncate(self._items_rendered, self._cursor_rendered)
-      kit.clear(rendering_lines)
-
-      local n = vim.uv.hrtime() / 1e6
-      if n - s > config.render_bugdet_ms then
-        self._timer_render:start(config.render_interrupt_ms, 0, function()
-          self:_step_render()
-        end)
-        self._emit_render()
-        return
+  for first, last in self:_iter_inserted_spans() do
+    for i = first, last do
+      self._cursor_rendered = math.max(i, self._cursor_rendered)
+      local item = items_filtered[i]
+      if not item then
+        error(('filtered: %s, topk: %s, i: %s'):format(#items_filtered, self._topk_items.len, i))
       end
+      self._items_rendered[i] = item
+      rendering_lines[#rendering_lines + 1] = item.display_text
+    end
+    vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
+    x.truncate(self._items_rendered, self._cursor_rendered)
+    kit.clear(rendering_lines)
+
+    local n = vim.uv.hrtime() / 1e6
+    if n - s > config.render_bugdet_ms then
+      self._timer_render:start(config.render_interrupt_ms, 0, function()
+        self:_step_render()
+      end)
+      self._emit_render()
+      return
     end
   end
   vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)

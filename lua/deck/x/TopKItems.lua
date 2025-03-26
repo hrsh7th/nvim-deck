@@ -5,6 +5,7 @@ local ffi = require('ffi')
 ---@field public len integer
 ---@field package root deck.x.TopKItems.Node
 ---@field package leftmost deck.x.TopKItems.Node
+---@field package rightmost_unrendered deck.x.TopKItems.Node
 ---@field package nodes { [integer]: deck.x.TopKItems.Node } 1-based index (`[0]` is reserved for null node)
 local TopKItems = {}
 
@@ -33,6 +34,7 @@ local topk_items_ctype = ffi.typeof([[
     uint32_t len;
     deck_topk_items_node_t *root;
     deck_topk_items_node_t *leftmost;
+    deck_topk_items_node_t *rightmost_unrendered;
     deck_topk_items_node_t nodes[?];
   }
 ]])
@@ -49,6 +51,7 @@ do
     null.right = null
     items.root = null
     items.leftmost = null
+    items.rightmost_unrendered = null
   end
 
   ---@param capacity integer must be 0 or more integer
@@ -72,12 +75,6 @@ end
 function Node:key()
   return math.abs(self._key)
 end
-
----@return integer
-function Node:value()
-  return math.abs(self._value)
-end
-
 ---@param n deck.x.TopKItems.Node
 ---@return boolean
 local function is_black(n)
@@ -111,6 +108,20 @@ end
 ---@return boolean
 local function is_root(n)
   return is_null(n.parent)
+end
+
+---@return integer
+function Node:value()
+  return math.abs(self._value)
+end
+---@param n deck.x.TopKItems.Node
+---@return boolean
+local function is_rendered(n)
+  return 0 < n._value
+end
+---@param n deck.x.TopKItems.Node
+local function mark_as_rendered(n)
+  n._value = math.abs(n._value)
 end
 
 ---@param n deck.x.TopKItems.Node
@@ -277,6 +288,7 @@ local function set_root_node(items, key, value)
   items.len = 1
   items.root = n
   items.leftmost = n
+  items.rightmost_unrendered = n
   n._key = key -- black
   n._value = -value
   n.parent = items.nodes[0]
@@ -299,6 +311,10 @@ function TopKItems:insert(key, value)
   end
 
   local leaf = acquire_leaf_node(self, key, value)
+  if self.rightmost_unrendered:key() < key then
+    self.rightmost_unrendered = leaf
+  end
+
   local n = self.root
   while true do
     if n:key() < key then
@@ -330,40 +346,40 @@ end
 
 do
   ---@param n deck.x.TopKItems.Node
-  local function iter(n)
+  local function gen(n)
     if is_null(n) then
       return
     end
-    iter(n.right)
+    gen(n.right)
     coroutine.yield(n)
-    return iter(n.left)
+    return gen(n.left)
   end
 
   ---@return fun(n: deck.x.TopKItems.Node): node: deck.x.TopKItems.Node?
   ---@return deck.x.TopKItems.Node
   function TopKItems:iter()
-    return coroutine.wrap(iter), self.root
+    return coroutine.wrap(gen), self.root
   end
 
   ---@param n deck.x.TopKItems.Node
   ---@param i integer
   ---@return nil dummy
   ---@return integer rank
-  local function iter_with_rank(n, i)
+  local function gen_with_rank(n, i)
     if is_null(n) then
       return nil, i
     end
     local _
-    _, i = iter_with_rank(n.right, i)
+    _, i = gen_with_rank(n.right, i)
     _, i = coroutine.yield(i + 1, n)
-    return iter_with_rank(n.left, i)
+    return gen_with_rank(n.left, i)
   end
 
   ---@return fun(n: deck.x.TopKItems.Node, i: integer): rank: integer?, node: deck.x.TopKItems.Node?
   ---@return deck.x.TopKItems.Node
   ---@return integer
   function TopKItems:iter_with_rank()
-    return coroutine.wrap(iter_with_rank), self.root, 0
+    return coroutine.wrap(gen_with_rank), self.root, 0
   end
 
   ---@param n deck.x.TopKItems.Node
@@ -381,16 +397,16 @@ do
   ---@param i integer
   ---@return nil dummy
   ---@return integer rank
-  local function iter_with_rank_from(n, i)
+  local function gen_with_rank_from(n, i)
     if is_null(n) then
       return nil, i
     end
     local _
     _, i = coroutine.yield(i + 1, n)
-    _, i = iter_with_rank(n.left, i)
+    _, i = gen_with_rank(n.left, i)
     while not is_root(n) do
       if n == n.parent.right then
-        return iter_with_rank_from(n.parent, i)
+        return gen_with_rank_from(n.parent, i)
       end
       n = n.parent
     end
@@ -425,8 +441,48 @@ do
         n = n.parent
       until is_root(n)
     end
-    return coroutine.wrap(iter_with_rank_from), start, rank
+    return coroutine.wrap(gen_with_rank_from), start, rank
   end
+end
+
+---@param filtered_items deck.Item[]
+---@param items deck.Item[]
+function TopKItems:update_filtered_items(filtered_items, items)
+  for rank, node in self:iter_with_rank_from(self.rightmost_unrendered) do
+    filtered_items[rank] = items[node:value()]
+  end
+end
+
+---@param max_range integer
+---@return integer? first
+---@return integer? last
+function TopKItems:take_unrendered_span(max_range)
+  local first_rank, last_rank ---@type integer?, integer?
+  local rightmost_unrendered = self.nodes[0]
+  for rank, node in self:iter_with_rank_from(self.rightmost_unrendered) do
+    if last_rank then
+      if not is_rendered(node) then
+        rightmost_unrendered = node
+        break
+      end
+    else
+      first_rank = first_rank or rank
+      local _is_rendered = is_rendered(node)
+      mark_as_rendered(node)
+      if _is_rendered then
+        last_rank = rank - 1
+      elseif (rank - first_rank + 1) == max_range then
+        last_rank = rank
+      end
+    end
+  end
+  self.rightmost_unrendered = rightmost_unrendered
+  return first_rank, last_rank
+end
+
+---@return deck.x.TopKItems.Node
+function TopKItems:_null()
+  return self.nodes[0]
 end
 
 do
