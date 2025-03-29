@@ -8,7 +8,7 @@ local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 
 ---@class deck.Context.State
 ---@field status deck.Context.Status
----@field timer deck.kit.Async.ScheduledTimer
+---@field redraw_timer deck.kit.Async.ScheduledTimer
 ---@field cursor integer
 ---@field query string
 ---@field matcher_query string
@@ -92,7 +92,7 @@ function Context.create(id, source, start_config)
   ---@type deck.Context.State
   local state = {
     status = Context.Status.Waiting,
-    timer = ScheduledTimer.new(),
+    redraw_timer = ScheduledTimer.new(),
     cursor = 1,
     query = start_config.query or '',
     matcher_query = '',
@@ -137,7 +137,7 @@ function Context.create(id, source, start_config)
     ---@type deck.Context.State
     state = {
       status = Context.Status.Waiting,
-      timer = state.timer,
+      redraw_timer = state.redraw_timer,
       cursor = state.cursor,
       query = state.query,
       matcher_query = state.matcher_query,
@@ -293,8 +293,8 @@ function Context.create(id, source, start_config)
       end
 
       buffer:start_filtering()
-      state.timer:stop()
-      state.timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms, function()
+      state.redraw_timer:stop()
+      state.redraw_timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms, function()
         if dirty or buffer:is_filtering() then
           dirty = false
           events.redraw_tick.emit(nil)
@@ -331,7 +331,7 @@ function Context.create(id, source, start_config)
     ---Hide context via given view.
     hide = function()
       buffer:abort_filtering()
-      state.timer:stop()
+      state.redraw_timer:stop()
 
       local to_hide = context.is_visible()
       view.hide(context)
