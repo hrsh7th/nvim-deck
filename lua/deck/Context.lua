@@ -310,7 +310,6 @@ function Context.create(id, source, start_config)
       events.redraw_sync.emit(nil)
       events.redraw_tick.emit(nil)
       if to_show then
-        redraw()
         --[=[@doc
           category = "autocmd"
           name = "DeckShow"
