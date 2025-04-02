@@ -56,7 +56,7 @@ Clipboard.instance = Clipboard.new()
 ---@param ctx deck.Context
 ---@param target_item deck.builtin.source.explorer.Entry
 local function focus(ctx, target_item)
-  for i, item in ipairs(ctx.get_rendered_items()) do
+  for item, i in ctx.iter_rendered_items() do
     if item.data.entry.path == target_item.path then
       ctx.set_cursor(i)
       break

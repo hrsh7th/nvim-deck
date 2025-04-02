@@ -67,8 +67,8 @@ return function()
         local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
         vim.api.nvim_set_option_value('statusline', ('[%s] %s/%s%s'):format(
           ctx.name,
-          #ctx.get_filtered_items(),
-          #ctx.get_items(),
+          ctx.count_filtered_items(),
+          ctx.count_items(),
           is_running and (' %s'):format(spinner.frame[spinner.idx % #spinner.frame + 1]) or ''
         ), {
           win = state.win,
