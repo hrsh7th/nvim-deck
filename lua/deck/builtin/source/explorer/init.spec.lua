@@ -43,7 +43,7 @@ end
 ---@param action string
 ---@param basename string
 local function do_action_with_path(ctx, action, basename)
-  for i, item in ipairs(ctx.get_rendered_items()) do
+  for item, i in ctx.iter_rendered_items() do
     if vim.fs.basename(item.data.filename) == basename then
       ctx.set_cursor(i)
       ctx.do_action(action)
@@ -76,7 +76,7 @@ describe('deck.builtin.source.explorer', function()
         'file2',
       },
       vim
-        .iter(ctx.get_rendered_items())
+        .iter(ctx.iter_rendered_items())
         :map(function(item)
           return vim.fs.basename(item.data.filename)
         end)

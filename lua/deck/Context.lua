@@ -51,12 +51,18 @@ local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 ---@field get_select_all fun(): boolean
 ---@field set_preview_mode fun(preview_mode: boolean)
 ---@field get_preview_mode fun(): boolean
----@field get_items fun(): deck.Item[]
+---@field count_items fun(): integer
+---@field count_filtered_items fun(): integer
+---@field count_rendered_items fun(): integer
+---@field get_item fun(idx: integer): deck.Item?
+---@field get_filtered_item fun(idx: integer): deck.Item?
+---@field get_rendered_item fun(idx: integer): deck.Item?
+---@field iter_items fun(i?: integer, j?: integer): fun(): deck.Item
+---@field iter_filtered_items fun(i?: integer, j?: integer): fun(): deck.Item
+---@field iter_rendered_items fun(i?: integer, j?: integer): fun(): deck.Item
 ---@field get_cursor_item fun(): deck.Item?
----@field get_action_items fun(): deck.Item[]
----@field get_filtered_items fun(): deck.Item[]
----@field get_rendered_items fun(): deck.Item[]
 ---@field get_selected_items fun(): deck.Item[]
+---@field get_action_items fun(): deck.Item[]
 ---@field get_actions fun(): deck.Action[]
 ---@field get_decorators fun(): deck.Decorator[]
 ---@field get_previewer fun(): deck.Previewer?
@@ -221,12 +227,7 @@ function Context.create(id, source, start_config)
         vim.api.nvim_buf_clear_namespace(context.buf, context.ns, toprow, botrow + 1)
 
         local decorators = context.get_decorators()
-        for row = toprow, botrow do
-          local item = buffer:get_rendered_items()[row + 1]
-          if not item then
-            -- If `items[row + 1]` is nil, then `items[row + 2]` is also nil.
-            break
-          end
+        for item, idx in buffer:iter_rendered_items(toprow + 1, botrow + 1) do
           -- create cache.
           if not state.decoration_cache[item] then
             state.decoration_cache[item] = {}
@@ -246,13 +247,13 @@ function Context.create(id, source, start_config)
             if decorator.dynamic then
               if not decorator.resolve or decorator.resolve(context, item) then
                 for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
-                  apply_decoration(row, decoration)
+                  apply_decoration(idx - 1, decoration)
                 end
               end
             end
           end
           for _, decoration in ipairs(state.decoration_cache[item]) do
-            apply_decoration(row, decoration)
+            apply_decoration(idx - 1, decoration)
           end
         end
       end,
@@ -294,15 +295,16 @@ function Context.create(id, source, start_config)
 
       buffer:start_filtering()
       state.redraw_timer:stop()
-      state.redraw_timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms, function()
-        if dirty or buffer:is_filtering() then
-          dirty = false
-          events.redraw_tick.emit(nil)
-          if vim.api.nvim_get_mode().mode == 'c' then
-            vim.api.nvim__redraw({ flush = true })
+      state.redraw_timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms,
+        function()
+          if dirty or buffer:is_filtering() then
+            dirty = false
+            events.redraw_tick.emit(nil)
+            if vim.api.nvim_get_mode().mode == 'c' then
+              vim.api.nvim__redraw({ flush = true })
+            end
           end
-        end
-      end)
+        end)
 
       local to_show = not context.is_visible()
       view.show(context)
@@ -394,7 +396,7 @@ function Context.create(id, source, start_config)
 
     ---Return cursor position state.
     get_cursor = function()
-      return math.min(state.cursor, #buffer:get_rendered_items() + 1)
+      return math.min(state.cursor, buffer:count_rendered_items() + 1)
     end,
 
     ---Set cursor row.
@@ -487,7 +489,7 @@ function Context.create(id, source, start_config)
       end
 
       state.select_all = select_all
-      for _, item in ipairs(context.get_items()) do
+      for item in buffer:iter_items() do
         context.set_selected(item, state.select_all)
       end
     end,
@@ -512,14 +514,11 @@ function Context.create(id, source, start_config)
       return state.preview_mode
     end,
 
-    ---Get items.
-    get_items = function()
-      return buffer:get_items()
-    end,
-
     ---Get cursor item.
     get_cursor_item = function()
-      return buffer:get_rendered_items()[state.cursor]
+      for item in buffer:iter_rendered_items(state.cursor, state.cursor) do
+        return item
+      end
     end,
 
     ---Get action items.
@@ -535,20 +534,46 @@ function Context.create(id, source, start_config)
       return {}
     end,
 
-    ---Get filter items.
-    get_filtered_items = function()
-      return buffer:get_filtered_items()
+    count_items = function()
+      return buffer:count_items()
     end,
 
-    ---Get rendered items.
-    get_rendered_items = function()
-      return buffer:get_rendered_items()
+    count_filtered_items = function()
+      return buffer:count_filtered_items()
+    end,
+
+    count_rendered_items = function()
+      return buffer:count_rendered_items()
+    end,
+
+    get_item = function(idx)
+      return buffer:get_item(idx)
+    end,
+
+    get_filtered_item = function(idx)
+      return buffer:get_filtered_item(idx)
+    end,
+
+    get_rendered_item = function(idx)
+      return buffer:get_rendered_item(idx)
+    end,
+
+    iter_items = function(i, j)
+      return buffer:iter_items(i, j)
+    end,
+
+    iter_filtered_items = function(i, j)
+      return buffer:iter_filtered_items(i, j)
+    end,
+
+    iter_rendered_items = function(i, j)
+      return buffer:iter_rendered_items(i, j)
     end,
 
     ---Get select items.
     get_selected_items = function()
       local items = {}
-      for _, item in ipairs(context.get_rendered_items()) do
+      for item in buffer:iter_rendered_items() do
         if state.select_map[item] then
           table.insert(items, item)
         end
