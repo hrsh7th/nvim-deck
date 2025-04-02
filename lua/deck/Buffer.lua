@@ -78,26 +78,106 @@ function Buffer:stream_done()
   end)
 end
 
----Return items.
----@return deck.Item[]
-function Buffer:get_items()
-  return self._items
+---Return count of all items.
+---@return integer
+function Buffer:count_items()
+  return #self._items
 end
 
----Return filtered items.
----@return deck.Item[]
-function Buffer:get_filtered_items()
+---Return count of rendered items.
+---@return integer
+function Buffer:count_filtered_items()
   if self._query == '' then
-    return self._items
-  else
-    return self._items_filtered
+    return #self._items
+  end
+  return #self._items_filtered
+end
+
+---Return count of rendered items.
+---@return integer
+function Buffer:count_rendered_items()
+  return #self._items_rendered
+end
+
+---Return item.
+---@param idx integer
+---@return deck.Item?
+function Buffer:get_item(idx)
+  return self._items[idx]
+end
+
+---Return filtered item.
+---@param idx integer
+---@return deck.Item?
+function Buffer:get_filtered_item(idx)
+  if self._query == '' then
+    return self._items[idx]
+  end
+  return self._items_filtered[idx]
+end
+
+---Return rendered item.
+---@param idx integer
+---@return deck.Item?
+function Buffer:get_rendered_item(idx)
+  return self._items_rendered[idx]
+end
+
+---Return all items iterator.
+---@param i? integer
+---@param j? integer
+---@return fun(): deck.Item?, integer?
+function Buffer:iter_items(i, j)
+  local idx = (i or 1) - 1
+  return function()
+    idx = idx + 1
+    if j and idx > j then
+      return nil
+    end
+    local item = self._items[idx]
+    if not item then
+      return nil
+    end
+    return item, idx
   end
 end
 
----Return rendered items.
----@return deck.Item[]
-function Buffer:get_rendered_items()
-  return self._items_rendered
+---Return filtered items iterator.
+---@param i? integer
+---@param j? integer
+---@return fun(): deck.Item?, integer?
+function Buffer:iter_filtered_items(i, j)
+  local idx = (i or 1) - 1
+  return function()
+    idx = idx + 1
+    if j and idx > j then
+      return nil
+    end
+    local item = self._query == '' and self._items[idx] or self._items_filtered[idx]
+    if not item then
+      return nil
+    end
+    return item, idx
+  end
+end
+
+---Return rendered items iterator.
+---@param i? integer
+---@param j? integer
+---@return fun(): deck.Item?, integer?
+function Buffer:iter_rendered_items(i, j)
+  local idx = (i or 1) - 1
+  return function()
+    idx = idx + 1
+    if j and idx > j then
+      return nil
+    end
+    local item = self._items_rendered[idx]
+    if not item then
+      return nil
+    end
+    return item, idx
+  end
 end
 
 ---Return cursors.
@@ -206,7 +286,7 @@ function Buffer:_step_render()
   end
 
   local config = self._start_config.performance
-  local items_filtered = self:get_filtered_items()
+  local items_filtered_count = self:count_filtered_items()
   local s = vim.uv.hrtime() / 1e6
   local c = 0
 
@@ -222,7 +302,7 @@ function Buffer:_step_render()
   -- check render condition.
   local should_render = false
   should_render = should_render or (s - self._start_ms) > config.render_delay_ms
-  should_render = should_render or (#items_filtered - self._cursor_rendered) > max_count
+  should_render = should_render or (items_filtered_count - self._cursor_rendered) > max_count
   should_render = should_render or (self._done and not self._timer_filter:is_running())
   if not should_render then
     self._timer_render:start(config.render_interrupt_ms, 0, function()
@@ -238,9 +318,8 @@ function Buffer:_step_render()
 
   -- rendering.
   kit.clear(rendering_lines)
-  while self._cursor_rendered < #items_filtered do
-    self._cursor_rendered = self._cursor_rendered + 1
-    local item = items_filtered[self._cursor_rendered]
+  for item, i in self:iter_filtered_items(self._cursor_rendered + 1) do
+    self._cursor_rendered = i
     self._items_rendered[self._cursor_rendered] = item
     rendering_lines[#rendering_lines + 1] = item.display_text
 
