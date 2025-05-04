@@ -783,7 +783,6 @@ function Context.create(id, source, start_config)
         return
       end
       state.disposed = true
-      redrawer:close()
 
       -- abort source execution.
       if state.controller then

@@ -26,10 +26,6 @@ function Redrawer.new(bufnr, interval_ms, hooks)
   }, Redrawer)
 end
 
-function Redrawer:close()
-  self.throttle_timer:close()
-end
-
 function Redrawer:now()
   if self.hooks.on_call and not self.hooks.on_call() then
     assert(self.throttle_timer:stop())
