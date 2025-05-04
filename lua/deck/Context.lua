@@ -4,11 +4,10 @@ local notify = require('deck.notify')
 local symbols = require('deck.symbols')
 local Buffer = require('deck.Buffer')
 local ExecuteContext = require('deck.ExecuteContext')
-local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
+local Redrawer = require('deck.Redrawer')
 
 ---@class deck.Context.State
 ---@field status deck.Context.Status
----@field redraw_timer deck.kit.Async.ScheduledTimer
 ---@field cursor integer
 ---@field query string
 ---@field matcher_query string
@@ -92,7 +91,6 @@ function Context.create(id, source, start_config)
   ---@type deck.Context.State
   local state = {
     status = Context.Status.Waiting,
-    redraw_timer = ScheduledTimer.new(),
     cursor = 1,
     query = start_config.query or '',
     matcher_query = '',
@@ -115,16 +113,26 @@ function Context.create(id, source, start_config)
     hide = x.create_events(),
   }
 
-  local dirty = false
-  local function redraw()
-    if context.is_visible() and not context.is_syncing() then
-      dirty = true
-      events.redraw_sync.emit(nil)
-    end
-  end
-
   local buffer = Buffer.new(tostring(id), start_config)
-  buffer.on_render(redraw)
+
+  local redrawer = Redrawer.new(buffer:nr(), start_config.performance.redraw_tick_ms, {
+    on_call = function()
+      if context.is_visible() and not context.is_syncing() then
+        events.redraw_sync.emit(nil)
+        return true
+      end
+      return buffer:is_filtering()
+    end,
+    on_redraw = function(is_forced)
+      if not is_forced then
+        events.redraw_tick.emit(nil)
+      end
+      return true
+    end,
+  })
+  buffer.on_render(function()
+    redrawer:later()
+  end)
 
   ---Execute source.
   local execute_source = function()
@@ -137,7 +145,6 @@ function Context.create(id, source, start_config)
     ---@type deck.Context.State
     state = {
       status = Context.Status.Waiting,
-      redraw_timer = state.redraw_timer,
       cursor = state.cursor,
       query = state.query,
       matcher_query = state.matcher_query,
@@ -293,16 +300,6 @@ function Context.create(id, source, start_config)
       end
 
       buffer:start_filtering()
-      state.redraw_timer:stop()
-      state.redraw_timer:start(start_config.performance.redraw_tick_ms, start_config.performance.redraw_tick_ms, function()
-        if dirty or buffer:is_filtering() then
-          dirty = false
-          events.redraw_tick.emit(nil)
-          if vim.api.nvim_get_mode().mode == 'c' then
-            vim.api.nvim__redraw({ flush = true })
-          end
-        end
-      end)
 
       local to_show = not context.is_visible()
       view.show(context)
@@ -331,7 +328,6 @@ function Context.create(id, source, start_config)
     ---Hide context via given view.
     hide = function()
       buffer:abort_filtering()
-      state.redraw_timer:stop()
 
       local to_hide = context.is_visible()
       view.hide(context)
@@ -412,7 +408,7 @@ function Context.create(id, source, start_config)
           end
         end
         if prev_cursor_item ~= context.get_cursor_item() then
-          redraw()
+          redrawer:now()
         end
       end
     end,
@@ -472,7 +468,7 @@ function Context.create(id, source, start_config)
         state.select_all = false
       end
       state.select_map[item] = selected and true or nil
-      redraw()
+      redrawer:now()
     end,
 
     ---Get specified item's selected state.
@@ -488,8 +484,11 @@ function Context.create(id, source, start_config)
 
       state.select_all = select_all
       for _, item in ipairs(context.get_items()) do
-        context.set_selected(item, state.select_all)
+        if (not state.select_map[item]) == select_all then
+          state.select_map[item] = select_all and true or nil
+        end
       end
+      redrawer:now()
     end,
 
     ---Get selected all state.
@@ -504,7 +503,7 @@ function Context.create(id, source, start_config)
       end
 
       state.preview_mode = preview_mode
-      redraw()
+      redrawer:now()
     end,
 
     ---Get preview mode.
@@ -731,7 +730,7 @@ function Context.create(id, source, start_config)
       restore()
       state.is_syncing = false
 
-      redraw()
+      redrawer:later()
     end,
 
     ---Set keymap to the deck buffer.
@@ -784,6 +783,7 @@ function Context.create(id, source, start_config)
         return
       end
       state.disposed = true
+      redrawer:close()
 
       -- abort source execution.
       if state.controller then
