@@ -1,9 +1,11 @@
+local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
+
 ---@class deck.Redrawer
 ---@field private bufnr integer
 ---@field private hooks deck.Redrawer.Hooks
 ---@field private interval_ms number
 ---@field private last_time_ms number
----@field private throttle_timer uv.uv_timer_t
+---@field private throttle_timer deck.kit.Async.ScheduledTimer
 local Redrawer = {}
 
 ---@class deck.Redrawer.Hooks
@@ -22,37 +24,36 @@ function Redrawer.new(bufnr, interval_ms, hooks)
     hooks = hooks or {},
     interval_ms = interval_ms,
     last_time_ms = 0,
-    throttle_timer = assert(vim.uv.new_timer()),
+    throttle_timer = ScheduledTimer.new(),
   }, Redrawer)
 end
 
 function Redrawer:now()
   if self.hooks.on_call and not self.hooks.on_call() then
-    assert(self.throttle_timer:stop())
+    self.throttle_timer:stop()
     return
   end
 
-  assert(self.throttle_timer:stop())
+  self.throttle_timer:stop()
   return self:_redraw(0 < self:_remaining_wait_time())
 end
 
 function Redrawer:later()
   if self.hooks.on_call and not self.hooks.on_call() then
-    assert(self.throttle_timer:stop())
+    self.throttle_timer:stop()
     return
   end
 
-  if self.throttle_timer:is_active() then
+  if self.throttle_timer:is_running() then
     return
   end
   local wait_time = self:_remaining_wait_time()
   if wait_time <= 0 then
     return self:_redraw(false)
-  else
-    assert(self.throttle_timer:start(wait_time, 0, vim.schedule_wrap(function()
-      return self:_redraw(false)
-    end)))
   end
+  self.throttle_timer:start(wait_time, 0, function()
+    return self:_redraw(false)
+  end)
 end
 
 ---@private
