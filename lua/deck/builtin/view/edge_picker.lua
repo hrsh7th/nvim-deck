@@ -1,4 +1,5 @@
 local x = require('deck.x')
+local kit = require('deck.kit')
 local Keymap = require('deck.kit.Vim.Keymap')
 local Context = require('deck.Context')
 
@@ -121,47 +122,57 @@ return function(position, calc_height_or_width)
       end))
 
       -- update preview.
-      table.insert(state.disposes, ctx.on_redraw_tick(function()
-        local item = ctx.get_cursor_item()
+      do
+        local cache = {}
+        table.insert(state.disposes, ctx.on_redraw_tick(function()
+          local item = ctx.get_cursor_item()
 
-        -- close if not visible or not preview mode.
-        if not item or not ctx.get_preview_mode() or not ctx.get_previewer() then
-          if is_visible(state.preview_win) then
-            vim.api.nvim_win_hide(state.preview_win)
-            state.preview_win = nil
+          -- close if not visible or not preview mode.
+          if not item or not ctx.get_preview_mode() or not ctx.get_previewer() then
+            if is_visible(state.preview_win) then
+              vim.api.nvim_win_hide(state.preview_win)
+              state.preview_win = nil
+            end
+            return
           end
-          return
-        end
 
-        local height_or_width = calc_height_or_width(ctx)
-        local available_height = vim.o.lines - (split == 'horizontal' and height_or_width or 0)
-        local available_width = vim.o.columns - (split == 'vertical' and height_or_width or 0)
-        local win_config = {
-          noautocmd = true,
-          relative = 'editor',
-          width = math.floor(available_width * 0.8),
-          height = math.floor(available_height * 0.8),
-          row = math.max(1, math.floor(available_height * 0.1) - 2) +
-              (position == 'top' and height_or_width or 0),
-          col = math.floor(available_width * 0.1) + (position == 'left' and height_or_width or 0),
-          style = 'minimal',
-          border = 'rounded',
-        }
-        if not is_visible(state.preview_win) then
-          state.preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
-        else
-          win_config.noautocmd = nil
-          vim.api.nvim_win_set_config(state.preview_win, win_config)
-        end
-        ctx.get_previewer().preview(ctx, item, { win = state.preview_win })
-        vim.api.nvim_set_option_value('wrap', false, { win = state.preview_win })
-        vim.api.nvim_set_option_value('winhighlight',
-          'Normal:Normal,FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal', { win = state.preview_win })
-        vim.api.nvim_set_option_value('number', true, { win = state.preview_win })
-        vim.api.nvim_set_option_value('numberwidth', 5, { win = state.preview_win })
-        vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
-        vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
-      end))
+          local height_or_width = calc_height_or_width(ctx)
+          local available_width = vim.o.columns - (split == 'vertical' and height_or_width or 0)
+          local available_height = vim.o.lines - (split == 'horizontal' and height_or_width or 0)
+
+          local deps = { item, available_width, available_height }
+          if kit.shallow_equals(cache, deps) then
+            return
+          end
+          cache = deps
+
+          local win_config = {
+            noautocmd = true,
+            relative = 'editor',
+            width = math.floor(available_width * 0.8),
+            height = math.floor(available_height * 0.8),
+            row = math.max(1, math.floor(available_height * 0.1) - 2) +
+                (position == 'top' and height_or_width or 0),
+            col = math.floor(available_width * 0.1) + (position == 'left' and height_or_width or 0),
+            style = 'minimal',
+            border = 'rounded',
+          }
+          if not is_visible(state.preview_win) then
+            state.preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
+          else
+            win_config.noautocmd = nil
+            vim.api.nvim_win_set_config(state.preview_win, win_config)
+          end
+          ctx.get_previewer().preview(ctx, item, { win = state.preview_win })
+          vim.api.nvim_set_option_value('wrap', false, { win = state.preview_win })
+          vim.api.nvim_set_option_value('winhighlight',
+            'Normal:Normal,FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal', { win = state.preview_win })
+          vim.api.nvim_set_option_value('number', true, { win = state.preview_win })
+          vim.api.nvim_set_option_value('numberwidth', 5, { win = state.preview_win })
+          vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
+          vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
+        end))
+      end
     end,
 
     ---Hide window.

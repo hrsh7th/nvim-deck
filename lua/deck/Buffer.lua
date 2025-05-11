@@ -180,15 +180,6 @@ function Buffer:iter_rendered_items(i, j)
   end
 end
 
----Return cursors.
----@return { filtered: integer, rendered: integer }
-function Buffer:get_cursors()
-  return {
-    filtered = self._cursor_filtered,
-    rendered = self._cursor_rendered,
-  }
-end
-
 ---Update query.
 ---@param query string
 function Buffer:update_query(query)

@@ -744,8 +744,7 @@ function Context.create(id, source, start_config)
       state.is_syncing = true
       local restore = saveview()
       vim.wait(start_config.performance.sync_timeout_ms, function()
-        local cursors = buffer:get_cursors()
-        if vim.o.lines <= math.min(cursors.filtered, cursors.rendered) then
+        if vim.o.lines <= buffer:count_rendered_items() then
           return true
         end
         if context.get_status() == Context.Status.Success then
