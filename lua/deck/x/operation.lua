@@ -22,7 +22,7 @@ local function get_filters(client, name, method)
   local has = false
   local filters = {} --[=[@as deck.kit.LSP.FileOperationFilter[]]=]
 
-  local d_options = client.client:_get_registration_options(method) --[[@as any]]
+  local d_options = client.client:_get_registration(method) --[[@as any]]
   if d_options then
     has = true
     filters = kit.concat(filters, d_options.filters)
