@@ -103,6 +103,7 @@ function x.open_preview_buffer(win, file)
     if filetype and not vim.tbl_contains({ 'diff', 'gitcommit' }, filetype) then
       local lang = vim.treesitter.language.get_lang(filetype)
       if lang and lang ~= 'text' then
+        vim.treesitter.stop(buf)
         vim.treesitter.start(buf, lang)
         return false
       end

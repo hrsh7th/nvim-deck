@@ -202,9 +202,9 @@ function FloatingWindow.get_content_size(params)
     end
 
     for _, extmark in
-      ipairs(vim.api.nvim_buf_get_extmarks(params.bufnr, -1, 0, -1, {
-        details = true,
-      }))
+    ipairs(vim.api.nvim_buf_get_extmarks(params.bufnr, -1, 0, -1, {
+      details = true,
+    }))
     do
       if extmark[4] and extmark[4].virt_lines then
         content_height = content_height + #extmark[4].virt_lines
@@ -390,12 +390,21 @@ function FloatingWindow:scroll(delta)
   if not is_visible(self._win) then
     return
   end
+  local viewport = self:get_viewport()
   vim.api.nvim_win_call(self._win, function()
-    local topline = vim.fn.getwininfo(self._win)[1].height
-    topline = topline + delta
-    topline = math.max(topline, 1)
-    topline = math.min(topline, vim.api.nvim_buf_line_count(self._buf) - vim.api.nvim_win_get_height(self._win) + 1)
-    vim.api.nvim_command(('normal! %szt'):format(topline))
+    local topline = vim.fn.getwininfo(self._win)[1].topline
+    topline = math.max(1, topline + delta)
+    topline = math.min(viewport.content_size.height - vim.api.nvim_win_get_height(self._win) + 1, topline)
+    vim.cmd.normal({
+      ('%szt'):format(topline),
+      bang = true,
+      mods = {
+        keepmarks = true,
+        keepjumps = true,
+        keepalt = true,
+        noautocmd = true,
+      },
+    })
   end)
 end
 
