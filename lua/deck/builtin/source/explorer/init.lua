@@ -77,14 +77,12 @@ State.__index = State
 
 ---Create State object.
 ---@param cwd string
+---@param config deck.builtin.source.explorer.State.Config
 ---@return deck.builtin.source.explorer.State
-function State.new(cwd)
+function State.new(cwd, config)
   return setmetatable({
     _cwd = cwd,
-    _config = {
-      auto_resize = true,
-      dotfiles = false,
-    },
+    _config = config,
     _root = Async.run(function()
       local item = misc.get_item_by_path(cwd, 0)
       item.expanded = true
@@ -303,12 +301,18 @@ end
   name = "reveal"
   type = "string"
   desc = "Reveal target path."
+
+  [[options]]
+  name = "config"
+  type = "deck.builtin.source.explorer.State.Config"
+  desc = "State config."
 ]=]
 ---@class deck.builtin.source.explorer.Option
 ---@field cwd string
 ---@field mode 'drawer' | 'filer'
 ---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
 ---@field reveal? string
+---@field config? deck.builtin.source.explorer.State.Config
 ---@param option deck.builtin.source.explorer.Option
 return function(option)
   if #option.cwd == 0 or vim.fn.isdirectory(option.cwd) == 0 then
@@ -323,9 +327,13 @@ return function(option)
     enabled = true,
     ignore_globs = {},
   })
+  option.config = kit.merge(option.config or {}, {
+    dotfiles = false,
+    auto_resize = true,
+  })
 
   local deck = require('deck')
-  local state = State.new(option.cwd)
+  local state = State.new(option.cwd, option.config)
 
   ---@type deck.Source
   return {
@@ -469,6 +477,7 @@ return function(option)
                 require('deck.builtin.source.explorer')(kit.merge({
                   cwd = path,
                   reveal = reveal or path,
+                  config = state:get_config(),
                 }, option)),
                 ctx.get_config()
               )
