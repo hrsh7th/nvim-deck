@@ -203,21 +203,27 @@ function AsyncTask:state()
   }
 end
 
----Register next step.
----@param on_fulfilled fun(value: any): any
-function AsyncTask:next(on_fulfilled)
-  return self:dispatch(on_fulfilled, function(err)
+do
+  local default_on_rejected = function(err)
     error(err, 2)
-  end)
+  end
+  ---Register next step.
+  ---@param on_fulfilled fun(value: any): any
+  function AsyncTask:next(on_fulfilled)
+    return self:dispatch(on_fulfilled, default_on_rejected)
+  end
 end
 
----Register catch step.
----@param on_rejected fun(value: any): any
----@return deck.kit.Async.AsyncTask
-function AsyncTask:catch(on_rejected)
-  return self:dispatch(function(value)
+do
+  local default_on_fulfilled = function(value)
     return value
-  end, on_rejected)
+  end
+  ---Register catch step.
+  ---@param on_rejected fun(value: any): any
+  ---@return deck.kit.Async.AsyncTask
+  function AsyncTask:catch(on_rejected)
+    return self:dispatch(default_on_fulfilled, on_rejected)
+  end
 end
 
 ---Dispatch task state.
@@ -246,11 +252,8 @@ function AsyncTask:dispatch(on_fulfilled, on_rejected)
       local function dispatcher()
         return dispatch(resolve, reject)
       end
-      if self.children then
-        table.insert(self.children, dispatcher)
-      else
-        self.children = { dispatcher }
-      end
+      self.children = self.children or {}
+      table.insert(self.children, dispatcher)
     end)
   end
   return AsyncTask.new(dispatch)

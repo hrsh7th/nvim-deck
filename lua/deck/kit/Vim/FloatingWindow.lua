@@ -22,6 +22,10 @@ local kit = require('deck.kit')
 ---@field public border? string | string[]
 ---@field public anchor? "NW" | "NE" | "SW" | "SE"
 ---@field public style? string
+---@field public title? string
+---@field public title_pos? 'left' | 'right' | 'center'
+---@field public footer? string
+---@field public footer_pos? 'left' | 'right' | 'center'
 ---@field public zindex? integer
 
 ---@class deck.kit.Vim.FloatingWindow.Viewport
@@ -75,6 +79,8 @@ end
 ---@param win_config deck.kit.Vim.FloatingWindow.WindowConfig
 ---@return integer
 local function show_or_move(win, buf, win_config)
+  win_config.border = win_config.border or (vim.o.winborder --[[@as string]])
+
   local border_size = FloatingWindow.get_border_size(win_config.border)
   if win_config.anchor == 'NE' then
     win_config.col = win_config.col - win_config.width - border_size.right - border_size.left
@@ -96,6 +102,10 @@ local function show_or_move(win, buf, win_config)
       anchor = 'NW',
       style = win_config.style,
       border = win_config.border,
+      title = win_config.title,
+      title_pos = win_config.title_pos,
+      footer = win_config.footer,
+      footer_pos = win_config.footer_pos,
       zindex = win_config.zindex,
     })
     return win --[=[@as integer]=]
@@ -110,6 +120,10 @@ local function show_or_move(win, buf, win_config)
       anchor = 'NW',
       style = win_config.style,
       border = win_config.border,
+      title = win_config.title,
+      title_pos = win_config.title_pos,
+      footer = win_config.footer,
+      footer_pos = win_config.footer_pos,
       zindex = win_config.zindex,
     })
   end
@@ -127,8 +141,10 @@ end
 ---@param border nil | string | string[]
 ---@return deck.kit.Vim.FloatingWindow.BorderSize
 function FloatingWindow.get_border_size(border)
+  border = border or (vim.o.winborder --[[@as string]])
+
   local maybe_border_size = (function()
-    if not border then
+    if not border or border == '' then
       return { top = 0, right = 0, bottom = 0, left = 0 }
     end
     if type(border) == 'string' then
@@ -247,6 +263,7 @@ function FloatingWindow.new()
     }),
     _config = {
       markdown = false,
+      border = #vim.o.winborder > 0 and vim.o.winborder or 'none',
     },
     _win_option = {},
     _buf_option = {},
@@ -351,8 +368,6 @@ end
 ---Show the window
 ---@param win_config deck.kit.Vim.FloatingWindow.WindowConfig
 function FloatingWindow:show(win_config)
-  local zindex = win_config.zindex or 1000
-
   self._win = show_or_move(self._win, self._buf, {
     row = win_config.row,
     col = win_config.col,
@@ -361,7 +376,11 @@ function FloatingWindow:show(win_config)
     anchor = win_config.anchor,
     style = win_config.style,
     border = win_config.border,
-    zindex = zindex,
+    title = win_config.title,
+    title_pos = win_config.title_pos,
+    footer = win_config.footer,
+    footer_pos = win_config.footer_pos,
+    zindex = win_config.zindex or 1000,
   })
 
   vim.api.nvim_clear_autocmds({ group = self._augroup })
@@ -464,6 +483,7 @@ function FloatingWindow:_update_scrollbar()
           height = viewport.inner_height,
           style = 'minimal',
           zindex = viewport.zindex + 1,
+          border = 'none',
         })
       end
       do
@@ -479,6 +499,7 @@ function FloatingWindow:_update_scrollbar()
           height = math.ceil(thumb_height),
           style = 'minimal',
           zindex = viewport.zindex + 2,
+          border = 'none',
         })
       end
       return
