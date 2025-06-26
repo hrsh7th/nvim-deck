@@ -385,11 +385,11 @@ end
 ---@param timeout_ms integer
 ---@return T
 function kit.debounce(callback, timeout_ms)
-  local timer = assert(vim.uv.new_timer())
+  local timer = require('deck.kit.Async.ScheduledTimer').new()
   return setmetatable({
     timeout_ms = timeout_ms,
     is_running = function()
-      return timer:is_active()
+      return timer:is_running()
     end,
     stop = function()
       timer:stop()
@@ -415,13 +415,13 @@ end
 ---@param callback T
 ---@param timeout_ms integer
 function kit.throttle(callback, timeout_ms)
-  local timer = assert(vim.uv.new_timer())
+  local timer = require('deck.kit.Async.ScheduledTimer').new()
   local arguments = nil
   local last_time = (vim.uv.hrtime() / 1000000) - timeout_ms - 1
   return setmetatable({
     timeout_ms = timeout_ms,
     is_running = function()
-      return timer:is_active()
+      return timer:is_running()
     end,
     stop = function()
       timer:stop()
