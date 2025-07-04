@@ -131,6 +131,9 @@ function Context.create(id, source, start_config)
 
   local buffer = Buffer.new(tostring(id), start_config)
   buffer.on_render(redraw)
+  if state.query ~= '' then
+    buffer:update_query(state.query)
+  end
 
   ---Execute source.
   local execute_source = function()
