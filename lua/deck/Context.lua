@@ -113,6 +113,18 @@ function Context.create(id, source, start_config)
     disposed = false,
   }
 
+  -- update initial query.
+  do
+    local parsed = source.parse_query and source.parse_query(start_config.query or '') or {
+      dynamic_query = '',
+      matcher_query = start_config.query or '',
+    }
+    parsed.dynamic_query = parsed.dynamic_query or ''
+    parsed.matcher_query = parsed.matcher_query or ''
+    state.dynamic_query = parsed.dynamic_query
+    state.matcher_query = parsed.matcher_query
+  end
+
   local events = {
     dispose = x.create_events(),
     redraw_tick = x.create_events(),
@@ -131,9 +143,7 @@ function Context.create(id, source, start_config)
 
   local buffer = Buffer.new(tostring(id), start_config)
   buffer.on_render(redraw)
-  if state.query ~= '' then
-    buffer:update_query(state.query)
-  end
+  buffer:update_query(state.matcher_query)
 
   ---Execute source.
   local execute_source = function()
