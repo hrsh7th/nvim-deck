@@ -38,10 +38,12 @@ local System = require('deck.kit.System')
 ---@param option deck.builtin.source.grep.Option
 return function(option)
   local function parse_query(query)
-    local dynamic_query, matcher_query = unpack(vim.split(query, '  '))
+    local sep = query:find('  ') or #query
+    local dynamic_query = query:sub(1, sep)
+    local matcher_query = query:sub(sep + 2)
     return {
-      dynamic_query = (dynamic_query or ''):gsub('^%s+', ''):gsub('%s+$', ''),
-      matcher_query = (matcher_query or ''):gsub('^%s+', ''):gsub('%s+$', ''),
+      dynamic_query = dynamic_query:gsub('^%s+', ''):gsub('%s+$', ''),
+      matcher_query = matcher_query:gsub('^%s+', ''):gsub('%s+$', ''),
     }
   end
 
