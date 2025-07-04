@@ -191,10 +191,14 @@ function FloatingWindow.get_content_size(params)
       local text_width = math.max(1, vim.api.nvim_strwidth(text))
       if params.markdown then
         local j = 1
-        local s, e = text:find('%b[]%b()', j)
-        if s then
-          text_width = text_width - (#text:match('%b[]', j) - 2)
-          j = e + 1
+        while true do
+          local s, e = text:find('%b[]%b()', j)
+          if s then
+            text_width = text_width - (#text:match('%b[]', j) - 2)
+            j = e + 1
+          else
+            break
+          end
         end
       end
       max_text_width = math.max(max_text_width, text_width)
@@ -308,9 +312,10 @@ function FloatingWindow:get_win_option(key, kind)
     scrollbar_thumb = self._scrollbar_thumb_win,
   })[kind] --[=[@as integer]=]
   if not is_visible(win) then
-    return self._win_option[kind] and self._win_option[kind][key]
+    self._win_option[kind] = self._win_option[kind] or {}
+    return self._win_option[kind][key]
   end
-  return vim.api.nvim_get_option_value(key, { win = win }) or vim.api.nvim_get_option_value(key, { scope = 'global' })
+  return vim.api.nvim_get_option_value(key, { win = win })
 end
 
 ---Set buffer option.
@@ -338,7 +343,7 @@ function FloatingWindow:get_buf_option(key, kind)
   if not buf then
     return self._buf_option[kind] and self._buf_option[kind][key]
   end
-  return vim.api.nvim_get_option_value(key, { buf = buf }) or vim.api.nvim_get_option_value(key, { scope = 'global' })
+  return vim.api.nvim_get_option_value(key, { buf = buf })
 end
 
 ---Returns the related bufnr.
