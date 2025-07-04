@@ -7,7 +7,7 @@ local matcher = {}
 ---Search query text in label text.
 ---@param label string
 ---@param query string
----@return integer?
+---@return integer? 1-origin
 local function search_ignorecase(label, query)
   local query_head_char = query:byte(1)
 
@@ -49,24 +49,24 @@ end
 -- matcher.default.
 do
   local parse_query_cache = {
-    query = '',
+    raw_query = '',
     parsed = {},
     queries = {},
   }
 
-  ---@return { negated: boolean, query: string }[]
-  local function parse_query(query)
-    if parse_query_cache.query ~= query then
-      parse_query_cache.query = query
+  ---@return { negated: boolean, prefix: boolean, suffix: boolean, query: string }[]
+  local function parse_query(raw_query)
+    if parse_query_cache.raw_query ~= raw_query then
+      parse_query_cache.raw_query = raw_query
 
-      -- create parsed.
+      -- split by whitespace.
       kit.clear(parse_query_cache.parsed)
       local i = 1
       local chunk = {}
-      while i <= #query do
-        local c = query:sub(i, i)
+      while i <= #raw_query do
+        local c = raw_query:sub(i, i)
         if c == '\\' then
-          table.insert(chunk, query:sub(i + 1, i + 1))
+          table.insert(chunk, raw_query:sub(i + 1, i + 1))
           i = i + 1
         elseif c ~= ' ' then
           table.insert(chunk, c)
@@ -80,18 +80,29 @@ do
         table.insert(parse_query_cache.parsed, table.concat(chunk, ''))
       end
 
-      -- create queries.
+      -- parse each query.
       kit.clear(parse_query_cache.queries)
-      for _, q in ipairs(parse_query_cache.parsed) do
-        if q:sub(1, 1) == '!' then
+      for _, query1 in ipairs(parse_query_cache.parsed) do
+        local negated = query1:sub(1, 1) == '!'
+        if negated then
+          query1 = query1:gsub('^!', '')
+        end
+        local prefix = query1:sub(1, 1) == '^'
+        if prefix then
+          query1 = query1:gsub('^%^', '')
+        end
+        local suffix = query1:sub(-1, -1) == '$'
+        if suffix then
+          query1 = query1:gsub('%$$', '')
+        end
+
+        -- ignote empty query.
+        if query1 ~= '' then
           table.insert(parse_query_cache.queries, {
-            negated = true,
-            query = q:sub(2),
-          })
-        else
-          table.insert(parse_query_cache.queries, {
-            negated = false,
-            query = q,
+            negated = negated,
+            prefix = prefix,
+            suffix = suffix,
+            query = query1,
           })
         end
       end
@@ -108,20 +119,22 @@ do
 
       local matched = true
       for _, q in ipairs(parse_query(query)) do
-        if q.negated then
-          if q.query ~= '' and search_ignorecase(text, q.query) then
-            matched = false
-            break
+        local idx = search_ignorecase(text, q.query)
+        if idx then
+          if q.prefix and not idx == 1 then
+            idx = nil
           end
-        elseif q.query ~= '' then
-          local idx = search_ignorecase(text, q.query)
-          if not idx then
-            matched = false
-            break
+          if q.suffix and idx + #q.query - 1 ~= #text then
+            idx = nil
           end
         end
-        if not matched then
-          return 0
+        if idx and q.negated then
+          matched = false
+          break
+        end
+        if not idx and not q.negated then
+          matched = false
+          break
         end
       end
       return matched and 1 or 0
