@@ -119,7 +119,7 @@ local Context = require('deck.Context')
 ---@alias deck.PreviewerResolveFunction fun(ctx: deck.Context, item: deck.Item): any
 
 ---@doc.type
----@alias deck.PreviewerPreviewFunction fun(ctx: deck.Context, item: deck.Item, env: { win: integer })
+---@alias deck.PreviewerPreviewFunction fun(ctx: deck.Context, item: deck.Item, env: { open_preview_win: fun(): integer? }): nil|fun()
 
 ---@doc.type
 ---@class deck.StartPreset
@@ -133,8 +133,8 @@ local Context = require('deck.Context')
 ---@field public is_visible fun(ctx: deck.Context): boolean
 ---@field public show fun(ctx: deck.Context)
 ---@field public hide fun(ctx: deck.Context)
+---@field public open_preview_win fun(ctx: deck.Context): integer?
 ---@field public prompt fun(ctx: deck.Context)
----@field public scroll_preview fun(ctx: deck.Context, delta: integer)
 
 ---@doc.type
 ---@class deck.PerformanceConfig

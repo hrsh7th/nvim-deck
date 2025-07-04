@@ -20,6 +20,7 @@ local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 ---@field is_syncing boolean
 ---@field controller deck.ExecuteContext.Controller?
 ---@field decoration_cache table<deck.Item, deck.Decoration[]>
+---@field preview_cache { win?: integer, item?: deck.Item, cleanup?: fun() }
 ---@field disposed boolean
 
 ---@doc.type
@@ -110,6 +111,7 @@ function Context.create(id, source, start_config)
     is_syncing = false,
     controller = nil,
     decoration_cache = {},
+    preview_cache = {},
     disposed = false,
   }
 
@@ -168,6 +170,7 @@ function Context.create(id, source, start_config)
       is_syncing = false,
       controller = nil,
       decoration_cache = {},
+      preview_cache = state.preview_cache,
       disposed = false,
     }
 
@@ -389,7 +392,31 @@ function Context.create(id, source, start_config)
 
     ---Scroll preview window.
     scroll_preview = function(delta)
-      view.scroll_preview(context, delta)
+      local preview_win = state.preview_cache.win
+      if preview_win and vim.api.nvim_win_is_valid(preview_win) then
+        vim.api.nvim_win_call(state.preview_cache.win, function()
+          local topline = vim.fn.getwininfo(preview_win)[1].topline
+          topline = math.max(1, topline + delta)
+          topline = math.min(
+            vim.api.nvim_buf_line_count(vim.api.nvim_win_get_buf(preview_win)) -
+            vim.api.nvim_win_get_height(preview_win) + 1, topline)
+          vim.cmd.normal({
+            ('%szt'):format(topline),
+            bang = true,
+            mods = {
+              keepmarks = true,
+              keepjumps = true,
+              keepalt = true,
+              noautocmd = true,
+            },
+          })
+        end)
+        vim.api.nvim__redraw({
+          flush = true,
+          valid = true,
+          win = preview_win,
+        })
+      end
     end,
 
     ---Return status state.
@@ -873,6 +900,44 @@ function Context.create(id, source, start_config)
   end, {
     pattern = ('<buffer=%s>'):format(context.buf),
   }))
+
+  -- manage preview.
+  do
+    local function cleanup()
+      if state.preview_cache.cleanup then
+        state.preview_cache.cleanup()
+        state.preview_cache.cleanup = nil
+      end
+      if state.preview_cache.win and vim.api.nvim_win_is_valid(state.preview_cache.win) then
+        pcall(vim.api.nvim_win_hide, state.preview_cache.win)
+        state.preview_cache.win = nil
+      end
+      state.preview_cache.item = nil
+    end
+    events.hide.on(cleanup)
+    events.redraw_tick.on(function()
+      if context.is_visible() and context.get_preview_mode() then
+        local previewer = context.get_previewer()
+        if previewer then
+          local item = context.get_cursor_item()
+          if item then
+            if state.preview_cache.item ~= item then
+              cleanup()
+              state.preview_cache.item = item
+              state.preview_cache.cleanup = previewer.preview(context, item, {
+                open_preview_win = function()
+                  state.preview_cache.win = view.open_preview_win(context)
+                  return state.preview_cache.win
+                end
+              })
+            end
+            return
+          end
+        end
+      end
+      cleanup()
+    end)
+  end
 
   -- explicitly show.
   do

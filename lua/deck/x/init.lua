@@ -142,7 +142,7 @@ function x.open_preview_buffer(win, file)
       extmark_option.line_hl_group = 'Visual'
     end
     local ns = vim.api.nvim_create_namespace(('deck.x.open_preview_buffer:%s'):format(buf))
-    vim.api.nvim_buf_set_extmark(buf, ns, file.lnum - 1, (file.col or 1) - 1, extmark_option)
+    pcall(vim.api.nvim_buf_set_extmark, buf, ns, file.lnum - 1, (file.col or 1) - 1, extmark_option)
   end
 
   -- set window.

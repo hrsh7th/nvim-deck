@@ -171,6 +171,11 @@ function easy.setup(config)
       require('deck').start(require('deck.builtin.source.helpgrep')())
     end)
 
+    -- Register `colorschemes` start preset.
+    deck.register_start_preset('colorschemes', function()
+      require('deck').start(require('deck.builtin.source.colorschemes')())
+    end)
+
     -- Register `deck.notify` start preset.
     deck.register_start_preset('deck.notify', function()
       deck.start(require('deck.builtin.source.deck.notify')())

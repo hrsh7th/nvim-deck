@@ -74,44 +74,6 @@ return function()
           win = state.win,
         })
       end))
-
-      table.insert(state.disposes, ctx.on_redraw_tick(function()
-        local item = ctx.get_cursor_item()
-        if not item or not ctx.get_preview_mode() then
-          if is_visible(state.preview_win) then
-            vim.api.nvim_win_hide(state.preview_win)
-            state.preview_win = nil
-          end
-        else
-          local width = vim.api.nvim_win_get_width(state.win)
-          local available_width = vim.o.columns - width
-          local preview_width = math.floor(available_width * 0.8)
-          local win_config = {
-            noautocmd = true,
-            relative = 'editor',
-            width = preview_width,
-            height = math.floor(vim.o.lines * 0.8),
-            row = math.floor(vim.o.lines * 0.1),
-            col = width + math.max(1, math.floor(available_width * 0.1) - 2),
-            style = 'minimal',
-            border = 'rounded',
-          }
-          if not is_visible(state.preview_win) then
-            state.preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
-          else
-            win_config.noautocmd = nil
-            vim.api.nvim_win_set_config(state.preview_win, win_config)
-          end
-          ctx.get_previewer().preview(ctx, item, { win = state.preview_win })
-          vim.api.nvim_set_option_value('wrap', false, { win = state.preview_win })
-          vim.api.nvim_set_option_value('winhighlight',
-            'Normal:Normal,FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal', { win = state.preview_win })
-          vim.api.nvim_set_option_value('number', true, { win = state.preview_win })
-          vim.api.nvim_set_option_value('numberwidth', 5, { win = state.preview_win })
-          vim.api.nvim_set_option_value('scrolloff', 0, { win = state.preview_win })
-          vim.api.nvim_set_option_value('modified', false, { buf = vim.api.nvim_win_get_buf(state.preview_win) })
-        end
-      end))
     end,
 
     ---Hide window.
@@ -127,6 +89,32 @@ return function()
       if is_visible(state.preview_win) then
         vim.api.nvim_win_hide(state.preview_win)
       end
+    end,
+
+    ---Open preview win.
+    open_preview_win = function()
+      local width = vim.api.nvim_win_get_width(state.win)
+      local available_width = vim.o.columns - width
+      local preview_width = math.floor(available_width * 0.8)
+      local win_config = {
+        noautocmd = true,
+        relative = 'editor',
+        width = preview_width,
+        height = math.floor(vim.o.lines * 0.8),
+        row = math.floor(vim.o.lines * 0.1),
+        col = width + math.max(1, math.floor(available_width * 0.1) - 2),
+        style = 'minimal',
+        border = 'rounded',
+      }
+
+      local preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
+      vim.api.nvim_set_option_value('wrap', false, { win = preview_win })
+      vim.api.nvim_set_option_value('winhighlight', 'FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal',
+        { win = preview_win })
+      vim.api.nvim_set_option_value('number', true, { win = preview_win })
+      vim.api.nvim_set_option_value('numberwidth', 5, { win = preview_win })
+      vim.api.nvim_set_option_value('scrolloff', 0, { win = preview_win })
+      return preview_win
     end,
 
     -- Redraw window.
@@ -160,9 +148,6 @@ return function()
         vim.api.nvim_clear_autocmds({ group = group })
       end))
     end,
-
-    ---Scroll preview window.
-    scroll_preview = function(_, delta) end,
   } --[[@as deck.View]]
   return view
 end
