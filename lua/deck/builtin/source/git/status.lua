@@ -135,6 +135,24 @@ return function(option)
         end,
       },
       {
+        name = 'git.status.stash',
+        resolve = function(ctx)
+          for _, item in ipairs(ctx.get_action_items()) do
+            if item.data.type ~= 'untracked' and item.data.type ~= 'ignored' then
+              return true
+            end
+          end
+        end,
+        execute = function(ctx)
+          Async.run(function()
+            for _, item in ipairs(ctx.get_action_items()) do
+              git:exec_print({ 'git', 'stash', 'push', '--', item.data.filename }):await()
+            end
+            ctx.execute()
+          end)
+        end,
+      },
+      {
         name = 'git.status.add',
         resolve = function(ctx)
           for _, item in ipairs(ctx.get_action_items()) do
