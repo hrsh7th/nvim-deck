@@ -32,6 +32,33 @@ return function(option)
       end
       ctx.done()
     end,
+    previewers = {
+      {
+        name = 'lines',
+        resolve = function(_, item)
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_get_buf(win) == item.data.bufnr then
+              return win
+            end
+          end
+          return false
+        end,
+        preview = function(_, item)
+          for _, win in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_get_buf(win) == item.data.bufnr then
+              local cursor = vim.api.nvim_win_get_cursor(win)
+              vim.api.nvim_win_set_cursor(win, { item.data.lnum, 0 })
+              return function()
+                vim.api.nvim_win_set_cursor(win, cursor)
+              end
+            end
+          end
+        end
+      }
+    },
+    actions = {
+      require('deck').alias_action('default', 'open'),
+    },
     decorators = {
       {
         name = 'buffer_line',
@@ -47,9 +74,17 @@ return function(option)
             return {}
           end
 
+          local win --[[@as integer]]
+          for _, w in ipairs(vim.api.nvim_list_wins()) do
+            if vim.api.nvim_win_get_buf(w) == bufnr then
+              win = w
+              break
+            end
+          end
+
           -- see neovim/runtime/lua/vim/treesitter/highlighter.lua
           local extmarks = {}
-          highlighter:for_each_highlight_state(function(state)
+          highlighter:for_each_highlight_state(win, function(state)
             local root_node = state.tstree:root()
             local root_start_row, _, root_end_row, _ = root_node:range()
             if root_start_row > row or root_end_row < row then
@@ -86,9 +121,6 @@ return function(option)
           return extmarks
         end,
       },
-    },
-    actions = {
-      require('deck').alias_action('default', 'open'),
     },
   }
 end

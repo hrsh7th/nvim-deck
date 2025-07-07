@@ -1,6 +1,7 @@
 local x = require('deck.x')
 local kit = require('deck.kit')
 local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
+local TopK = require('deck.TopK')
 
 local rendering_lines = {}
 
@@ -12,6 +13,10 @@ local rendering_lines = {}
 ---@field private _start_ms integer
 ---@field private _aborted boolean
 ---@field private _query string
+---@field private _topk deck.TopK
+---@field private _topk_revision integer
+---@field private _topk_rendered_count integer
+---@field private _topk_rendered_revision integer
 ---@field private _items deck.Item[]
 ---@field private _items_filtered deck.Item[]
 ---@field private _items_rendered deck.Item[]
@@ -36,6 +41,10 @@ function Buffer.new(name, start_config)
     _start_ms = vim.uv.hrtime() / 1e6,
     _aborted = false,
     _query = '',
+    _topk = TopK.new(20),
+    _topk_revision = 0,
+    _topk_rendered_count = 0,
+    _topk_rendered_revision = 0,
     _items = {},
     _items_filtered = {},
     _items_rendered = {},
@@ -59,6 +68,10 @@ function Buffer:stream_start()
   kit.clear(self._items_filtered)
   self._done = false
   self._start_ms = vim.uv.hrtime() / 1e6
+  self._topk:clear()
+  self._topk_revision = 0
+  self._topk_rendered_count = 0
+  self._topk_rendered_revision = 0
   self._cursor_filtered = 0
   self._cursor_rendered = 0
   self:start_filtering()
@@ -90,7 +103,7 @@ function Buffer:count_filtered_items()
   if self._query == '' then
     return #self._items
   end
-  return #self._items_filtered
+  return self._topk:count_items() + #self._items_filtered
 end
 
 ---Return count of rendered items.
@@ -112,6 +125,9 @@ end
 function Buffer:get_filtered_item(idx)
   if self._query == '' then
     return self._items[idx]
+  end
+  if idx <= self._topk:count_items() then
+    return self._topk:get_item(idx)
   end
   return self._items_filtered[idx]
 end
@@ -153,11 +169,13 @@ function Buffer:iter_filtered_items(i, j)
     if j and idx > j then
       return nil
     end
-    local item = self._query == '' and self._items[idx] or self._items_filtered[idx]
-    if not item then
-      return nil
+    if self._query == '' then
+      return self._items[idx], idx
     end
-    return item, idx
+    if idx <= self._topk:count_items() then
+      return self._topk:get_item(idx), idx
+    end
+    return self._items_filtered[idx], idx
   end
 end
 
@@ -185,6 +203,10 @@ end
 function Buffer:update_query(query)
   kit.clear(self._items_filtered)
   self._query = query
+  self._topk:clear()
+  self._topk_revision = 0
+  self._topk_rendered_count = 0
+  self._topk_rendered_revision = 0
   self._cursor_filtered = 0
   self._cursor_rendered = 0
   self:start_filtering()
@@ -243,7 +265,12 @@ function Buffer:_step_filter()
       local item = self._items[i]
       local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
       if score > 0 then
-        self._items_filtered[#self._items_filtered + 1] = item
+        local not_added = self._topk:add(item, score)
+        if not_added then
+          self._items_filtered[#self._items_filtered + 1] = item
+        else
+          self._topk_revision = self._topk_revision + 1
+        end
       end
       self._cursor_filtered = i
 
@@ -305,6 +332,38 @@ function Buffer:_step_render()
   -- clear obsolete items for item count decreasing (e.g. filtering, re-execute).
   for i = self._cursor_rendered + 1, #self._items_rendered do
     self._items_rendered[i] = nil
+  end
+
+  -- update topk.
+  if self._topk_revision ~= self._topk_rendered_revision then
+    vim.print('topk')
+    kit.clear(rendering_lines)
+    for item in self._topk:iter_items() do
+      rendering_lines[#rendering_lines + 1] = item.display_text
+    end
+    local winsave = vim.fn.winsaveview()
+    vim.api.nvim_buf_set_lines(self._bufnr, 0, self._topk_rendered_count, false, rendering_lines)
+    vim.fn.winrestview(winsave)
+
+    local topk_count = self._topk:count_items()
+    if self._topk_rendered_count > topk_count then
+      -- shrink table.
+      for _ = topk_count + 1, self._topk_rendered_count do
+        table.remove(self._items_rendered, topk_count + 1)
+      end
+    elseif self._topk_rendered_count < topk_count then
+      -- expand table.
+      for _ = self._topk_rendered_count + 1, topk_count do
+        table.insert(self._items_rendered, {})
+      end
+    end
+    --update rendered items.
+    for i = 1, topk_count do
+      self._items_rendered[i] = self._topk:get_item(i)
+    end
+
+    self._topk_rendered_count = self._topk:count_items()
+    self._topk_rendered_revision = self._topk_revision
   end
 
   -- rendering.

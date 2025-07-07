@@ -223,7 +223,7 @@ local internal = {
           max_height = math.floor(vim.o.lines * 0.25),
         })
       end,
-      matcher = require('deck.builtin.matcher').default,
+      matcher = require('deck.builtin.matcher.default'),
       history = true,
       performance = {
         sync_timeout_ms = 400,
