@@ -126,10 +126,11 @@ function Buffer:get_filtered_item(idx)
   if self._query == '' then
     return self._items[idx]
   end
-  if idx <= self._topk:count_items() then
+  local topk_count = self._topk:count_items()
+  if idx <= topk_count then
     return self._topk:get_item(idx)
   end
-  return self._items_filtered[idx]
+  return self._items_filtered[idx - topk_count]
 end
 
 ---Return rendered item.
@@ -172,10 +173,11 @@ function Buffer:iter_filtered_items(i, j)
     if self._query == '' then
       return self._items[idx], idx
     end
-    if idx <= self._topk:count_items() then
+    local topk_count = self._topk:count_items()
+    if idx <= topk_count then
       return self._topk:get_item(idx), idx
     end
-    return self._items_filtered[idx], idx
+    return self._items_filtered[idx - topk_count], idx
   end
 end
 
@@ -265,10 +267,11 @@ function Buffer:_step_filter()
       local item = self._items[i]
       local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
       if score > 0 then
-        local not_added = self._topk:add(item, score)
-        if not_added then
-          self._items_filtered[#self._items_filtered + 1] = item
-        else
+        local not_added_item = self._topk:add(item, score)
+        if not_added_item then
+          self._items_filtered[#self._items_filtered + 1] = not_added_item
+        end
+        if not_added_item ~= item then
           self._topk_revision = self._topk_revision + 1
         end
       end

@@ -34,9 +34,6 @@ function TopK:add(item, score)
   if pos > self._size then
     return item
   end
-  if pos <= #self._entries and self._entries[pos].score == score then
-    return nil
-  end
 
   table.insert(self._entries, pos, { item = item, score = score })
   if #self._entries > self._size then
