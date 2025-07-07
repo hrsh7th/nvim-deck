@@ -18,8 +18,11 @@ function WinSaveView.new()
   }, WinSaveView)
 end
 
+---Restore saved window.
 function WinSaveView:restore()
-  vim.api.nvim_set_current_win(self._win)
+  if vim.api.nvim_win_is_valid(self._win) then
+    vim.api.nvim_set_current_win(self._win)
+  end
 
   -- restore modes.
   if vim.api.nvim_get_mode().mode ~= self._mode then
