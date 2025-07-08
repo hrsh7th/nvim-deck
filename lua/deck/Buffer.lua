@@ -211,6 +211,7 @@ function Buffer:update_query(query)
   self._topk_rendered_revision = 0
   self._cursor_filtered = 0
   self._cursor_rendered = 0
+  self._start_ms = vim.uv.hrtime() / 1e6
   self:start_filtering()
 end
 
@@ -229,13 +230,7 @@ end
 ---Start filtering.
 function Buffer:start_filtering()
   self._aborted = false
-
-  -- throttle rendering.
-  local n = vim.uv.hrtime() / 1e6
-  if (n - self._start_ms) > self._start_config.performance.render_delay_ms then
-    self._start_ms = n
-  end
-
+  self._start_ms = vim.uv.hrtime() / 1e6
   self._timer_filter:start(0, 0, function()
     self:_step_filter()
   end)
@@ -333,8 +328,13 @@ function Buffer:_step_render()
   end
 
   -- clear obsolete items for item count decreasing (e.g. filtering, re-execute).
-  for i = self._cursor_rendered + 1, #self._items_rendered do
-    self._items_rendered[i] = nil
+  for i = #self._items_rendered, self._cursor_rendered + 1, -1 do
+    table.remove(self._items_rendered, i)
+  end
+
+  local cursor
+  if vim.api.nvim_win_get_buf(0) == self._bufnr then
+    cursor = vim.api.nvim_win_get_cursor(0)
   end
 
   -- update topk.
@@ -343,9 +343,7 @@ function Buffer:_step_render()
     for item in self._topk:iter_items() do
       rendering_lines[#rendering_lines + 1] = item.display_text
     end
-    local winsave = vim.fn.winsaveview()
     vim.api.nvim_buf_set_lines(self._bufnr, 0, self._topk_rendered_count, false, rendering_lines)
-    vim.fn.winrestview(winsave)
 
     local topk_count = self._topk:count_items()
     if self._topk_rendered_count > topk_count then
@@ -384,6 +382,7 @@ function Buffer:_step_render()
 
       local n = vim.uv.hrtime() / 1e6
       if n - s > config.render_bugdet_ms then
+        pcall(vim.api.nvim_win_set_cursor, 0, cursor)
         self._timer_render:start(config.render_interrupt_ms, 0, function()
           self:_step_render()
         end)
@@ -393,6 +392,8 @@ function Buffer:_step_render()
     end
   end
   vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
+  pcall(vim.api.nvim_win_set_cursor, 0, cursor)
+
   self._emit_render()
 
   -- continue rendering timer.
