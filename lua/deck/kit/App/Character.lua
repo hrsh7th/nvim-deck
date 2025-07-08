@@ -72,7 +72,33 @@ end
 ---@param byte integer
 ---@return boolean
 function Character.is_symbol(byte)
-  return not Character.is_alnum(byte) and not Character.is_white(byte)
+  return not Character.is_wordlike(byte) and not Character.is_white(byte)
+end
+
+---Return specified byte is wordlike or not.
+---@param byte integer
+---@return boolean
+function Character.is_wordlike(byte)
+  return Character.is_alnum(byte) or byte >= 128
+end
+
+---Return specified byte is utf8 part or not.
+---@param byte integer
+---@return boolean
+function Character.is_utf8_part(byte)
+  return byte >= 128
+end
+
+---Get the start index of a UTF-8 character in a string.
+---@param text string
+---@param index integer
+---@return integer
+function Character.get_utf8_start(text, index)
+  local prev_index = index - 1
+  while prev_index > 0 and Character.is_utf8_continuation(string.byte(text, prev_index)) do
+    prev_index = prev_index - 1
+  end
+  return prev_index
 end
 
 ---@param a integer
@@ -94,16 +120,12 @@ function Character.is_semantic_index(text, index)
     return true
   end
 
-  local prev = string.byte(text, index - 1)
   local curr = string.byte(text, index)
-
-  if not Character.is_upper(prev) and Character.is_upper(curr) then
-    return true
-  end
+  local prev = string.byte(text, index - 1)
   if Character.is_symbol(curr) or Character.is_white(curr) then
     return true
   end
-  if not Character.is_alpha(prev) and Character.is_alpha(curr) then
+  if not Character.is_wordlike(prev) and Character.is_wordlike(curr) then
     return true
   end
   if not Character.is_digit(prev) and Character.is_digit(curr) then

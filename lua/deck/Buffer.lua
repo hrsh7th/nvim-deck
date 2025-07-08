@@ -339,7 +339,6 @@ function Buffer:_step_render()
 
   -- update topk.
   if self._topk_revision ~= self._topk_rendered_revision then
-    vim.print('topk')
     kit.clear(rendering_lines)
     for item in self._topk:iter_items() do
       rendering_lines[#rendering_lines + 1] = item.display_text

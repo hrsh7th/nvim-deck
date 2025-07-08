@@ -16,6 +16,9 @@ describe('deck.builtin.matcher.ngram', function()
     assert.is_true(default.match('main lib', 'lib/main.lua') > 0)
     assert.is_true(default.match('lib xyz', 'lib/main.lua') == 0)
 
+    -- Search overlapping text by back tracking.
+    assert.is_true(default.match('featuresearch', 'features/search') > 0)
+
     -- Filter Logic
     assert.is_true(default.match('^lib', 'lib/main.lua') > 0)
     assert.is_true(default.match('^main', 'lib/main.lua') == 0)
