@@ -175,7 +175,8 @@ end
 ---@return integer[]
 local function get_semantic_indexes(text)
   kit.clear(tmp_tbls.semantic_indexes)
-  local semantic_index = Character.get_next_semantic_index(text, 0)
+  tmp_tbls.semantic_indexes[1] = 1
+  local semantic_index = Character.get_next_semantic_index(text, 1)
   while semantic_index <= #text do
     tmp_tbls.semantic_indexes[#tmp_tbls.semantic_indexes + 1] = semantic_index
     semantic_index = Character.get_next_semantic_index(text, semantic_index)
@@ -195,12 +196,12 @@ end
 local function best_run(query, text, query_consumed_i, query_i, text_i, semantic_indexes, loose)
   loose = loose or 1
 
+  local len_q = #query
+  local len_t = #text
   local original_query_i = query_i
-  local max_backtrack = math.max(query_i - Config.backtrack_size, query_consumed_i)
-  while max_backtrack < query_i do
+  local max_backtrack_i = math.max(query_i - Config.backtrack_size, query_consumed_i + 1)
+  while max_backtrack_i <= query_i do
     kit.clear(tmp_tbls.index_scores)
-    local len_q = #query
-    local len_t = #text
     for _, semantic_index in ipairs(semantic_indexes) do
       if text_i <= semantic_index and len_t - semantic_index >= len_q - query_i then
         local q_i = query_i
@@ -221,11 +222,8 @@ local function best_run(query, text, query_consumed_i, query_i, text_i, semantic
 
     local best_pos, best_len = 0, 0
     for pos, len in pairs(tmp_tbls.index_scores) do
-      if len > best_len or (len == best_len and pos < best_pos) then
-        local accept = false
-        accept = accept or not loose
-        accept = accept or (len >= loose)
-        if accept then
+      if best_len < len or (best_len == len and pos < best_pos) then
+        if loose <= len then
           best_pos, best_len = pos, len
         end
       end
@@ -236,7 +234,7 @@ local function best_run(query, text, query_consumed_i, query_i, text_i, semantic
     query_i = query_i - 1
   end
   loose = loose + 1
-  if #query - query_i >= loose then
+  if len_q - query_i >= loose then
     return best_run(query, text, query_consumed_i, original_query_i, 1, semantic_indexes, loose)
   end
   return 0, 0, false
