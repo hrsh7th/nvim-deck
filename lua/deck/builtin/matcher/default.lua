@@ -173,7 +173,7 @@ end
 ---Get semantic indexes for the text.
 ---@param text string
 ---@return integer[]
-local function get_semantic_indexes(text)
+local function parse_semantic_indexes(text)
   kit.clear(tmp_tbls.semantic_indexes)
   tmp_tbls.semantic_indexes[1] = 1
   local semantic_index = Character.get_next_semantic_index(text, 1)
@@ -199,7 +199,7 @@ local function best_run(query, text, query_consumed_i, query_i, text_i, semantic
   local len_q = #query
   local len_t = #text
   local original_query_i = query_i
-  local max_backtrack_i = math.max(query_i - Config.backtrack_size, query_consumed_i + 1)
+  local max_backtrack_i = math.max(query_i - Config.backtrack_size, query_consumed_i)
   while max_backtrack_i <= query_i do
     kit.clear(tmp_tbls.index_scores)
     for _, semantic_index in ipairs(semantic_indexes) do
@@ -287,7 +287,7 @@ function default.match(query, text)
   end
   score = score + 1
 
-  local semantic_indexes = get_semantic_indexes(text)
+  local parsed_semantic_indexes = parse_semantic_indexes(text)
   for _, q in ipairs(fuzzies) do
     local query_consumed_i = 0
     local query_i = 1
@@ -295,7 +295,7 @@ function default.match(query, text)
     local num_chunks = 0
     local backtrack_count = 0
     while query_i <= #q do
-      local pos, len, backtracked = best_run(q, text, query_consumed_i, query_i, text_i, semantic_indexes)
+      local pos, len, backtracked = best_run(q, text, query_consumed_i, query_i, text_i, parsed_semantic_indexes)
       if len == 0 then
         return 0
       end
@@ -334,13 +334,13 @@ function default.decor(query, text)
     end
   end
 
-  local semantic_indexes = get_semantic_indexes(text)
+  local parsed_semantic_indexes = parse_semantic_indexes(text)
   for _, q in ipairs(fuzzies) do
     local query_consumed_i = 0
     local query_i = 1
     local text_i = 1
     while query_i <= #q do
-      local pos, len = best_run(q, text, query_consumed_i, query_i, text_i, semantic_indexes)
+      local pos, len = best_run(q, text, query_consumed_i, query_i, text_i, parsed_semantic_indexes)
       if len == 0 then
         return {}
       end
