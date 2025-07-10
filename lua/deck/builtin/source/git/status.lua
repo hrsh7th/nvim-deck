@@ -268,7 +268,7 @@ return function(option)
           end
         end,
         preview = function(_, item, env)
-          x.open_preview_buffer(env.win, {
+          x.open_preview_buffer(env.open_preview_win() --[[@as integer]], {
             contents = git
               :get_unified_diff({
                 from_rev = 'HEAD',

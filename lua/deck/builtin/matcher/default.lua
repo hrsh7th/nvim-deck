@@ -2,15 +2,13 @@ local kit = require('deck.kit')
 local Character = require('deck.kit.App.Character')
 
 local Config = {
-  matching_pow = 1.2,
   strict_bonus = 0.001,
-  gap_decay = 0.9,
-  backtrack_decay = 0.95,
-  backtrack_size = 5,
+  chunk_penalty = 0.01,
 }
 
 local tmp_tbls = {
-  index_scores = {},
+  memo_score = {},
+  memo_longest = {},
   semantic_indexes = {},
 }
 
@@ -19,8 +17,20 @@ local chars = {
   ['\\'] = string.byte('\\'),
 }
 
+---Create matrix index.
+---@param c integer
+---@param i integer
+---@param j integer
+---@param n integer
+---@return integer
+local function matrix_idx(c, i, j, n)
+  return ((i - 1) * n + j - 1) * c + 1
+end
+
+
+
 ---Parse a query string into parts.
----@type table|fun(query: string): string[], { negate?: true, prefix?: true, suffix?: true, query: string }[]
+---@type table|(fun(query: string): string[], { negate?: true, prefix?: true, suffix?: true, query: string }[])
 local parse_query = setmetatable({}, {
   cache_query = {},
   cache_parsed = {
@@ -135,37 +145,27 @@ end
 local function find_icase(query, text)
   local query_head_char = query:byte(1)
 
-  local text_len = #text
-  local query_len = #query
+  local t_len = #text
+  local q_len = #query
   local text_i = 1
-  local query_i = 1
-  local memo_i = nil --[[@as integer?]]
-  while text_i <= text_len do
+  while text_i <= 1 + t_len - q_len do
     if Character.match_ignorecase(text:byte(text_i), query_head_char) then
-      text_i = text_i + 1
-      query_i = query_i + 1
-      memo_i = nil
-      while query_i <= query_len and text_i <= text_len do
-        local text_char = text:byte(text_i)
-        local query_char = query:byte(query_i)
+      local inner_text_i = text_i + 1
+      local inner_query_i = 2
+      while inner_text_i <= t_len and inner_query_i <= q_len do
+        local text_char = text:byte(inner_text_i)
+        local query_char = query:byte(inner_query_i)
         if not Character.match_ignorecase(text_char, query_char) then
           break
         end
-        if not memo_i and query_char == query_head_char then
-          memo_i = text_i
-        end
-
-        text_i = text_i + 1
-        query_i = query_i + 1
+        inner_text_i = inner_text_i + 1
+        inner_query_i = inner_query_i + 1
       end
-      if query_i > query_len then
-        return text_i - query_len, text_i - 1
+      if inner_query_i > q_len then
+        return text_i, inner_text_i - 1
       end
-      text_i = memo_i or text_i
-      query_i = 1
-    else
-      text_i = text_i + 1
     end
+    text_i = text_i + 1
   end
   return nil
 end
@@ -184,72 +184,132 @@ local function parse_semantic_indexes(text)
   return tmp_tbls.semantic_indexes
 end
 
----Search longuest match on semantic index after `text_i` in `text`.
+---Match longest.
 ---@param query string
 ---@param text string
----@param query_consumed_i integer
 ---@param query_i integer
 ---@param text_i integer
----@param semantic_indexes integer[]
----@param loose? integer
----@return integer, integer, boolean
-local function best_run(query, text, query_consumed_i, query_i, text_i, semantic_indexes, loose)
-  loose = loose or 1
+---@return integer
+local function match_longest(query, text, query_i, text_i)
+  local cnt = 0
+  while query_i + cnt <= #query and text_i + cnt <= #text do
+    if Character.match_ignorecase(query:byte(query_i + cnt), text:byte(text_i + cnt)) then
+      cnt = cnt + 1
+    else
+      break
+    end
+  end
+  return cnt
+end
 
-  local len_q = #query
-  local len_t = #text
-  local original_query_i = query_i
-  local max_backtrack_i = math.max(query_i - Config.backtrack_size, query_consumed_i)
-  while max_backtrack_i <= query_i do
-    kit.clear(tmp_tbls.index_scores)
-    for _, semantic_index in ipairs(semantic_indexes) do
-      if text_i <= semantic_index and len_t - semantic_index >= len_q - query_i then
-        local q_i = query_i
-        local t_i = semantic_index
-        while q_i <= len_q and t_i <= len_t do
-          local q_char = query:byte(q_i)
-          local t_char = text:byte(t_i)
-          if Character.match_ignorecase(q_char, t_char) then
-            tmp_tbls.index_scores[semantic_index] = (tmp_tbls.index_scores[semantic_index] or 0) + 1
-            q_i = q_i + 1
-            t_i = t_i + 1
-          else
-            break
+local current_best_score = 0
+
+---Find best match with dynamic programming.
+---@param query string
+---@param text string
+---@param query_i integer
+---@param semantic_i integer
+---@param part_score integer
+---@param part_chunks integer
+---@param memo_score table
+---@param semantic_indexes integer[]
+---@param with_ranges boolean
+---@return boolean, integer, { [1]: integer, [2]: integer }[]?
+local function compute(
+    query,
+    text,
+    query_i,
+    semantic_i,
+    part_score,
+    part_chunks,
+    memo_score,
+    semantic_indexes,
+    with_ranges
+)
+  -- initialization.
+  if query_i == 1 and semantic_i == 1 then
+    current_best_score = 0
+  end
+
+  -- query consumed.
+  if query_i > #query then
+    local this_score = part_score - part_chunks * Config.chunk_penalty
+    if this_score > current_best_score then
+      current_best_score = this_score
+    end
+    if with_ranges then
+      return true, this_score, {}
+    end
+    return true, this_score
+  end
+
+  -- cutoff.
+  local possible_best_score = part_score - part_chunks * Config.chunk_penalty + (1 + #query - query_i)
+  if possible_best_score <= current_best_score then
+    return false, 0, nil
+  end
+
+  -- compute.
+  local score_memo_idx = matrix_idx(2, query_i, semantic_i, #semantic_indexes + 1)
+  if not memo_score[score_memo_idx] then
+    local best_score = 0
+    local best_range_s
+    local best_range_e
+    local best_ranges --[[@as { [1]: integer, [2]: integer }[]?]]
+
+    for idx = semantic_i, #semantic_indexes do
+      local run_len = match_longest(query, text, query_i, semantic_indexes[idx])
+      if run_len > 0 then
+        local pivot = math.ceil(run_len * 2 / 3)
+        for i = 1, run_len do
+          local len = ((pivot - 1 + (i - 1)) % run_len) + 1
+          local ok, inner_score, inner_ranges = compute(
+            query,
+            text,
+            query_i + len,
+            idx + 1,
+            part_score + len,
+            part_chunks + 1,
+            memo_score,
+            semantic_indexes,
+            with_ranges
+          )
+          if ok and inner_score > best_score then
+            best_score = inner_score
+            best_range_s = semantic_indexes[idx]
+            best_range_e = semantic_indexes[idx] + len - 1
+            best_ranges = inner_ranges
           end
         end
       end
     end
 
-    local best_pos, best_len = 0, 0
-    for pos, len in pairs(tmp_tbls.index_scores) do
-      if best_len < len or (best_len == len and pos < best_pos) then
-        if loose <= len then
-          best_pos, best_len = pos, len
-        end
-      end
+    if with_ranges and best_ranges then
+      best_ranges[#best_ranges + 1] = { best_range_s, best_range_e }
     end
-    if best_pos ~= 0 then
-      return best_pos, best_len, query_i ~= original_query_i
-    end
-    query_i = query_i - 1
+
+    memo_score[score_memo_idx + 0] = best_score
+    memo_score[score_memo_idx + 1] = best_ranges
   end
-  loose = loose + 1
-  if len_q - query_i >= loose then
-    return best_run(query, text, query_consumed_i, original_query_i, 1, semantic_indexes, loose)
-  end
-  return 0, 0, false
+
+  return memo_score[score_memo_idx + 0] > 0, memo_score[score_memo_idx + 0], memo_score[score_memo_idx + 1]
 end
 
 local default = {}
 
 ---Match query against text and return a score.
----@param query string
+---@param input string
 ---@param text string
 ---@return integer
-function default.match(query, text)
-  local score = 0
+function default.match(input, text)
+  if input == '' then
+    return 1
+  end
 
-  local fuzzies, filters = parse_query(query)
+  local score = 0
+  local fuzzies, filters = parse_query(input)
+
+  -- check filters.
   for _, filter in ipairs(filters) do
     local match = true
     local filter_query = filter.query
@@ -285,44 +345,28 @@ function default.match(query, text)
       end
     end
   end
-  score = score + 1
 
+  -- check fuzzies.
   local parsed_semantic_indexes = parse_semantic_indexes(text)
-  for _, q in ipairs(fuzzies) do
-    local query_consumed_i = 0
-    local query_i = 1
-    local text_i = 1
-    local num_chunks = 0
-    local backtrack_count = 0
-    while query_i <= #q do
-      local pos, len, backtracked = best_run(q, text, query_consumed_i, query_i, text_i, parsed_semantic_indexes)
-      if len == 0 then
-        return 0
-      end
-      num_chunks = num_chunks + 1
-      backtrack_count = backtrack_count + (backtracked and 1 or 0)
-      query_consumed_i = query_i
-      query_i = query_i + len
-      text_i = pos + len
+  for _, query in ipairs(fuzzies) do
+    kit.clear(tmp_tbls.memo_score)
+    local ok, raw_score = compute(query, text, 1, 1, 0, 0, tmp_tbls.memo_score, parsed_semantic_indexes, false)
+    if not ok then
+      return 0
     end
-    if num_chunks > 0 then
-      local max_score = math.pow(#q, Config.matching_pow)
-      local decay_factor = (Config.gap_decay ^ (num_chunks - 1)) * (Config.backtrack_decay ^ backtrack_count)
-      max_score = max_score * decay_factor
-      score = score + max_score
-    end
+    score = score + raw_score
   end
   return score
 end
 
 ---Get decoration matches for the matched query in the text.
----@param query string
+---@param input string
 ---@param text string
 ---@return { [1]: integer, [2]: integer }[]
-function default.decor(query, text)
+function default.decor(input, text)
   local matches = {}
 
-  local fuzzies, filters = parse_query(query)
+  local fuzzies, filters = parse_query(input)
   for _, filter in ipairs(filters) do
     if filter.prefix or filter.suffix then
       if filter.prefix and prefix_icase(filter.query, text) then
@@ -335,19 +379,16 @@ function default.decor(query, text)
   end
 
   local parsed_semantic_indexes = parse_semantic_indexes(text)
-  for _, q in ipairs(fuzzies) do
-    local query_consumed_i = 0
-    local query_i = 1
-    local text_i = 1
-    while query_i <= #q do
-      local pos, len = best_run(q, text, query_consumed_i, query_i, text_i, parsed_semantic_indexes)
-      if len == 0 then
-        return {}
+  for _, query in ipairs(fuzzies) do
+    kit.clear(tmp_tbls.memo_score)
+    local ok, _, ranges = compute(query, text, 1, 1, 0, 0, tmp_tbls.memo_score, parsed_semantic_indexes, true)
+    if not ok then
+      return {}
+    end
+    if ranges then
+      for _, range in ipairs(ranges) do
+        table.insert(matches, { range[1] - 1, range[2] })
       end
-      matches[#matches + 1] = { pos - 1, pos + len - 1 }
-      query_consumed_i = query_i
-      query_i = query_i + len
-      text_i = pos + len
     end
   end
   return matches

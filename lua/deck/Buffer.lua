@@ -206,9 +206,7 @@ function Buffer:update_query(query)
   kit.clear(self._items_filtered)
   self._query = query
   self._topk:clear()
-  self._topk_revision = 0
-  self._topk_rendered_count = 0
-  self._topk_rendered_revision = 0
+  self._topk_revision = self._topk_revision + 1
   self._cursor_filtered = 0
   self._cursor_rendered = 0
   self._start_ms = vim.uv.hrtime() / 1e6
@@ -339,30 +337,30 @@ function Buffer:_step_render()
 
   -- update topk.
   if self._topk_revision ~= self._topk_rendered_revision then
+    -- render topk items.
     kit.clear(rendering_lines)
     for item in self._topk:iter_items() do
       rendering_lines[#rendering_lines + 1] = item.display_text
     end
     vim.api.nvim_buf_set_lines(self._bufnr, 0, self._topk_rendered_count, false, rendering_lines)
 
-    local topk_count = self._topk:count_items()
-    if self._topk_rendered_count > topk_count then
-      -- shrink table.
-      for _ = topk_count + 1, self._topk_rendered_count do
-        table.remove(self._items_rendered, topk_count + 1)
-      end
-    elseif self._topk_rendered_count < topk_count then
-      -- expand table.
-      for _ = self._topk_rendered_count + 1, topk_count do
+    -- expand/shrink items_rendered table.
+    local new_topk_count = self._topk:count_items()
+    local diff = new_topk_count - self._topk_rendered_count
+    if diff > 0 then
+      for _ = 1, diff do
         table.insert(self._items_rendered, {})
       end
+    elseif diff < 0 then
+      for _ = 1, -diff do
+        table.remove(self._items_rendered, 1)
+      end
     end
-    --update rendered items.
-    for i = 1, topk_count do
+    for i = 1, new_topk_count do
       self._items_rendered[i] = self._topk:get_item(i)
     end
 
-    self._topk_rendered_count = self._topk:count_items()
+    self._topk_rendered_count = new_topk_count
     self._topk_rendered_revision = self._topk_revision
   end
 
@@ -375,7 +373,7 @@ function Buffer:_step_render()
 
     -- interrupt.
     c = c + 1
-    if c >= config.render_batch_size then
+    if c  >= config.render_batch_size then
       c = 0
       vim.api.nvim_buf_set_lines(self._bufnr, self._cursor_rendered - #rendering_lines, -1, false, rendering_lines)
       kit.clear(rendering_lines)

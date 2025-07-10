@@ -173,7 +173,7 @@ return function(option)
         end,
         preview = function(_, item, env)
           Async.run(function()
-            x.open_preview_buffer(env.win, {
+            x.open_preview_buffer(env.open_preview_win() --[[@as integer]], {
               contents = git
                 :get_unified_diff({
                   from_rev = item.data.hash_parents[1],

@@ -392,7 +392,7 @@ require('deck').register_previewer({
     return item.data.filename and vim.fn.filereadable(item.data.filename) == 1
   end,
   preview = function(_, item, env)
-    vim.api.nvim_win_call(env.win, function()
+    vim.api.nvim_win_call(env.open_preview_win() --[[@as integer]], function()
       vim.fn.termopen(('bat --color=always %s'):format(item.data.filename))
     end)
   end

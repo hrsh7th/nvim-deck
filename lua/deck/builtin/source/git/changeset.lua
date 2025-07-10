@@ -59,12 +59,12 @@ return function(option)
         execute = function(ctx)
           for _, item in ipairs(ctx.get_action_items()) do
             git
-              :vimdiff({
-                from_rev = option.from_rev,
-                to_rev = option.to_rev,
-                filename = item.data.filename,
-              })
-              :sync(5000)
+                :vimdiff({
+                  from_rev = option.from_rev,
+                  to_rev = option.to_rev,
+                  filename = item.data.filename,
+                })
+                :sync(5000)
           end
         end,
       },
@@ -73,14 +73,14 @@ return function(option)
       {
         name = 'git.changeset.unified_diff',
         preview = function(_, item, env)
-          x.open_preview_buffer(env.win, {
+          x.open_preview_buffer(env.open_preview_win() --[[@as integer]], {
             contents = git
-              :get_unified_diff({
-                from_rev = option.from_rev,
-                to_rev = option.to_rev,
-                filename = item.data.filename,
-              })
-              :sync(5000),
+                :get_unified_diff({
+                  from_rev = option.from_rev,
+                  to_rev = option.to_rev,
+                  filename = item.data.filename,
+                })
+                :sync(5000),
             filename = item.data.filename,
             filetype = 'diff',
           })
