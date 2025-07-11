@@ -17,16 +17,6 @@ local chars = {
   ['\\'] = string.byte('\\'),
 }
 
----Create matrix index.
----@param c integer
----@param i integer
----@param j integer
----@param n integer
----@return integer
-local function matrix_idx(c, i, j, n)
-  return ((i - 1) * n + j - 1) * c + 1
-end
-
 ---Parse a query string into parts.
 ---@type table|(fun(query: string): string[], { negate?: true, prefix?: true, suffix?: true, query: string }[])
 local parse_query = setmetatable({}, {
@@ -87,10 +77,12 @@ local parse_query = setmetatable({}, {
         suffix = true
         q = q:sub(1, -2)
       end
-      if negate or prefix or suffix then
-        filters[#filters + 1] = { negate = negate, prefix = prefix, suffix = suffix, query = q }
-      else
-        fuzzies[#fuzzies + 1] = q
+      if q ~= '' then
+        if negate or prefix or suffix then
+          filters[#filters + 1] = { negate = negate, prefix = prefix, suffix = suffix, query = q }
+        else
+          fuzzies[#fuzzies + 1] = q
+        end
       end
     end
     self.cache_parsed = { fuzzies = fuzzies, filters = filters }
@@ -105,10 +97,13 @@ local parse_query = setmetatable({}, {
 ---@return boolean, boolean
 local function prefix_icase(query, text)
   local strict = true
+  if #text < #query then
+    return false, false
+  end
   for i = 1, #query do
     local q_char = query:byte(i)
     local t_char = text:byte(i)
-    if not Character.match_ignorecase(q_char, t_char) then
+    if not Character.match_icase(q_char, t_char) then
       return false, false
     end
     strict = strict and q_char == t_char
@@ -124,10 +119,13 @@ local function suffix_icase(query, text)
   local strict = true
   local t_len = #text
   local q_len = #query
+  if t_len < q_len then
+    return false, false
+  end
   for i = 1, #query do
     local q_char = query:byte(i)
     local t_char = text:byte(t_len - q_len + i)
-    if not Character.match_ignorecase(q_char, t_char) then
+    if not Character.match_icase(q_char, t_char) then
       return false, false
     end
     strict = strict and q_char == t_char
@@ -140,19 +138,22 @@ end
 ---@param text string
 ---@return integer?, integer? 1-origin
 local function find_icase(query, text)
-  local query_head_char = query:byte(1)
-
   local t_len = #text
   local q_len = #query
+  if t_len < q_len then
+    return nil
+  end
+
+  local query_head_char = query:byte(1)
   local text_i = 1
   while text_i <= 1 + t_len - q_len do
-    if Character.match_ignorecase(text:byte(text_i), query_head_char) then
+    if Character.match_icase(text:byte(text_i), query_head_char) then
       local inner_text_i = text_i + 1
       local inner_query_i = 2
       while inner_text_i <= t_len and inner_query_i <= q_len do
         local text_char = text:byte(inner_text_i)
         local query_char = query:byte(inner_query_i)
-        if not Character.match_ignorecase(text_char, query_char) then
+        if not Character.match_icase(text_char, query_char) then
           break
         end
         inner_text_i = inner_text_i + 1
@@ -172,8 +173,7 @@ end
 ---@return integer[]
 local function parse_semantic_indexes(text)
   kit.clear(cache.semantic_indexes)
-  cache.semantic_indexes[1] = 1
-  local semantic_index = Character.get_next_semantic_index(text, 1)
+  local semantic_index = Character.get_next_semantic_index(text, 0)
   while semantic_index <= #text do
     cache.semantic_indexes[#cache.semantic_indexes + 1] = semantic_index
     semantic_index = Character.get_next_semantic_index(text, semantic_index)
@@ -181,112 +181,89 @@ local function parse_semantic_indexes(text)
   return cache.semantic_indexes
 end
 
----Match longest.
----@param query string
----@param text string
----@param query_i integer
----@param text_i integer
----@return integer
-local function match_longest(query, text, query_i, text_i)
-  local cnt = 0
-  while query_i + cnt <= #query and text_i + cnt <= #text do
-    if Character.match_ignorecase(query:byte(query_i + cnt), text:byte(text_i + cnt)) then
-      cnt = cnt + 1
-    else
-      break
-    end
-  end
-  return cnt
-end
-
-local ideal_max_score = 0
-local current_best_score = 0
-
 ---Find best match with dynamic programming.
 ---@param query string
 ---@param text string
----@param query_i integer
----@param semantic_i integer
----@param part_score integer
----@param part_chunks integer
----@param memo_score table
 ---@param semantic_indexes integer[]
 ---@param with_ranges boolean
 ---@return boolean, integer, { [1]: integer, [2]: integer }[]?
 local function compute(
     query,
     text,
-    query_i,
-    semantic_i,
-    part_score,
-    part_chunks,
-    memo_score,
     semantic_indexes,
     with_ranges
 )
   local Q = #query
+  local T = #text
   local S = #semantic_indexes
 
-  -- initialization.
-  if query_i == 1 and semantic_i == 1 then
-    ideal_max_score = Q
-    current_best_score = 0
+  local memo_score = kit.clear(cache.memo_score)
+  local memo_longest = kit.clear(cache.memo_longest)
+
+  local function matrix_idx(i, j, n)
+    return ((i - 1) * S + j - 1) * n + 1
   end
 
-  -- query consumed.
-  if query_i > Q then
-    local this_score = part_score - part_chunks * Config.chunk_penalty
-    if this_score > current_best_score then
-      current_best_score = this_score
+  local function longest(qi, ti)
+    local memo_longest_idx = matrix_idx(qi, ti, 1)
+    if memo_longest[memo_longest_idx + 0] then
+      return memo_longest[memo_longest_idx + 0]
     end
-    if with_ranges then
-      return true, this_score, {}
+    local k = 0
+    while qi + k <= Q and ti + k <= T and Character.match_icase(query:byte(qi + k), text:byte(ti + k)) do
+      k = k + 1
     end
-    return true, this_score
+    memo_longest[memo_longest_idx] = k
+    return k
   end
 
-  -- cutoff.
-  local possible_best_score = part_score - part_chunks * Config.chunk_penalty + (1 + Q - query_i)
-  if possible_best_score <= current_best_score then
-    return false, 0, nil
-  end
+  local cur_score = 0
+  local max_score = Q
+  local chunk_penalty = Config.chunk_penalty
+  local function dfs(qi, si, part_score, part_chunks)
+    -- consumed.
+    if qi > Q then
+      local this_score = part_score - part_chunks * chunk_penalty
+      cur_score = this_score > cur_score and this_score or cur_score
+      if with_ranges then
+        return true, this_score, {}
+      end
+      return true, this_score
+    end
 
-  -- compute.
-  local score_memo_idx = matrix_idx(2, query_i, semantic_i, S)
-  if not memo_score[score_memo_idx + 0] then
+    -- cutoff.
+    local possible_score = part_score - (part_chunks + 1) * chunk_penalty + (1 + Q - qi)
+    if possible_score <= cur_score then
+      return false, 0, nil
+    end
+
+    -- memo.
+    local score_memo_idx = matrix_idx(qi, si, 3)
+    if memo_score[score_memo_idx + 0] then
+      return memo_score[score_memo_idx + 0] > 0, memo_score[score_memo_idx + 0], memo_score[score_memo_idx + 1]
+    end
+
     local best_score = 0
     local best_range_s
     local best_range_e
     local best_ranges --[[@as { [1]: integer, [2]: integer }[]?]]
-
-    for idx = semantic_i, S do
-      local run_len = match_longest(query, text, query_i, semantic_indexes[idx])
-      if run_len > 0 then
-        for len = run_len, 1, -1 do
-          local ok, inner_score, inner_ranges = compute(
-            query,
-            text,
-            query_i + len,
-            idx + 1,
-            part_score + len,
-            part_chunks + 1,
-            memo_score,
-            semantic_indexes,
-            with_ranges
-          )
-          if ok and inner_score > best_score then
-            best_score = inner_score
-            best_range_s = semantic_indexes[idx]
-            best_range_e = semantic_indexes[idx] + len - 1
-            best_ranges = inner_ranges
-            if best_score == ideal_max_score then
-              break
-            end
-          end
-          if best_score == ideal_max_score then
+    for idx = si, S do
+      local run_len = longest(qi, semantic_indexes[idx])
+      while run_len > 0 do
+        local ok, inner_score, inner_ranges = dfs(qi + run_len, idx + 1, part_score + run_len, part_chunks + 1)
+        if ok and inner_score > best_score then
+          best_score = inner_score
+          best_range_s = semantic_indexes[idx]
+          best_range_e = semantic_indexes[idx] + run_len - 1
+          best_ranges = inner_ranges
+          if best_score >= max_score then
             break
           end
         end
+        run_len = run_len - 1
+      end
+      if best_score >= max_score then
+        break
       end
     end
 
@@ -296,9 +273,9 @@ local function compute(
 
     memo_score[score_memo_idx + 0] = best_score
     memo_score[score_memo_idx + 1] = best_ranges
+    return best_score > 0, best_score, best_ranges
   end
-
-  return memo_score[score_memo_idx + 0] > 0, memo_score[score_memo_idx + 0], memo_score[score_memo_idx + 1]
+  return dfs(1, 1, 0, -1)
 end
 
 local default = {}
@@ -308,12 +285,12 @@ local default = {}
 ---@param text string
 ---@return integer
 function default.match(input, text)
-  if input == '' then
+  local fuzzies, filters = parse_query(input)
+  if #fuzzies == 0 and #filters == 0 then
     return 1
   end
 
-  local score = 0
-  local fuzzies, filters = parse_query(input)
+  local total_score = 0
 
   -- check filters.
   for _, filter in ipairs(filters) do
@@ -326,7 +303,7 @@ function default.match(input, text)
           match = false
         end
         if prefix_strict then
-          score = score + Config.strict_bonus
+          total_score = total_score + Config.strict_bonus
         end
       end
       if match then
@@ -335,7 +312,7 @@ function default.match(input, text)
           match = false
         end
         if suffix_strict then
-          score = score + Config.strict_bonus
+          total_score = total_score + Config.strict_bonus
         end
       end
     else
@@ -355,14 +332,13 @@ function default.match(input, text)
   -- check fuzzies.
   local parsed_semantic_indexes = parse_semantic_indexes(text)
   for _, query in ipairs(fuzzies) do
-    kit.clear(cache.memo_score)
-    local ok, raw_score = compute(query, text, 1, 1, 0, -1, cache.memo_score, parsed_semantic_indexes, false)
+    local ok, score = compute(query, text, parsed_semantic_indexes, false)
     if not ok then
       return 0
     end
-    score = score + raw_score
+    total_score = total_score + score
   end
-  return score
+  return total_score
 end
 
 ---Get decoration matches for the matched query in the text.
@@ -370,9 +346,12 @@ end
 ---@param text string
 ---@return { [1]: integer, [2]: integer }[]
 function default.decor(input, text)
-  local matches = {}
-
   local fuzzies, filters = parse_query(input)
+  if #fuzzies == 0 and #filters == 0 then
+    return {}
+  end
+
+  local matches = {}
 
   -- check filters.
   for _, filter in ipairs(filters) do
@@ -389,8 +368,7 @@ function default.decor(input, text)
   -- check fuzzies.
   local parsed_semantic_indexes = parse_semantic_indexes(text)
   for _, query in ipairs(fuzzies) do
-    kit.clear(cache.memo_score)
-    local ok, _, ranges = compute(query, text, 1, 1, 0, -1, cache.memo_score, parsed_semantic_indexes, true)
+    local ok, _, ranges = compute(query, text, parsed_semantic_indexes, true)
     if not ok then
       return {}
     end

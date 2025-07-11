@@ -91,11 +91,11 @@ end
 
 ---@param a integer
 ---@param b integer
-function Character.match_ignorecase(a, b)
+function Character.match_icase(a, b)
   if a == b then
     return true
-  elseif Character.is_alpha(a) and Character.is_alpha(b) then
-    return (a == b + 32) or (a == b - 32)
+  elseif math.abs(a - b) == 32 and Character.is_alpha(a) and Character.is_alpha(b) then
+    return true
   end
   return false
 end
