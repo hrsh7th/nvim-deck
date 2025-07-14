@@ -30,7 +30,7 @@ end)
 ---@param byte integer
 ---@return boolean
 function Character.is_alpha(byte)
-  return not not (Character.alpha[byte] ~= nil or (byte and Character.alpha[byte + 32] ~= nil))
+  return not not (Character.upper[byte] or Character.alpha[byte])
 end
 
 ---Return specified byte is digit or not.
