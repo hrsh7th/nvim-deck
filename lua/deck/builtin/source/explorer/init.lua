@@ -344,7 +344,7 @@ return function(option)
 
         -- TODO: I can't understand that but change directory to root causes infinite loop...
         if state:get_root().path ~= '/' then
-          vim.cmd.tcd(state:get_root().path)
+          vim.cmd.lcd(state:get_root().path)
         end
 
         if env.first and option.reveal then
