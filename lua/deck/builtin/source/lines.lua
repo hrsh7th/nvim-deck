@@ -48,10 +48,13 @@ return function(option)
             if vim.api.nvim_win_get_buf(win) == item.data.bufnr then
               local prev_cursor = vim.api.nvim_win_get_cursor(win)
               vim.api.nvim_win_set_cursor(win, { item.data.lnum, 0 })
+              local prev_cursorline_option = vim.wo[win].cursorline
+              vim.wo[win].cursorline = true
               return function()
                 if prev_cursor[1] == item.data.lnum then
                   vim.api.nvim_win_set_cursor(win, prev_cursor)
                 end
+                vim.wo[win].cursorline = prev_cursorline_option
               end
             end
           end
