@@ -621,6 +621,7 @@ return function(option)
               if path:sub(-1, -1) == '/' then
                 vim.fn.mkdir(path, 'p')
               else
+                vim.fn.mkdir(vim.fs.dirname(vim.fs.normalize(path, { expand_env = false })), 'p')
                 vim.fn.writefile({}, path)
               end
               state:dirty(parent_item.path)
