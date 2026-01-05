@@ -832,7 +832,7 @@ function Context.create(id, source, start_config)
           if nested > 0 then
             error(v)
           else
-            notify.show('default', {
+            notify.add_message('default', {
               { { vim.inspect(v), 'WarningMsg' } },
             })
           end
