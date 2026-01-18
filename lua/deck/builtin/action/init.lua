@@ -45,11 +45,20 @@ do
         return false
       end,
       execute = function(ctx)
-        local win = vim.iter(win_history):find(function(win)
-          return vim.api.nvim_win_is_valid(win) and vim.api.nvim_get_option_value('buftype', {
-            buf = vim.api.nvim_win_get_buf(win),
-          }) == ''
-        end) or vim.api.nvim_get_current_win()
+        win_history = vim.iter(win_history):filter(vim.api.nvim_win_is_valid):totable()
+        local win =
+          -- First, find the normal window recently entered.
+          vim.iter(win_history):find(function(win)
+            local buf = vim.api.nvim_win_get_buf(win)
+            return vim.api.nvim_get_option_value('buftype', { buf = buf }) == ''
+          end)
+          -- If the normal window was not found, try to fallback to a non-deck window.
+          or vim.iter(win_history):find(function(win)
+            local buf = vim.api.nvim_win_get_buf(win)
+            return vim.api.nvim_get_option_value('filetype', { buf = buf }) ~= 'deck'
+          end)
+          -- Finally, fallback to the current window.
+          or vim.api.nvim_get_current_win()
         for _, item in ipairs(ctx.get_action_items()) do
           vim.api.nvim_set_current_win(win)
 
