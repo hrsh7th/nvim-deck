@@ -8,7 +8,7 @@ local notify = require('deck.notify')
 local commit_message_sep = '############################################################'
 
 local function get_plugin_root_dir()
-  local script_path = vim.fs.normalize(debug.getinfo(2, 'S').source:sub(2):match('(.*/)'))
+  local script_path = vim.fs.normalize(debug.getinfo(2, 'S').source:sub(2):match('(.*[/\\])'))
   return vim.fn.fnamemodify(script_path, ':h:h:h')
 end
 
