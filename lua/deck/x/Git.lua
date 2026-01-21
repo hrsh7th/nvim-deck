@@ -34,15 +34,11 @@ Git.__index = Git
 ---@param option? { commit_message_sep?: string }
 ---@return deck.x.Git
 function Git.new(dir, option)
-  local cwd = vim.fs.normalize(dir)
-  while cwd ~= '/' and vim.fn.isdirectory(vim.fs.joinpath(cwd, '.git')) == 0 do
-    cwd = vim.fs.dirname(cwd)
-  end
-  if cwd == '/' then
-    error('Not found git directory')
-  end
+  -- A repository that is a linked worktree or has a separate git directory uses `.git` file.
+  local git_file_or_dir = vim.fs.find('.git', { upward = true, path = dir })[1]
+  assert(git_file_or_dir, '.git file or directory not found')
   return setmetatable({
-    cwd = cwd,
+    cwd = vim.fs.dirname(git_file_or_dir),
     commit_message_sep = option and option.commit_message_sep or commit_message_sep,
   }, Git)
 end
@@ -107,6 +103,7 @@ end
 ---@field current boolean
 ---@field remote boolean
 ---@field subject string
+---@field worktree? string
 ---@return deck.kit.Async.AsyncTask
 function Git:branch()
   local sep_count = 12
@@ -117,13 +114,13 @@ function Git:branch()
         '--all',
         '--sort=-committerdate',
         '--sort=refname:rstrip=-2',
-        '--format=%(HEAD)%00%(refname:rstrip=-2)%00%(refname)%00%(push)%00%(push:remotename)%00%(push:track)%00%(push:trackshort)%00%(subject)' ..
+        '--format=%(HEAD)%00%(refname:rstrip=-2)%00%(refname)%00%(push)%00%(push:remotename)%00%(push:track)%00%(push:trackshort)%00%(subject)%00%(worktreepath)' ..
         ('%00'):rep(sep_count),
       }, {
         buffering = System.DelimiterBuffering.new({ delimiter = ('\0'):rep(sep_count) .. '\n' }),
       })
       :next(function(out)
-        ---Get remotename from rename.
+        ---Get remotename from refname.
         ---@param refname string
         ---@return string?
         local function parse_remotename(refname)
@@ -147,10 +144,64 @@ function Git:branch()
             current = columns[1] == '*',
             remote = columns[2] == 'refs/remotes',
             subject = columns[8],
+            worktree = prevent_empty(columns[9]),
           })
         end
         return items
       end)
+end
+
+---Get worktree list.
+---@class deck.x.Git.Worktree
+---@field main boolean
+---@field path string
+---@field head? string
+---@field branch? string
+---@field bare boolean
+---@field detached boolean
+---@field locked boolean
+---@field prunable boolean
+---@return deck.kit.Async.AsyncTask
+function Git:worktree_list()
+  return self
+    :exec({
+      'git',
+      'worktree',
+      'list',
+      '--porcelain',
+    })
+    :next(function(out)
+      local items = {}
+      local item ---@type deck.x.Git.Worktree
+      for i, text in ipairs(out.stdout) do
+        local key, value = string.match(text, '([^ ]+) ?(.*)')
+        if key == nil then
+          table.insert(items, item)
+        elseif key == 'worktree' then
+          item = {
+            main = i == 1,
+            path = value,
+            bare = false,
+            detached = false,
+            locked = false,
+            prunable = false,
+          }
+        elseif key == 'HEAD' then
+          item.head = value
+        elseif key == 'branch' then
+          item.branch = string.gsub(value, '^refs/heads/', '')
+        elseif key == 'bare' then
+          item.bare = true
+        elseif key == 'detached' then
+          item.detached = true
+        elseif key == 'locked' then
+          item.locked = true
+        elseif key == 'prunable' then
+          item.prunable = true
+        end
+      end
+      return items
+    end)
 end
 
 ---Get status.
