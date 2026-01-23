@@ -22,10 +22,14 @@ local function get_filters(client, name, method)
   local has = false
   local filters = {} --[=[@as deck.kit.LSP.FileOperationFilter[]]=]
 
-  local d_options = client.client:_get_registration(method) --[[@as any]]
-  if d_options then
-    has = true
-    filters = kit.concat(filters, d_options.filters)
+  local provider_name = client.client:_registration_provider(method)
+  local d_options = client.client:_get_registrations(provider_name, 0)
+  for _, d_option in ipairs(d_options or {}) do
+    if d_option.method == method and d_option.registerOptions and d_option.registerOptions.filters then
+      has = true
+      filters = kit.concat(filters, d_option.registerOptions.filters)
+      break
+    end
   end
   local s_options = vim.tbl_get(client.client.server_capabilities, 'workspace', 'fileOperations', name)
   if s_options then

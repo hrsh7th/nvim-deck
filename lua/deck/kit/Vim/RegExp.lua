@@ -1,11 +1,11 @@
 local RegExp = {}
 
----@type table<string, { match_str: fun(self, text: string) }>
+---@type table<string, vim.regex>
 RegExp._cache = {}
 
 ---Create a RegExp object.
 ---@param pattern string
----@return { match_str: fun(self, text: string) }
+---@return vim.regex
 function RegExp.get(pattern)
   if not RegExp._cache[pattern] then
     RegExp._cache[pattern] = vim.regex(pattern)
@@ -29,14 +29,28 @@ end
 ---@return string?, integer?, integer? 1-origin-index
 function RegExp.extract_at(text, pattern, pos)
   local before_text = text:sub(1, pos - 1)
-  local after_text = text:sub(pos)
-  local b_s, _ = RegExp.get(pattern .. '$'):match_str(before_text)
-  local _, a_e = RegExp.get('^' .. pattern):match_str(after_text)
-  if b_s or a_e then
-    b_s = b_s or #before_text
-    a_e = #before_text + (a_e or 0)
-    return text:sub(b_s + 1, a_e), b_s + 1, a_e + 1
+  local bs --[[@as string?]]
+  local i = #pattern
+  while i >= 1 do
+    local sub_pattern = pattern:sub(1, i)
+    local ok, regex = pcall(RegExp.get, sub_pattern .. '$')
+    if ok then
+      bs = regex:match_str(before_text)
+      if bs then
+        bs = bs + 1
+        break
+      end
+    end
+    i = i - 1
   end
+  bs = bs or pos
+
+  local target_text = text:sub(bs)
+  local s, e = RegExp.get('^' .. pattern):match_str(target_text)
+  if not s then
+    return nil, nil, nil
+  end
+  return target_text:sub(s + 1, e), bs + s, bs + e
 end
 
 return RegExp
