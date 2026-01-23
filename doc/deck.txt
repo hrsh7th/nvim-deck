@@ -1,4 +1,4 @@
-*deck.txt*            For NVIM v0.10.0            Last change: 2026 January 20
+*deck.txt*            For NVIM v0.10.0            Last change: 2026 January 23
 
 ==============================================================================
 Table of Contents                                     *deck-table-of-contents*
@@ -105,6 +105,15 @@ Here’s an example of how to set up `nvim-deck`
       callback = function(e)
         local ctx = e.data.ctx --[[@as deck.Context]]
     
+        ctx.keymap('n', '<Leader>;', function()
+          local history = deck.get_history()
+          for i, context in ipairs(history) do
+            if context.id == ctx.id then
+              local next_idx = (i % #history) + 1
+              history[next_idx].show()
+            end
+          end
+        end)
         ctx.keymap('n', '<Tab>', deck.action_mapping('choose_action'))
         ctx.keymap('n', '<C-l>', deck.action_mapping('refresh'))
         ctx.keymap('n', 'i', deck.action_mapping('prompt'))
