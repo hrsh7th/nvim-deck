@@ -91,6 +91,15 @@ vim.api.nvim_create_autocmd('User', {
   callback = function(e)
     local ctx = e.data.ctx --[[@as deck.Context]]
 
+    ctx.keymap('n', '<Leader>;', function()
+      local history = deck.get_history()
+      for i, context in ipairs(history) do
+        if context.id == ctx.id then
+          local next_idx = (i % #history) + 1
+          history[next_idx].show()
+        end
+      end
+    end)
     ctx.keymap('n', '<Tab>', deck.action_mapping('choose_action'))
     ctx.keymap('n', '<C-l>', deck.action_mapping('refresh'))
     ctx.keymap('n', 'i', deck.action_mapping('prompt'))
