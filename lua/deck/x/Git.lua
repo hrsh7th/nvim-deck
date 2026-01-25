@@ -169,36 +169,40 @@ function Git:worktree_list()
       'worktree',
       'list',
       '--porcelain',
+      '-z',
+    }, {
+      buffering = System.DelimiterBuffering.new({ delimiter = '\0\0' }),
     })
     :next(function(out)
       local items = {}
-      local item ---@type deck.x.Git.Worktree
       for i, text in ipairs(out.stdout) do
-        local key, value = string.match(text, '([^ ]+) ?(.*)')
-        if key == nil then
-          table.insert(items, item)
-        elseif key == 'worktree' then
-          item = {
-            main = i == 1,
-            path = value,
-            bare = false,
-            detached = false,
-            locked = false,
-            prunable = false,
-          }
-        elseif key == 'HEAD' then
-          item.head = value
-        elseif key == 'branch' then
-          item.branch = string.gsub(value, '^refs/heads/', '')
-        elseif key == 'bare' then
-          item.bare = true
-        elseif key == 'detached' then
-          item.detached = true
-        elseif key == 'locked' then
-          item.locked = true
-        elseif key == 'prunable' then
-          item.prunable = true
+        local item ---@type deck.x.Git.Worktree
+        for line in vim.gsplit(text, '\0') do
+          local key, value = string.match(line, '([^ ]+) ?(.*)')
+          if key == 'worktree' then
+            item = {
+              main = i == 1,
+              path = value,
+              bare = false,
+              detached = false,
+              locked = false,
+              prunable = false,
+            }
+          elseif key == 'HEAD' then
+            item.head = value
+          elseif key == 'branch' then
+            item.branch = string.gsub(value, '^refs/heads/', '')
+          elseif key == 'bare' then
+            item.bare = true
+          elseif key == 'detached' then
+            item.detached = true
+          elseif key == 'locked' then
+            item.locked = true
+          elseif key == 'prunable' then
+            item.prunable = true
+          end
         end
+        table.insert(items, item)
       end
       return items
     end)
