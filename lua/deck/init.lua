@@ -213,8 +213,11 @@ local internal = {
   ---@type deck.Previewer[]
   previewers = {},
 
-  ---@type deck.Context[]
+  ---@type integer[]
   history = {},
+
+  ---@type table<integer, deck.Context>
+  contexts = {},
 
   ---@type deck.ConfigSpecifier
   config = {
@@ -334,35 +337,70 @@ function deck.start(sources, start_config_specifier)
   local source = sources --[[@as deck.Source]]
 
   --- check start_config.
-  local start_config = validate.start_config(kit.merge(start_config_specifier or {},
-    internal.config.default_start_config or {}) --[[@as deck.StartConfig]])
+  local start_config = validate.start_config(kit.merge(
+    start_config_specifier or {},
+    internal.config.default_start_config or {}
+  ) --[[@as deck.StartConfig]])
   start_config.name = start_config.name or source.name
 
+  -- get previous context.
+  local prev = nil
+  local active_context = deck.get_context(vim.api.nvim_get_current_buf())
+  if active_context then
+    prev = {
+      win = active_context.get_prev_win(),
+      buf = active_context.get_prev_buf(),
+    }
+  else
+    prev = {
+      win = vim.api.nvim_get_current_win(),
+      buf = vim.api.nvim_get_current_buf(),
+    }
+  end
+
   -- create context.
-  local context = Context.create(kit.unique_id(), source, start_config)
+  local context = Context.create(kit.unique_id(), source, start_config, prev)
+  internal.contexts[context.id] = context
+  context.on_dispose(function()
+    internal.contexts[context.id] = nil
+  end)
 
   -- manage history.
   if start_config.history then
-    table.insert(internal.history, 1, context)
+    table.insert(internal.history, 1, context.id)
     context.on_dispose(function()
-      for i, c in ipairs(internal.history) do
-        if c == context then
+      for i, id in ipairs(internal.history) do
+        if id == context.id then
           table.remove(internal.history, i)
           break
         end
       end
     end)
     if #internal.history > internal.config.max_history_size then
-      local c = table.remove(internal.history, #internal.history)
+      local id = table.remove(internal.history, #internal.history)
+      local c = id and internal.contexts[id] or nil
       if c then
         c:dispose()
       end
     end
   end
 
+  if start_config.history then
+    context.on_show(function()
+      for i, id in ipairs(internal.history) do
+        if id == context.id then
+          table.remove(internal.history, i)
+          table.insert(internal.history, 1, context.id)
+          break
+        end
+      end
+    end)
+  end
+
   -- remove same name another context automatically.
-  for _, history in ipairs(internal.history) do
-    if history.id ~= context.id and history.name == context.name then
+  for _, id in ipairs(internal.history) do
+    local history = internal.contexts[id]
+    if history and history.id ~= context.id and history.name == context.name then
       history.dispose()
     end
   end
@@ -405,6 +443,27 @@ function deck.start(sources, start_config_specifier)
   })
 
   return context
+end
+
+--[=[@doc
+  category = "api"
+  name = "deck.get_context(bufnr): |deck.Context|?"
+  desc = "Get deck context by buffer."
+
+  [[args]]
+  name = "bufnr"
+  type = "integer"
+  desc = "buffer number."
+--]=]
+---@param bufnr integer
+---@return deck.Context?
+function deck.get_context(bufnr)
+  for _, context in pairs(internal.contexts) do
+    if context.buf == bufnr then
+      return context
+    end
+  end
+  return nil
 end
 
 --[=[@doc
@@ -481,7 +540,14 @@ end
 --]=]
 ---@return deck.Context[]
 function deck.get_history()
-  return internal.history
+  local history = {}
+  for _, id in ipairs(internal.history) do
+    local context = internal.contexts[id]
+    if context then
+      table.insert(history, context)
+    end
+  end
+  return history
 end
 
 --[=[@doc

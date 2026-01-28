@@ -247,7 +247,12 @@ action.delete_buffer = {
         :totable()
     )) then
       for _, target in ipairs(targets) do
-        vim.api.nvim_buf_delete(target, { force = true })
+        local ok, msg = pcall(vim.api.nvim_buf_delete, target, { force = true })
+        if not ok then
+          notify.add_message('default', {
+            { { msg, 'ErrorMsg' } },
+          })
+        end
       end
       ctx.execute()
     end

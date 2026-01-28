@@ -21,6 +21,8 @@ local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 ---@field controller deck.ExecuteContext.Controller?
 ---@field decoration_cache table<deck.Item, deck.Decoration[]>
 ---@field preview_cache { win?: integer, item?: deck.Item, cleanup?: fun() }
+---@field prev_win integer
+---@field prev_buf integer
 ---@field disposed boolean
 
 ---@doc.type
@@ -30,6 +32,8 @@ local ScheduledTimer = require('deck.kit.Async.ScheduledTimer')
 ---@field buf integer
 ---@field name string
 ---@field get_config fun(): deck.StartConfig
+---@field get_prev_win fun(): integer
+---@field get_prev_buf fun(): integer
 ---@field execute fun()
 ---@field is_visible fun(): boolean
 ---@field show fun()
@@ -91,7 +95,8 @@ Context.Status = {
 ---@param id integer
 ---@param source deck.Source
 ---@param start_config deck.StartConfig
-function Context.create(id, source, start_config)
+---@param prev? { win: integer, buf: integer }
+function Context.create(id, source, start_config, prev)
   local view = start_config.view()
   local context ---@type deck.Context
   local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(id))
@@ -112,6 +117,8 @@ function Context.create(id, source, start_config)
     controller = nil,
     decoration_cache = {},
     preview_cache = {},
+    prev_win = (prev and prev.win) or vim.api.nvim_get_current_win(),
+    prev_buf = (prev and prev.buf) or vim.api.nvim_get_current_buf(),
     disposed = false,
   }
 
@@ -171,6 +178,8 @@ function Context.create(id, source, start_config)
       controller = nil,
       decoration_cache = {},
       preview_cache = state.preview_cache,
+      prev_win = state.prev_win,
+      prev_buf = state.prev_buf,
       disposed = false,
     }
 
@@ -290,6 +299,16 @@ function Context.create(id, source, start_config)
     ---Get start config.
     get_config = function()
       return start_config
+    end,
+
+    ---Get previous window before deck is shown.
+    get_prev_win = function()
+      return state.prev_win
+    end,
+
+    ---Get previous buffer before deck is shown.
+    get_prev_buf = function()
+      return state.prev_buf
     end,
 
     ---Execute source.
