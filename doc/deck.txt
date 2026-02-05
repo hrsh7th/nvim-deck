@@ -1,4 +1,4 @@
-*deck.txt*            For NVIM v0.10.0            Last change: 2026 January 23
+*deck.txt*            For NVIM v0.10.0           Last change: 2026 February 05
 
 ==============================================================================
 Table of Contents                                     *deck-table-of-contents*
@@ -890,6 +890,15 @@ Get all registered actions.
 
 _No arguments_  
 
+deck.get_context(bufnr): |deck.Context|? ~
+
+Get deck context by buffer.
+
+  Name    Type      Description
+  ------- --------- ----------------
+  bufnr   integer   buffer number.
+ 
+
 deck.get_decorators(): |deck.Decorator|[] ~
 
 Get all registered decorators.
@@ -1076,6 +1085,8 @@ Start deck with given sources.
     ---@field buf integer
     ---@field name string
     ---@field get_config fun(): deck.StartConfig
+    ---@field get_prev_win fun(): integer
+    ---@field get_prev_buf fun(): integer
     ---@field execute fun()
     ---@field is_visible fun(): boolean
     ---@field show fun()

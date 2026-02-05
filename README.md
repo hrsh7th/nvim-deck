@@ -900,6 +900,22 @@ Get all registered actions.
 
 _No arguments_ &nbsp;
 
+<!-- panvimdoc-include-comment deck.get_context(bufnr): |deck.Context|? ~ -->
+
+<!-- panvimdoc-ignore-start -->
+
+### deck.get_context(bufnr): |deck.Context|?
+
+<!-- panvimdoc-ignore-end -->
+
+Get deck context by buffer.
+
+| Name  | Type    | Description    |
+| ----- | ------- | -------------- |
+| bufnr | integer | buffer number. |
+
+&nbsp;
+
 <!-- panvimdoc-include-comment deck.get_decorators(): |deck.Decorator|[] ~ -->
 
 <!-- panvimdoc-ignore-start -->
@@ -1178,6 +1194,8 @@ Start deck with given sources.
 ---@field buf integer
 ---@field name string
 ---@field get_config fun(): deck.StartConfig
+---@field get_prev_win fun(): integer
+---@field get_prev_buf fun(): integer
 ---@field execute fun()
 ---@field is_visible fun(): boolean
 ---@field show fun()
