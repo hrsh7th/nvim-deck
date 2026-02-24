@@ -88,6 +88,18 @@ return function(option)
 
         table.insert(menu, {
           columns = {
+            'stash',
+            { 'show stashes', 'Comment' },
+          },
+          execute = function()
+            require('deck').start(require('deck.builtin.source.git.stash')({
+              cwd = option.cwd,
+            }))
+          end,
+        })
+
+        table.insert(menu, {
+          columns = {
             'remote',
             { 'show remotes', 'Comment' },
           },

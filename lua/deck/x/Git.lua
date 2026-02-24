@@ -242,6 +242,47 @@ function Git:status()
       end)
 end
 
+---Get stash list.
+---@class deck.x.Git.Stash
+---@field text string
+---@field index integer
+---@field selector string
+---@field branch string
+---@field subject string
+---@return deck.kit.Async.AsyncTask
+function Git:stash()
+  return self
+      :exec({
+        'git',
+        'stash',
+        'list',
+        '--pretty=format:%gd%x00%gs%x00%s',
+      })
+      :next(function(out)
+        local items = {}
+        for _, text in ipairs(out.stdout) do
+          if text ~= '' then
+            local columns = vim.split(text, '\0')
+            local selector = columns[1] or ''
+            local reflog_subject = columns[2] or ''
+            local subject = columns[3] or ''
+            local index = tonumber(selector:match('stash@{(%d+)}')) or 0
+            local branch = reflog_subject:match('^WIP on ([^:]+):')
+                or reflog_subject:match('^On ([^:]+):')
+                or ''
+            table.insert(items, {
+              text = text,
+              index = index,
+              selector = selector,
+              branch = branch,
+              subject = subject,
+            })
+          end
+        end
+        return items
+      end)
+end
+
 ---Get reflog.
 ---@param params { count?: integer, offset?: integer }
 ---@return deck.kit.Async.AsyncTask

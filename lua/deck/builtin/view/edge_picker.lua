@@ -65,7 +65,11 @@ return function(position, calc_height_or_width)
           vim.api.nvim_set_current_win(win)
           vim.api.nvim_set_option_value('wrap', false, { win = win })
           vim.api.nvim_set_option_value('number', false, { win = win })
-          vim.api.nvim_set_option_value(split == 'horizontal' and 'winfixheight' or 'winfixwidth', true, { win = win })
+          if split == 'horizontal' then
+            vim.api.nvim_set_option_value('winfixheight', true, { win = win })
+          else
+            vim.api.nvim_set_option_value('winfixwidth', true, { win = win })
+          end
         end)
 
         vim.cmd('normal! m`')

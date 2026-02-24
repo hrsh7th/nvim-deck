@@ -268,7 +268,11 @@ function x.autocmd(event, callback, option)
   local id = vim.api.nvim_create_autocmd(event, {
     once = option and option.once,
     pattern = option and option.pattern,
-    callback = callback,
+    callback = function(e)
+      if vim.v.exiting == vim.NIL then
+        callback(e)
+      end
+    end,
   })
   return function()
     pcall(vim.api.nvim_del_autocmd, id)

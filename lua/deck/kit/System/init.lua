@@ -33,57 +33,51 @@ end
 ---Create LineBuffer object.
 ---@param callback fun(data: string)
 function System.LineBuffering:create(callback)
-  local callback_wrapped = callback
-  if self.ignore_empty then
-    ---@param data string
-    function callback_wrapped(data)
-      if data ~= '' then
-        return callback(data)
-      end
-    end
-  end
-
-  local buffer = kit.buffer()
-  local iter = buffer.iter_bytes()
+  local ignore_empty = self.ignore_empty
+  local tail = ''
+  local callback_local = callback
   ---@type deck.kit.System.Buffer
   return {
     write = function(data)
-      buffer.put(data)
-      local found = true
-      while found do
-        found = false
-        for i, byte in iter do
-          if byte == bytes['\n'] then
-            if buffer.peek(i - 1) == bytes['\r'] then
-              callback_wrapped(buffer.get(i - 2))
-              buffer.skip(2)
-            else
-              callback_wrapped(buffer.get(i - 1))
-              buffer.skip(1)
-            end
-            iter = buffer.iter_bytes()
-            found = true
-            break
+      if tail == '' and not string.find(data, '\n', 1, true) then
+        tail = data
+        return
+      end
+      local chunk = tail ~= '' and (tail .. data) or data
+      local start = 1
+      local s = string.find(chunk, '\n', start, true)
+      if ignore_empty then
+        while s do
+          local line
+          if s > start and string.byte(chunk, s - 1) == bytes.byte_cr then
+            line = string.sub(chunk, start, s - 2)
+          else
+            line = string.sub(chunk, start, s - 1)
           end
+          if line ~= '' then
+            callback_local(line)
+          end
+          start = s + 1
+          s = string.find(chunk, '\n', start, true)
         end
-        if not found then
-          break
+      else
+        while s do
+          if s > start and string.byte(chunk, s - 1) == bytes.byte_cr then
+            callback_local(string.sub(chunk, start, s - 2))
+          else
+            callback_local(string.sub(chunk, start, s - 1))
+          end
+          start = s + 1
+          s = string.find(chunk, '\n', start, true)
         end
       end
+      tail = start == 1 and chunk or string.sub(chunk, start)
     end,
     close = function()
-      for byte, i in buffer.iter_bytes() do
-        if byte == bytes['\n'] then
-          if buffer.peek(i - 1) == bytes['\r'] then
-            callback_wrapped(buffer.get(i - 2))
-            buffer.skip(2)
-          else
-            callback_wrapped(buffer.get(i - 1))
-            buffer.skip(1)
-          end
-        end
+      if not ignore_empty or tail ~= '' then
+        callback_local(tail)
       end
-      callback_wrapped(buffer.get())
+      tail = ''
     end,
   }
 end
@@ -104,103 +98,82 @@ end
 ---Create Delimiter object.
 function System.DelimiterBuffering:create(callback)
   local state = {
-    buffer = {},
-    buffer_pos = 1,
-    delimiter_pos = 1,
-    match_pos = nil --[[@as integer?]],
+    buffer = kit.buffer(),
+    tail = '',
   }
 
-  local function len()
-    local l = 0
-    for i = 1, #state.buffer do
-      l = l + #state.buffer[i]
-    end
-    return l
-  end
+  local delimiter = self.delimiter
+  local delimiter_len = #delimiter
+  local tail_max = delimiter_len > 1 and (delimiter_len - 1) or 0
+  local find = string.find
+  local sub = string.sub
+  local buffer_put = state.buffer.put
+  local buffer_get = state.buffer.get
+  local buffer_len = state.buffer.len
 
-  local function split(s, e)
-    local before = {}
-    local after = {}
-    local off = 0
-    for i = 1, #state.buffer do
-      local l = #state.buffer[i]
-      local sep_s = s - off
-      local sep_e = e - off
-      local buf_s = 1
-      local buf_e = l
-
-      if buf_e < sep_s then
-        table.insert(before, state.buffer[i])
-      elseif sep_e < buf_s then
-        table.insert(after, state.buffer[i])
-      else
-        if buf_s < sep_s then
-          table.insert(before, state.buffer[i]:sub(buf_s, sep_s - 1))
-        end
-        if sep_e < buf_e then
-          table.insert(after, state.buffer[i]:sub(sep_e + 1, buf_e))
-        end
-      end
-
-      off = off + l
-    end
-    return before, after
-  end
-
-  local function get(at)
-    local off = 0
-    for i = 1, #state.buffer do
-      local l = #state.buffer[i]
-      if at <= off + l then
-        local idx = at - off
-        return state.buffer[i]:sub(idx, idx)
-      end
-      off = off + l
-    end
-    return nil
-  end
-
-  local buffer_len = 0
-  local delimiter_len = #self.delimiter
-  local buffer
-  buffer = {
+  return {
     write = function(data)
-      table.insert(state.buffer, data)
-      buffer_len = len()
-
-      while state.buffer_pos <= buffer_len do
-        local b = get(state.buffer_pos)
-        local d = self.delimiter:sub(state.delimiter_pos, state.delimiter_pos)
-        if b == d then
-          if state.delimiter_pos == delimiter_len then
-            local before, after = split(state.match_pos, state.buffer_pos)
-            callback(table.concat(before, ''))
-            state.buffer = after
-            state.buffer_pos = 1
-            state.delimiter_pos = 1
-            state.match_pos = nil
-            buffer_len = len()
-          else
-            if state.delimiter_pos == 1 then
-              state.match_pos = state.buffer_pos
+      local chunk
+      if state.tail == '' then
+        local s = find(data, delimiter, 1, true)
+        if not s then
+          if tail_max == 0 then
+            if data ~= '' then
+              buffer_put(data)
             end
-            state.buffer_pos = state.buffer_pos + 1
-            state.delimiter_pos = state.delimiter_pos + 1
+            return
           end
-        else
-          state.buffer_pos = state.match_pos and state.match_pos + 1 or state.buffer_pos + 1
-          state.delimiter_pos = 1
-          state.match_pos = nil
+          if #data > tail_max then
+            local cut = #data - tail_max
+            buffer_put(sub(data, 1, cut))
+            state.tail = sub(data, cut + 1)
+          else
+            state.tail = data
+          end
+          return
         end
+        chunk = data
+      else
+        chunk = state.tail .. data
+        state.tail = ''
       end
+      local search_start = 1
+      local s, e = find(chunk, delimiter, search_start, true)
+      while s do
+        if s > search_start then
+          buffer_put(sub(chunk, search_start, s - 1))
+        end
+        callback(buffer_get())
+        search_start = e + 1
+        s, e = find(chunk, delimiter, search_start, true)
+      end
+
+      local remainder = search_start == 1 and chunk or sub(chunk, search_start)
+      if tail_max == 0 then
+        if remainder ~= '' then
+          buffer_put(remainder)
+        end
+        state.tail = ''
+        return
+      end
+
+      if #remainder > tail_max then
+        local cut = #remainder - tail_max
+        buffer_put(sub(remainder, 1, cut))
+        remainder = sub(remainder, cut + 1)
+      end
+      state.tail = remainder
     end,
     close = function()
-      if #state.buffer > 0 then
-        callback(table.concat(state.buffer, ''))
+      if state.tail ~= '' then
+        buffer_put(state.tail)
+        state.tail = ''
+      end
+      if buffer_len() > 0 then
+        callback(buffer_get())
       end
     end,
   }
-  return buffer
 end
 
 ---@class deck.kit.System.RawBuffering: deck.kit.System.Buffering
@@ -238,11 +211,11 @@ end
 ---@return fun(signal?: integer)
 function System.spawn(command, params)
   command = vim
-    .iter(command)
-    :filter(function(c)
-      return c ~= nil
-    end)
-    :totable()
+      .iter(command)
+      :filter(function(c)
+        return c ~= nil
+      end)
+      :totable()
 
   local cmd = command[1]
   local args = {}
@@ -348,7 +321,7 @@ function System.spawn(command, params)
     table.insert(
       closing,
       Async.new(function(resolve)
-        if signal and process:is_active() then
+        if signal and process and process:is_active() then
           process:kill(signal)
         end
         if process and not process:is_closing() then

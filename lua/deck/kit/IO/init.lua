@@ -11,14 +11,13 @@ local bytes = {
 ---@param path string
 ---@return string
 local function sep(path)
-  for i = 1, #path do
-    local c = path:byte(i)
-    if c == bytes.slash then
-      return path
-    end
-    if c == bytes.backslash then
-      return (path:gsub('\\', '/'))
-    end
+  local slash_pos = path:find('/', 1, true)
+  local backslash_pos = path:find('\\', 1, true)
+  if slash_pos and (not backslash_pos or slash_pos < backslash_pos) then
+    return path
+  end
+  if backslash_pos then
+    return (path:gsub('\\', '/'))
   end
   return path
 end
@@ -432,11 +431,15 @@ function IO.normalize(path)
 
   -- homedir.
   if path:byte(1) == bytes.tilde and path:byte(2) == bytes.slash then
-    path = (path:gsub('^~/', home))
+    local home_slash = home
+    if home_slash:byte(-1) ~= bytes.slash then
+      home_slash = home_slash .. '/'
+    end
+    path = (path:gsub('^~/', home_slash))
   end
 
   -- absolute.
-  if IO.is_absolute(path) then
+  if path:byte(1) == bytes.slash or path:match('^%a:/') then
     return path
   end
 
@@ -463,47 +466,40 @@ do
   end
 end
 
-do
-  local cache_pat = {}
+---Join the paths.
+---@param base string
+---@vararg string
+---@return string
+function IO.join(base, ...)
+  base = sep(base)
 
-  ---Join the paths.
-  ---@param base string
-  ---@vararg string
-  ---@return string
-  function IO.join(base, ...)
-    base = sep(base)
-
-    -- remove trailing slash.
-    -- ./   → ./
-    -- aaa/ → aaa
-    if not (base == './' or base == '../') and base:byte(-1) == bytes.slash then
-      base = base:sub(1, -2)
-    end
-
-    for i = 1, select('#', ...) do
-      local path = sep(select(i, ...))
-      local path_s = 1
-      if path:byte(path_s) == bytes.dot and path:byte(path_s + 1) == bytes.slash then
-        path_s = path_s + 2
-      end
-      local up_count = 0
-      while path:byte(path_s) == bytes.dot and path:byte(path_s + 1) == bytes.dot and path:byte(path_s + 2) == bytes.slash do
-        up_count = up_count + 1
-        path_s = path_s + 3
-      end
-      if path_s > 1 then
-        cache_pat[path_s] = cache_pat[path_s] or ('^%s'):format(('.'):rep(path_s - 2))
-      end
-
-      -- optimize for avoiding new string creation.
-      if path_s == 1 then
-        base = ('%s/%s'):format(IO.dirname(base, up_count), path)
-      else
-        base = path:gsub(cache_pat[path_s], IO.dirname(base, up_count))
-      end
-    end
-    return base
+  -- remove trailing slash.
+  -- ./   → ./
+  -- aaa/ → aaa
+  if not (base == './' or base == '../') and base:byte(-1) == bytes.slash then
+    base = base:sub(1, -2)
   end
+
+  for i = 1, select('#', ...) do
+    local path = sep(select(i, ...))
+    local path_s = 1
+    if path:byte(path_s) == bytes.dot and path:byte(path_s + 1) == bytes.slash then
+      path_s = path_s + 2
+    end
+    local up_count = 0
+    while path:byte(path_s) == bytes.dot and path:byte(path_s + 1) == bytes.dot and path:byte(path_s + 2) == bytes.slash do
+      up_count = up_count + 1
+      path_s = path_s + 3
+    end
+
+    -- optimize for avoiding new string creation.
+    if path_s == 1 then
+      base = IO.dirname(base, up_count) .. '/' .. path
+    else
+      base = IO.dirname(base, up_count) .. path:sub(path_s - 1)
+    end
+  end
+  return base
 end
 
 ---Return the path of the current working directory.
@@ -540,7 +536,7 @@ end
 ---@return boolean
 function IO.is_absolute(path)
   path = sep(path)
-  return path:byte(1) == bytes.slash or path:match('^%a:/')
+  return path:byte(1) == bytes.slash or path:match('^%a:/') ~= nil
 end
 
 return IO
