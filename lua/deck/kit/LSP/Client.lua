@@ -20,7 +20,7 @@ end
 ---@param params table
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:request(method, params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -33,8 +33,10 @@ function Client:request(method, params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -42,7 +44,7 @@ end
 ---@param params deck.kit.LSP.ImplementationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_implementation(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -55,8 +57,10 @@ function Client:textDocument_implementation(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -64,7 +68,7 @@ end
 ---@param params deck.kit.LSP.TypeDefinitionParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_typeDefinition(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -77,8 +81,10 @@ function Client:textDocument_typeDefinition(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -86,7 +92,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_workspaceFolders(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -99,8 +105,10 @@ function Client:workspace_workspaceFolders(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -108,7 +116,7 @@ end
 ---@param params deck.kit.LSP.ConfigurationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_configuration(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -121,8 +129,10 @@ function Client:workspace_configuration(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -130,7 +140,7 @@ end
 ---@param params deck.kit.LSP.DocumentColorParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_documentColor(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -143,8 +153,10 @@ function Client:textDocument_documentColor(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -152,7 +164,7 @@ end
 ---@param params deck.kit.LSP.ColorPresentationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_colorPresentation(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -165,8 +177,10 @@ function Client:textDocument_colorPresentation(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -174,7 +188,7 @@ end
 ---@param params deck.kit.LSP.FoldingRangeParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_foldingRange(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -187,8 +201,10 @@ function Client:textDocument_foldingRange(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -196,7 +212,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_foldingRange_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -209,8 +225,10 @@ function Client:workspace_foldingRange_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -218,7 +236,7 @@ end
 ---@param params deck.kit.LSP.DeclarationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_declaration(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -231,8 +249,10 @@ function Client:textDocument_declaration(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -240,7 +260,7 @@ end
 ---@param params deck.kit.LSP.SelectionRangeParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_selectionRange(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -253,8 +273,10 @@ function Client:textDocument_selectionRange(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -262,7 +284,7 @@ end
 ---@param params deck.kit.LSP.WorkDoneProgressCreateParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:window_workDoneProgress_create(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -275,8 +297,10 @@ function Client:window_workDoneProgress_create(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -284,7 +308,7 @@ end
 ---@param params deck.kit.LSP.CallHierarchyPrepareParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_prepareCallHierarchy(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -297,8 +321,10 @@ function Client:textDocument_prepareCallHierarchy(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -306,7 +332,7 @@ end
 ---@param params deck.kit.LSP.CallHierarchyIncomingCallsParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:callHierarchy_incomingCalls(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -319,8 +345,10 @@ function Client:callHierarchy_incomingCalls(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -328,7 +356,7 @@ end
 ---@param params deck.kit.LSP.CallHierarchyOutgoingCallsParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:callHierarchy_outgoingCalls(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -341,8 +369,10 @@ function Client:callHierarchy_outgoingCalls(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -350,7 +380,7 @@ end
 ---@param params deck.kit.LSP.SemanticTokensParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_semanticTokens_full(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -363,8 +393,10 @@ function Client:textDocument_semanticTokens_full(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -372,7 +404,7 @@ end
 ---@param params deck.kit.LSP.SemanticTokensDeltaParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_semanticTokens_full_delta(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -385,8 +417,10 @@ function Client:textDocument_semanticTokens_full_delta(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -394,7 +428,7 @@ end
 ---@param params deck.kit.LSP.SemanticTokensRangeParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_semanticTokens_range(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -407,8 +441,10 @@ function Client:textDocument_semanticTokens_range(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -416,7 +452,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_semanticTokens_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -429,8 +465,10 @@ function Client:workspace_semanticTokens_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -438,7 +476,7 @@ end
 ---@param params deck.kit.LSP.ShowDocumentParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:window_showDocument(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -451,8 +489,10 @@ function Client:window_showDocument(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -460,7 +500,7 @@ end
 ---@param params deck.kit.LSP.LinkedEditingRangeParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_linkedEditingRange(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -473,8 +513,10 @@ function Client:textDocument_linkedEditingRange(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -482,7 +524,7 @@ end
 ---@param params deck.kit.LSP.CreateFilesParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_willCreateFiles(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -495,8 +537,10 @@ function Client:workspace_willCreateFiles(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -504,7 +548,7 @@ end
 ---@param params deck.kit.LSP.RenameFilesParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_willRenameFiles(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -517,8 +561,10 @@ function Client:workspace_willRenameFiles(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -526,7 +572,7 @@ end
 ---@param params deck.kit.LSP.DeleteFilesParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_willDeleteFiles(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -539,8 +585,10 @@ function Client:workspace_willDeleteFiles(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -548,7 +596,7 @@ end
 ---@param params deck.kit.LSP.MonikerParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_moniker(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -561,8 +609,10 @@ function Client:textDocument_moniker(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -570,7 +620,7 @@ end
 ---@param params deck.kit.LSP.TypeHierarchyPrepareParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_prepareTypeHierarchy(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -583,8 +633,10 @@ function Client:textDocument_prepareTypeHierarchy(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -592,7 +644,7 @@ end
 ---@param params deck.kit.LSP.TypeHierarchySupertypesParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:typeHierarchy_supertypes(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -605,8 +657,10 @@ function Client:typeHierarchy_supertypes(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -614,7 +668,7 @@ end
 ---@param params deck.kit.LSP.TypeHierarchySubtypesParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:typeHierarchy_subtypes(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -627,8 +681,10 @@ function Client:typeHierarchy_subtypes(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -636,7 +692,7 @@ end
 ---@param params deck.kit.LSP.InlineValueParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_inlineValue(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -649,8 +705,10 @@ function Client:textDocument_inlineValue(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -658,7 +716,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_inlineValue_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -671,8 +729,10 @@ function Client:workspace_inlineValue_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -680,7 +740,7 @@ end
 ---@param params deck.kit.LSP.InlayHintParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_inlayHint(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -693,8 +753,10 @@ function Client:textDocument_inlayHint(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -702,7 +764,7 @@ end
 ---@param params deck.kit.LSP.InlayHint
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:inlayHint_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -715,8 +777,10 @@ function Client:inlayHint_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -724,7 +788,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_inlayHint_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -737,8 +801,10 @@ function Client:workspace_inlayHint_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -746,7 +812,7 @@ end
 ---@param params deck.kit.LSP.DocumentDiagnosticParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_diagnostic(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -759,8 +825,10 @@ function Client:textDocument_diagnostic(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -768,7 +836,7 @@ end
 ---@param params deck.kit.LSP.WorkspaceDiagnosticParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_diagnostic(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -781,8 +849,10 @@ function Client:workspace_diagnostic(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -790,7 +860,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_diagnostic_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -803,8 +873,10 @@ function Client:workspace_diagnostic_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -812,7 +884,7 @@ end
 ---@param params deck.kit.LSP.InlineCompletionParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_inlineCompletion(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -825,8 +897,58 @@ function Client:textDocument_inlineCompletion(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
+  end
+  return task
+end
+
+---@param params deck.kit.LSP.TextDocumentContentParams
+---@return deck.kit.Async.AsyncTask|{cancel: fun()}
+function Client:workspace_textDocumentContent(params)
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
+  ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
+  local task = AsyncTask.new(function(resolve, reject)
+    reject_ = reject
+    _, request_id = self.client:request('workspace/textDocumentContent', params, function(err, res)
+      if err then
+        reject(err)
+      else
+        resolve(res)
+      end
+    end)
+  end)
+  function task.cancel()
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
+  end
+  return task
+end
+
+---@param params deck.kit.LSP.TextDocumentContentRefreshParams
+---@return deck.kit.Async.AsyncTask|{cancel: fun()}
+function Client:workspace_textDocumentContent_refresh(params)
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
+  ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
+  local task = AsyncTask.new(function(resolve, reject)
+    reject_ = reject
+    _, request_id = self.client:request('workspace/textDocumentContent/refresh', params, function(err, res)
+      if err then
+        reject(err)
+      else
+        resolve(res)
+      end
+    end)
+  end)
+  function task.cancel()
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -834,7 +956,7 @@ end
 ---@param params deck.kit.LSP.RegistrationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:client_registerCapability(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -847,8 +969,10 @@ function Client:client_registerCapability(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -856,7 +980,7 @@ end
 ---@param params deck.kit.LSP.UnregistrationParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:client_unregisterCapability(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -869,8 +993,10 @@ function Client:client_unregisterCapability(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -878,7 +1004,7 @@ end
 ---@param params deck.kit.LSP.InitializeParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:initialize(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -891,8 +1017,10 @@ function Client:initialize(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -900,7 +1028,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:shutdown(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -913,8 +1041,10 @@ function Client:shutdown(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -922,7 +1052,7 @@ end
 ---@param params deck.kit.LSP.ShowMessageRequestParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:window_showMessageRequest(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -935,8 +1065,10 @@ function Client:window_showMessageRequest(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -944,7 +1076,7 @@ end
 ---@param params deck.kit.LSP.WillSaveTextDocumentParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_willSaveWaitUntil(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -957,8 +1089,10 @@ function Client:textDocument_willSaveWaitUntil(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -966,7 +1100,7 @@ end
 ---@param params deck.kit.LSP.CompletionParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_completion(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -979,8 +1113,10 @@ function Client:textDocument_completion(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -988,7 +1124,7 @@ end
 ---@param params deck.kit.LSP.CompletionItem
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:completionItem_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1001,8 +1137,10 @@ function Client:completionItem_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1010,7 +1148,7 @@ end
 ---@param params deck.kit.LSP.HoverParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_hover(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1023,8 +1161,10 @@ function Client:textDocument_hover(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1032,7 +1172,7 @@ end
 ---@param params deck.kit.LSP.SignatureHelpParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_signatureHelp(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1045,8 +1185,10 @@ function Client:textDocument_signatureHelp(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1054,7 +1196,7 @@ end
 ---@param params deck.kit.LSP.DefinitionParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_definition(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1067,8 +1209,10 @@ function Client:textDocument_definition(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1076,7 +1220,7 @@ end
 ---@param params deck.kit.LSP.ReferenceParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_references(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1089,8 +1233,10 @@ function Client:textDocument_references(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1098,7 +1244,7 @@ end
 ---@param params deck.kit.LSP.DocumentHighlightParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_documentHighlight(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1111,8 +1257,10 @@ function Client:textDocument_documentHighlight(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1120,7 +1268,7 @@ end
 ---@param params deck.kit.LSP.DocumentSymbolParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_documentSymbol(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1133,8 +1281,10 @@ function Client:textDocument_documentSymbol(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1142,7 +1292,7 @@ end
 ---@param params deck.kit.LSP.CodeActionParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_codeAction(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1155,8 +1305,10 @@ function Client:textDocument_codeAction(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1164,7 +1316,7 @@ end
 ---@param params deck.kit.LSP.CodeAction
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:codeAction_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1177,8 +1329,10 @@ function Client:codeAction_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1186,7 +1340,7 @@ end
 ---@param params deck.kit.LSP.WorkspaceSymbolParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_symbol(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1199,8 +1353,10 @@ function Client:workspace_symbol(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1208,7 +1364,7 @@ end
 ---@param params deck.kit.LSP.WorkspaceSymbol
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspaceSymbol_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1221,8 +1377,10 @@ function Client:workspaceSymbol_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1230,7 +1388,7 @@ end
 ---@param params deck.kit.LSP.CodeLensParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_codeLens(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1243,8 +1401,10 @@ function Client:textDocument_codeLens(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1252,7 +1412,7 @@ end
 ---@param params deck.kit.LSP.CodeLens
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:codeLens_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1265,8 +1425,10 @@ function Client:codeLens_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1274,7 +1436,7 @@ end
 ---@param params nil
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_codeLens_refresh(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1287,8 +1449,10 @@ function Client:workspace_codeLens_refresh(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1296,7 +1460,7 @@ end
 ---@param params deck.kit.LSP.DocumentLinkParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_documentLink(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1309,8 +1473,10 @@ function Client:textDocument_documentLink(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1318,7 +1484,7 @@ end
 ---@param params deck.kit.LSP.DocumentLink
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:documentLink_resolve(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1331,8 +1497,10 @@ function Client:documentLink_resolve(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1340,7 +1508,7 @@ end
 ---@param params deck.kit.LSP.DocumentFormattingParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_formatting(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1353,8 +1521,10 @@ function Client:textDocument_formatting(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1362,7 +1532,7 @@ end
 ---@param params deck.kit.LSP.DocumentRangeFormattingParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_rangeFormatting(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1375,8 +1545,10 @@ function Client:textDocument_rangeFormatting(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1384,7 +1556,7 @@ end
 ---@param params deck.kit.LSP.DocumentRangesFormattingParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_rangesFormatting(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1397,8 +1569,10 @@ function Client:textDocument_rangesFormatting(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1406,7 +1580,7 @@ end
 ---@param params deck.kit.LSP.DocumentOnTypeFormattingParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_onTypeFormatting(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1419,8 +1593,10 @@ function Client:textDocument_onTypeFormatting(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1428,7 +1604,7 @@ end
 ---@param params deck.kit.LSP.RenameParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_rename(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1441,8 +1617,10 @@ function Client:textDocument_rename(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1450,7 +1628,7 @@ end
 ---@param params deck.kit.LSP.PrepareRenameParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:textDocument_prepareRename(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1463,8 +1641,10 @@ function Client:textDocument_prepareRename(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1472,7 +1652,7 @@ end
 ---@param params deck.kit.LSP.ExecuteCommandParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_executeCommand(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1485,8 +1665,10 @@ function Client:workspace_executeCommand(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end
@@ -1494,7 +1676,7 @@ end
 ---@param params deck.kit.LSP.ApplyWorkspaceEditParams
 ---@return deck.kit.Async.AsyncTask|{cancel: fun()}
 function Client:workspace_applyEdit(params)
-  local that, _, request_id, reject_ = self, nil, nil, nil
+  local _, request_id, reject_ ---@type any, integer?, fun(err: any?)
   ---@type deck.kit.Async.AsyncTask|{cancel: fun()}
   local task = AsyncTask.new(function(resolve, reject)
     reject_ = reject
@@ -1507,8 +1689,10 @@ function Client:workspace_applyEdit(params)
     end)
   end)
   function task.cancel()
-    that.client:cancel_request(request_id)
-    reject_(LSP.ErrorCodes.RequestCancelled)
+    if request_id then
+      self.client:cancel_request(request_id)
+    end
+    reject_(LSP.LSPErrorCodes.RequestCancelled)
   end
   return task
 end

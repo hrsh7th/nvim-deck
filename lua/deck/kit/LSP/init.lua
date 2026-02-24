@@ -353,6 +353,12 @@ LSP.CompletionTriggerKind = {
   TriggerForIncompleteCompletions = 3,
 }
 
+---@enum deck.kit.LSP.ApplyKind
+LSP.ApplyKind = {
+  Replace = 1,
+  Merge = 2,
+}
+
 ---@enum deck.kit.LSP.SignatureHelpTriggerKind
 LSP.SignatureHelpTriggerKind = {
   Invoked = 1,
@@ -679,6 +685,17 @@ LSP.TokenFormat = {
 
 ---@class deck.kit.LSP.InlineCompletionRegistrationOptions : deck.kit.LSP.InlineCompletionOptions, deck.kit.LSP.TextDocumentRegistrationOptions, deck.kit.LSP.StaticRegistrationOptions
 
+---@class deck.kit.LSP.TextDocumentContentParams
+---@field public uri string The uri of the text document.
+
+---@class deck.kit.LSP.TextDocumentContentResult
+---@field public text string The text content of the text document. Please note, that the content of<br>any subsequent open notifications for the text document might differ<br>from the returned content due to whitespace and line ending<br>normalizations done on the client
+
+---@class deck.kit.LSP.TextDocumentContentRegistrationOptions : deck.kit.LSP.TextDocumentContentOptions, deck.kit.LSP.StaticRegistrationOptions
+
+---@class deck.kit.LSP.TextDocumentContentRefreshParams
+---@field public uri string The uri of the text document to refresh.
+
 ---@class deck.kit.LSP.RegistrationParams
 ---@field public registrations deck.kit.LSP.Registration[]
 
@@ -757,7 +774,7 @@ LSP.TokenFormat = {
 ---@field public diagnostics deck.kit.LSP.Diagnostic[] An array of diagnostic information items.
 
 ---@class deck.kit.LSP.CompletionParams : deck.kit.LSP.TextDocumentPositionParams, deck.kit.LSP.WorkDoneProgressParams, deck.kit.LSP.PartialResultParams
----@field public context? deck.kit.LSP.CompletionContext The completion context. This is only available if the client specifies<br>to send this using the client capability `textDocument.completion.contextSupport === true`
+---@field public context? deck.kit.LSP.CompletionContext The completion context. This is only available it the client specifies<br>to send this using the client capability `textDocument.completion.contextSupport === true`
 
 ---@class deck.kit.LSP.CompletionItem
 ---@field public label string The label of this completion item.<br><br>The label property is also by default the text that<br>is inserted when selecting this completion.<br><br>If label details are provided the label itself should<br>be an unqualified name of the completion item.
@@ -782,7 +799,8 @@ LSP.TokenFormat = {
 
 ---@class deck.kit.LSP.CompletionList
 ---@field public isIncomplete boolean This list it not complete. Further typing results in recomputing this list.<br><br>Recomputed lists have all their items replaced (not appended) in the<br>incomplete completion sessions.
----@field public itemDefaults? deck.kit.LSP.CompletionItemDefaults In many cases the items of an actual completion result share the same<br>value for properties like `commitCharacters` or the range of a text<br>edit. A completion list can therefore define item defaults which will<br>be used if a completion item itself doesn't specify the value.<br><br>If a completion list specifies a default value and a completion item<br>also specifies a corresponding value the one from the item is used.<br><br>Servers are only allowed to return default values if the client<br>signals support for this via the `completionList.itemDefaults`<br>capability.<br><br>@since 3.17.0
+---@field public itemDefaults? deck.kit.LSP.CompletionItemDefaults In many cases the items of an actual completion result share the same<br>value for properties like `commitCharacters` or the range of a text<br>edit. A completion list can therefore define item defaults which will<br>be used if a completion item itself doesn't specify the value.<br><br>If a completion list specifies a default value and a completion item<br>also specifies a corresponding value, the rules for combining these are<br>defined by `applyKinds` (if the client supports it), defaulting to<br>ApplyKind.Replace.<br><br>Servers are only allowed to return default values if the client<br>signals support for this via the `completionList.itemDefaults`<br>capability.<br><br>@since 3.17.0
+---@field public applyKind? deck.kit.LSP.CompletionItemApplyKinds Specifies how fields from a completion item should be combined with those<br>from `completionList.itemDefaults`.<br><br>If unspecified, all fields will be treated as ApplyKind.Replace.<br><br>If a field's value is ApplyKind.Replace, the value from a completion item<br>(if provided and not `null`) will always be used instead of the value<br>from `completionItem.itemDefaults`.<br><br>If a field's value is ApplyKind.Merge, the values will be merged using<br>the rules defined against each field below.<br><br>Servers are only allowed to return `applyKind` if the client<br>signals support for this via the `completionList.applyKindSupport`<br>capability.<br><br>@since 3.18.0
 ---@field public items deck.kit.LSP.CompletionItem[] The completion items.
 
 ---@class deck.kit.LSP.CompletionRegistrationOptions : deck.kit.LSP.TextDocumentRegistrationOptions, deck.kit.LSP.CompletionOptions
@@ -951,13 +969,13 @@ LSP.TokenFormat = {
 ---@field public title string Mandatory title of the progress operation. Used to briefly inform about<br>the kind of operation being performed.<br><br>Examples: "Indexing" or "Linking dependencies".
 ---@field public cancellable? boolean Controls if a cancel button should show to allow the user to cancel the<br>long running operation. Clients that don't support cancellation are allowed<br>to ignore the setting.
 ---@field public message? string Optional, more detailed associated progress message. Contains<br>complementary information to the `title`.<br><br>Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".<br>If unset, the previous progress message (if any) is still valid.
----@field public percentage? integer Optional progress percentage to display (value 100 is considered 100%).<br>If not provided infinite progress is assumed and clients are allowed<br>to ignore the `percentage` value in subsequent report notifications.<br><br>The value should be steadily rising. Clients are free to ignore values<br>that are not following this rule. The value range is [0, 100].
+---@field public percentage? integer Optional progress percentage to display (value 100 is considered 100%).<br>If not provided infinite progress is assumed and clients are allowed<br>to ignore the `percentage` value in subsequent in report notifications.<br><br>The value should be steadily rising. Clients are free to ignore values<br>that are not following this rule. The value range is [0, 100].
 
 ---@class deck.kit.LSP.WorkDoneProgressReport
 ---@field public kind "report"
 ---@field public cancellable? boolean Controls enablement state of a cancel button.<br><br>Clients that don't support cancellation or don't support controlling the button's<br>enablement state are allowed to ignore the property.
 ---@field public message? string Optional, more detailed associated progress message. Contains<br>complementary information to the `title`.<br><br>Examples: "3/25 files", "project/src/module2", "node_modules/some_dep".<br>If unset, the previous progress message (if any) is still valid.
----@field public percentage? integer Optional progress percentage to display (value 100 is considered 100%).<br>If not provided infinite progress is assumed and clients are allowed<br>to ignore the `percentage` value in subsequent report notifications.<br><br>The value should be steadily rising. Clients are free to ignore values<br>that are not following this rule. The value range is [0, 100].
+---@field public percentage? integer Optional progress percentage to display (value 100 is considered 100%).<br>If not provided infinite progress is assumed and clients are allowed<br>to ignore the `percentage` value in subsequent in report notifications.<br><br>The value should be steadily rising. Clients are free to ignore values<br>that are not following this rule. The value range is [0, 100]
 
 ---@class deck.kit.LSP.WorkDoneProgressEnd
 ---@field public kind "end"
@@ -1028,8 +1046,8 @@ LSP.TokenFormat = {
 ---@class deck.kit.LSP.DeclarationOptions : deck.kit.LSP.WorkDoneProgressOptions
 
 ---@class deck.kit.LSP.Position
----@field public line integer Line position in a document (zero-based).<br><br>If a line number is greater than the number of lines in a document, it defaults back to the number of lines in the document.<br>If a line number is negative, it defaults to 0.
----@field public character integer Character offset on a line in a document (zero-based).<br><br>The meaning of this offset is determined by the negotiated<br>`PositionEncodingKind`.<br><br>If the character value is greater than the line length it defaults back to the<br>line length.
+---@field public line integer Line position in a document (zero-based).
+---@field public character integer Character offset on a line in a document (zero-based).<br><br>The meaning of this offset is determined by the negotiated<br>`PositionEncodingKind`.
 
 ---@class deck.kit.LSP.SelectionRangeOptions : deck.kit.LSP.WorkDoneProgressOptions
 
@@ -1184,6 +1202,9 @@ LSP.TokenFormat = {
 
 ---@class deck.kit.LSP.InlineCompletionOptions : deck.kit.LSP.WorkDoneProgressOptions
 
+---@class deck.kit.LSP.TextDocumentContentOptions
+---@field public schemes string[] The schemes for which the server provides content.
+
 ---@class deck.kit.LSP.Registration
 ---@field public id string The id used to register the request. The id can be used to deregister<br>the request again.
 ---@field public method string The method / capability to register for.
@@ -1292,6 +1313,10 @@ LSP.TokenFormat = {
 ---@field public insertTextFormat? deck.kit.LSP.InsertTextFormat A default insert text format.<br><br>@since 3.17.0
 ---@field public insertTextMode? deck.kit.LSP.InsertTextMode A default insert text mode.<br><br>@since 3.17.0
 ---@field public data? deck.kit.LSP.LSPAny A default data value.<br><br>@since 3.17.0
+
+---@class deck.kit.LSP.CompletionItemApplyKinds
+---@field public commitCharacters? deck.kit.LSP.ApplyKind Specifies whether commitCharacters on a completion will replace or be<br>merged with those in `completionList.itemDefaults.commitCharacters`.<br><br>If ApplyKind.Replace, the commit characters from the completion item will<br>always be used unless not provided, in which case those from<br>`completionList.itemDefaults.commitCharacters` will be used. An<br>empty list can be used if a completion item does not have any commit<br>characters and also should not use those from<br>`completionList.itemDefaults.commitCharacters`.<br><br>If ApplyKind.Merge the commitCharacters for the completion will be the<br>union of all values in both `completionList.itemDefaults.commitCharacters`<br>and the completion's own `commitCharacters`.<br><br>@since 3.18.0
+---@field public data? deck.kit.LSP.ApplyKind Specifies whether the `data` field on a completion will replace or<br>be merged with data from `completionList.itemDefaults.data`.<br><br>If ApplyKind.Replace, the data from the completion item will be used if<br>provided (and not `null`), otherwise<br>`completionList.itemDefaults.data` will be used. An empty object can<br>be used if a completion item does not have any data but also should<br>not use the value from `completionList.itemDefaults.data`.<br><br>If ApplyKind.Merge, a shallow merge will be performed between<br>`completionList.itemDefaults.data` and the completion's own data<br>using the following rules:<br><br>- If a completion's `data` field is not provided (or `null`), the<br>  entire `data` field from `completionList.itemDefaults.data` will be<br>  used as-is.<br>- If a completion's `data` field is provided, each field will<br>  overwrite the field of the same name in<br>  `completionList.itemDefaults.data` but no merging of nested fields<br>  within that value will occur.<br><br>@since 3.18.0
 
 ---@class deck.kit.LSP.CompletionOptions : deck.kit.LSP.WorkDoneProgressOptions
 ---@field public triggerCharacters? string[] Most tools trigger completion request automatically without explicitly requesting<br>it using a keyboard shortcut (e.g. Ctrl+Space). Typically they do so when the user<br>starts to type an identifier. For example if the user types `c` in a JavaScript file<br>code complete will automatically pop up present `console` besides others as a<br>completion item. Characters that make up identifiers don't need to be listed here.<br><br>If code complete should automatically be trigger on characters not being valid inside<br>an identifier (for example `.` in JavaScript) list them in `triggerCharacters`.
@@ -1427,7 +1452,7 @@ LSP.TokenFormat = {
 ---@field public ignoreIfNotExists? boolean Ignore the operation if the file doesn't exist.
 
 ---@class deck.kit.LSP.FileOperationPattern
----@field public glob string The glob pattern to match. Glob patterns can have the following syntax:<br>- `*` to match one or more characters in a path segment<br>- `?` to match on one character in a path segment<br>- `**` to match any number of path segments, including none<br>- `{}` to group sub patterns into an OR expression. (e.g. `**​/*.{ts,js}` matches all TypeScript and JavaScript files)<br>- `[]` to declare a range of characters to match in a path segment (e.g., `example.[0-9]` to match on `example.0`, `example.1`, …)<br>- `[!...]` to negate a range of characters to match in a path segment (e.g., `example.[!0-9]` to match on `example.a`, `example.b`, but not `example.0`)
+---@field public glob string The glob pattern to match. Glob patterns can have the following syntax:<br>- `*` to match zero or more characters in a path segment<br>- `?` to match on one character in a path segment<br>- `**` to match any number of path segments, including none<br>- `{}` to group sub patterns into an OR expression. (e.g. `**​/*.{ts,js}` matches all TypeScript and JavaScript files)<br>- `[]` to declare a range of characters to match in a path segment (e.g., `example.[0-9]` to match on `example.0`, `example.1`, …)<br>- `[!...]` to negate a range of characters to match in a path segment (e.g., `example.[!0-9]` to match on `example.a`, `example.b`, but not `example.0`)
 ---@field public matches? deck.kit.LSP.FileOperationPatternKind Whether to match files or folders with this pattern.<br><br>Matches both if undefined.
 ---@field public options? deck.kit.LSP.FileOperationPatternOptions Additional options used during matching.
 
@@ -1484,6 +1509,7 @@ LSP.TokenFormat = {
 ---@class deck.kit.LSP.WorkspaceOptions
 ---@field public workspaceFolders? deck.kit.LSP.WorkspaceFoldersServerCapabilities The server supports workspace folder.<br><br>@since 3.6.0
 ---@field public fileOperations? deck.kit.LSP.FileOperationOptions The server is interested in notifications/requests for operations on files.<br><br>@since 3.16.0
+---@field public textDocumentContent? (deck.kit.LSP.TextDocumentContentOptions | deck.kit.LSP.TextDocumentContentRegistrationOptions) The server supports the `workspace/textDocumentContent` request.<br><br>@since 3.18.0<br>@proposed
 
 ---@class deck.kit.LSP.TextDocumentContentChangePartial
 ---@field public range deck.kit.LSP.Range The range of the document that changed.
@@ -1558,9 +1584,11 @@ LSP.TokenFormat = {
 ---@field public inlayHint? deck.kit.LSP.InlayHintWorkspaceClientCapabilities Capabilities specific to the inlay hint requests scoped to the<br>workspace.<br><br>@since 3.17.0.
 ---@field public diagnostics? deck.kit.LSP.DiagnosticWorkspaceClientCapabilities Capabilities specific to the diagnostic requests scoped to the<br>workspace.<br><br>@since 3.17.0.
 ---@field public foldingRange? deck.kit.LSP.FoldingRangeWorkspaceClientCapabilities Capabilities specific to the folding range requests scoped to the workspace.<br><br>@since 3.18.0<br>@proposed
+---@field public textDocumentContent? deck.kit.LSP.TextDocumentContentClientCapabilities Capabilities specific to the `workspace/textDocumentContent` request.<br><br>@since 3.18.0<br>@proposed
 
 ---@class deck.kit.LSP.TextDocumentClientCapabilities
 ---@field public synchronization? deck.kit.LSP.TextDocumentSyncClientCapabilities Defines which synchronization capabilities the client supports.
+---@field public filters? deck.kit.LSP.TextDocumentFilterClientCapabilities Defines which filters the client supports.<br><br>@since 3.18.0
 ---@field public completion? deck.kit.LSP.CompletionClientCapabilities Capabilities specific to the `textDocument/completion` request.
 ---@field public hover? deck.kit.LSP.HoverClientCapabilities Capabilities specific to the `textDocument/hover` request.
 ---@field public signatureHelp? deck.kit.LSP.SignatureHelpClientCapabilities Capabilities specific to the `textDocument/signatureHelp` request.
@@ -1625,17 +1653,17 @@ LSP.TokenFormat = {
 ---@class deck.kit.LSP.TextDocumentFilterLanguage
 ---@field public language string A language id, like `typescript`.
 ---@field public scheme? string A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
----@field public pattern? deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns.
+---@field public pattern? deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns. Whether clients support<br>relative patterns depends on the client capability<br>`textDocuments.filters.relativePatternSupport`.
 
 ---@class deck.kit.LSP.TextDocumentFilterScheme
 ---@field public language? string A language id, like `typescript`.
 ---@field public scheme string A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
----@field public pattern? deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns.
+---@field public pattern? deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns. Whether clients support<br>relative patterns depends on the client capability<br>`textDocuments.filters.relativePatternSupport`.
 
 ---@class deck.kit.LSP.TextDocumentFilterPattern
 ---@field public language? string A language id, like `typescript`.
 ---@field public scheme? string A Uri {@link Uri.scheme scheme}, like `file` or `untitled`.
----@field public pattern deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns.
+---@field public pattern deck.kit.LSP.GlobPattern A glob pattern, like **​/*.{ts,js}. See TextDocumentFilter for examples.<br><br>@since 3.18.0 - support for relative patterns. Whether clients support<br>relative patterns depends on the client capability<br>`textDocuments.filters.relativePatternSupport`.
 
 ---@class deck.kit.LSP.NotebookDocumentFilterNotebookType
 ---@field public notebookType string The type of the enclosing notebook.
@@ -1709,11 +1737,17 @@ LSP.TokenFormat = {
 ---@class deck.kit.LSP.FoldingRangeWorkspaceClientCapabilities
 ---@field public refreshSupport? boolean Whether the client implementation supports a refresh request sent from the<br>server to the client.<br><br>Note that this event is global and will force the client to refresh all<br>folding ranges currently shown. It should be used with absolute care and is<br>useful for situation where a server for example detects a project wide<br>change that requires such a calculation.<br><br>@since 3.18.0<br>@proposed
 
+---@class deck.kit.LSP.TextDocumentContentClientCapabilities
+---@field public dynamicRegistration? boolean Text document content provider supports dynamic registration.
+
 ---@class deck.kit.LSP.TextDocumentSyncClientCapabilities
 ---@field public dynamicRegistration? boolean Whether text document synchronization supports dynamic registration.
 ---@field public willSave? boolean The client supports sending will save notifications.
 ---@field public willSaveWaitUntil? boolean The client supports sending a will save request and<br>waits for a response providing text edits which will<br>be applied to the document before it is saved.
 ---@field public didSave? boolean The client supports did save notifications.
+
+---@class deck.kit.LSP.TextDocumentFilterClientCapabilities
+---@field public relativePatternSupport? boolean The client supports Relative Patterns.<br><br>@since 3.18.0
 
 ---@class deck.kit.LSP.CompletionClientCapabilities
 ---@field public dynamicRegistration? boolean Whether completion supports dynamic registration.
@@ -1771,9 +1805,6 @@ LSP.TokenFormat = {
 ---@field public honorsChangeAnnotations? boolean Whether the client honors the change annotations in<br>text edits and resource operations returned via the<br>`CodeAction#edit` property by for example presenting<br>the workspace edit in the user interface and asking<br>for confirmation.<br><br>@since 3.16.0
 ---@field public documentationSupport? boolean Whether the client supports documentation for a class of<br>code actions.<br><br>@since 3.18.0<br>@proposed
 ---@field public tagSupport? deck.kit.LSP.CodeActionTagOptions Client supports the tag property on a code action. Clients<br>supporting tags have to handle unknown tags gracefully.<br><br>@since 3.18.0 - proposed
-
----@class deck.kit.LSP.CodeActionTagOptions
----@field public valueSet deck.kit.LSP.CodeActionTag[] The tags supported by the client.
 
 ---@class deck.kit.LSP.CodeLensClientCapabilities
 ---@field public dynamicRegistration? boolean Whether code lens supports dynamic registration.
@@ -1904,6 +1935,7 @@ LSP.TokenFormat = {
 
 ---@class deck.kit.LSP.CompletionListCapabilities
 ---@field public itemDefaults? string[] The client supports the following itemDefaults on<br>a completion list.<br><br>The value lists the supported property names of the<br>`CompletionList.itemDefaults` object. If omitted<br>no properties are supported.<br><br>@since 3.17.0
+---@field public applyKindSupport? boolean Specifies whether the client supports `CompletionList.applyKind` to<br>indicate how supported values from `completionList.itemDefaults`<br>and `completion` will be combined.<br><br>If a client supports `applyKind` it must support it for all fields<br>that it supports that are listed in `CompletionList.applyKind`. This<br>means when clients add support for new/future fields in completion<br>items the MUST also support merge for them if those fields are<br>defined in `CompletionList.applyKind`.<br><br>@since 3.18.0
 
 ---@class deck.kit.LSP.ClientSignatureInformationOptions
 ---@field public documentationFormat? deck.kit.LSP.MarkupKind[] Client supports the following content formats for the documentation<br>property. The order describes the preferred format of the client.
@@ -1916,6 +1948,9 @@ LSP.TokenFormat = {
 
 ---@class deck.kit.LSP.ClientCodeActionResolveOptions
 ---@field public properties string[] The properties that a client can resolve lazily.
+
+---@class deck.kit.LSP.CodeActionTagOptions
+---@field public valueSet deck.kit.LSP.CodeActionTag[] The tags supported by the client.
 
 ---@class deck.kit.LSP.ClientCodeLensResolveOptions
 ---@field public properties string[] The properties that a client can resolve lazily.
@@ -2034,6 +2069,10 @@ LSP.TokenFormat = {
 ---@alias deck.kit.LSP.WorkspaceDiagnosticRefreshResponse nil
 
 ---@alias deck.kit.LSP.TextDocumentInlineCompletionResponse (deck.kit.LSP.InlineCompletionList | deck.kit.LSP.InlineCompletionItem[] | nil)
+
+---@alias deck.kit.LSP.WorkspaceTextDocumentContentResponse deck.kit.LSP.TextDocumentContentResult
+
+---@alias deck.kit.LSP.WorkspaceTextDocumentContentRefreshResponse nil
 
 ---@alias deck.kit.LSP.ClientRegisterCapabilityResponse nil
 

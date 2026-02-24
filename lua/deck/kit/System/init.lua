@@ -36,42 +36,47 @@ function System.LineBuffering:create(callback)
   local ignore_empty = self.ignore_empty
   local tail = ''
   local callback_local = callback
+  local find = string.find
+  local sub = string.sub
+  local byte = string.byte
+  local byte_lf = bytes['\n']
+  local byte_cr = bytes['\r']
   ---@type deck.kit.System.Buffer
   return {
     write = function(data)
-      if tail == '' and not string.find(data, '\n', 1, true) then
+      if tail == '' and not find(data, '\n', 1, true) then
         tail = data
         return
       end
       local chunk = tail ~= '' and (tail .. data) or data
       local start = 1
-      local s = string.find(chunk, '\n', start, true)
+      local s = find(chunk, '\n', start, true)
       if ignore_empty then
         while s do
           local line
-          if s > start and string.byte(chunk, s - 1) == bytes.byte_cr then
-            line = string.sub(chunk, start, s - 2)
+          if s > start and byte(chunk, s - 1) == byte_cr then
+            line = sub(chunk, start, s - 2)
           else
-            line = string.sub(chunk, start, s - 1)
+            line = sub(chunk, start, s - 1)
           end
           if line ~= '' then
             callback_local(line)
           end
           start = s + 1
-          s = string.find(chunk, '\n', start, true)
+          s = find(chunk, '\n', start, true)
         end
       else
         while s do
-          if s > start and string.byte(chunk, s - 1) == bytes.byte_cr then
-            callback_local(string.sub(chunk, start, s - 2))
+          if s > start and byte(chunk, s - 1) == byte_cr then
+            callback_local(sub(chunk, start, s - 2))
           else
-            callback_local(string.sub(chunk, start, s - 1))
+            callback_local(sub(chunk, start, s - 1))
           end
           start = s + 1
-          s = string.find(chunk, '\n', start, true)
+          s = find(chunk, '\n', start, true)
         end
       end
-      tail = start == 1 and chunk or string.sub(chunk, start)
+      tail = start == 1 and chunk or sub(chunk, start)
     end,
     close = function()
       if not ignore_empty or tail ~= '' then
@@ -211,11 +216,11 @@ end
 ---@return fun(signal?: integer)
 function System.spawn(command, params)
   command = vim
-      .iter(command)
-      :filter(function(c)
-        return c ~= nil
-      end)
-      :totable()
+    .iter(command)
+    :filter(function(c)
+      return c ~= nil
+    end)
+    :totable()
 
   local cmd = command[1]
   local args = {}
@@ -321,7 +326,7 @@ function System.spawn(command, params)
     table.insert(
       closing,
       Async.new(function(resolve)
-        if signal and process and process:is_active() then
+        if signal and process:is_active() then
           process:kill(signal)
         end
         if process and not process:is_closing() then
