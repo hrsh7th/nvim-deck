@@ -114,6 +114,7 @@ vim.api.nvim_create_autocmd('User', {
     ctx.keymap('n', 's', deck.action_mapping('open_split'))
     ctx.keymap('n', 'v', deck.action_mapping('open_vsplit'))
     ctx.keymap('n', 'N', deck.action_mapping('create'))
+    ctx.keymap('n', 'R', deck.action_mapping('rename'))
     ctx.keymap('n', 'w', deck.action_mapping('write'))
     ctx.keymap('n', '<C-u>', deck.action_mapping('scroll_preview_up'))
     ctx.keymap('n', '<C-d>', deck.action_mapping('scroll_preview_down'))

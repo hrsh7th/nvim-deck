@@ -58,6 +58,7 @@ return function(option)
       require('deck').alias_action('default', 'git.branch.checkout'),
       require('deck').alias_action('delete', 'git.branch.delete'),
       require('deck').alias_action('create', 'git.branch.create'),
+      require('deck').alias_action('rename', 'git.branch.rename'),
       require('deck').alias_action('open', 'git.branch.open'),
       {
         name = 'git.branch.open',
@@ -215,6 +216,27 @@ return function(option)
           git:exec_print({ 'git', 'branch', vim.fn.input('name: ') }):next(function()
             ctx.execute()
           end)
+        end,
+      },
+      {
+        name = 'git.branch.rename',
+        resolve = function(ctx)
+          if #ctx.get_action_items() ~= 1 then
+            return false
+          end
+          local item = ctx.get_cursor_item()
+          return item ~= nil and not item.data.remote
+        end,
+        execute = function(ctx)
+          local item = ctx.get_cursor_item()
+          if item then
+            local new_name = vim.fn.input('new name: ', item.data.name)
+            if new_name ~= '' and new_name ~= item.data.name then
+              git:exec_print({ 'git', 'branch', '-m', item.data.name, new_name }):next(function()
+                ctx.execute()
+              end)
+            end
+          end
         end,
       },
       {
