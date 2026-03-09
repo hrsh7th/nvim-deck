@@ -77,7 +77,7 @@ return function(option)
               :get_unified_diff({
                 from_rev = option.from_rev,
                 to_rev = option.to_rev,
-                filename = item.data.filename,
+                paths = { item.data.filename },
               })
               :sync(5000)
           env.cleanup()

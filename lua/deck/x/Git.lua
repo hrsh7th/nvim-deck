@@ -340,18 +340,18 @@ end
 ---@field reflog_selector string
 ---@field reflog_selector_short string
 ---@field reflog_subject string
----@param params { count?: integer, offset?: integer }
+---@param params { count?: integer, offset?: integer, paths?: string[] }
 ---@return deck.kit.Async.AsyncTask
 function Git:log(params)
   local sep_count = 12
   return self
-      :exec({
+      :exec(kit.concat({
         'git',
         'log',
         params.count and ('--max-count=%s'):format((params.count or 100) + 1),
         params.offset and ('--skip=%s'):format(params.offset),
         '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%ai%x00%s%x00%b%x00%B%x00%gD%x00%gd%x00%gs' .. ('%x00'):rep(sep_count),
-      }, {
+      }, params.paths and #params.paths > 0 and kit.concat({ '--' }, params.paths) or {}), {
         buffering = System.DelimiterBuffering.new({ delimiter = ('\0'):rep(sep_count) .. '\n' }),
       })
       :next(
@@ -478,18 +478,16 @@ function Git:show_log(rev)
 end
 
 ---Get unified diff.
----@param params { from_rev: string, to_rev?: string, filename?: string }
+---@param params { from_rev: string, to_rev?: string, paths?: string[] }
 ---@return deck.kit.Async.AsyncTask
 function Git:get_unified_diff(params)
   return self
-      :exec({
+      :exec(kit.concat({
         'git',
         'diff',
         '--unified=0',
         params.from_rev .. (params.to_rev and ('..' .. params.to_rev) or ''),
-        params.filename and '--',
-        params.filename,
-      })
+      }, params.paths and #params.paths > 0 and kit.concat({ '--' }, params.paths) or {}))
       :next(
       ---@param out deck.x.Git.ExecOutput
         function(out)

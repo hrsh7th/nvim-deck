@@ -271,7 +271,7 @@ return function(option)
           local contents = git
               :get_unified_diff({
                 from_rev = 'HEAD',
-                filename = item.data.filename,
+                paths = { item.data.filename },
               })
               :sync(5000)
           env.cleanup()

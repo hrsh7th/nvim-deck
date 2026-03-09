@@ -74,6 +74,24 @@ return function(option)
           end,
         })
 
+        local prev_buf = execute_context.get_prev_buf()
+        local prev_file = vim.fs.normalize(vim.api.nvim_buf_get_name(prev_buf))
+        if prev_file ~= '' and vim.fn.filereadable(prev_file) == 1
+            and prev_file:find(git.cwd, 1, true) == 1 then
+          table.insert(menu, {
+            columns = {
+              'log/file',
+              { ('show logs for %s'):format(vim.fn.fnamemodify(prev_file, ':.')), 'Comment' },
+            },
+            execute = function()
+              require('deck').start(require('deck.builtin.source.git.log')({
+                cwd = option.cwd,
+                paths = { prev_file },
+              }))
+            end,
+          })
+        end
+
         table.insert(menu, {
           columns = {
             'reflog',

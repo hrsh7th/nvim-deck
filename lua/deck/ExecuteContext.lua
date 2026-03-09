@@ -66,6 +66,12 @@ function ExecuteContext.create(params)
     ---Get start config.
     get_config = params.context.get_config,
 
+    ---Get previous window.
+    get_prev_win = params.context.get_prev_win,
+
+    ---Get previous buffer.
+    get_prev_buf = params.context.get_prev_buf,
+
     ---Add task for queue.
     queue = function(task)
       if aborted then

@@ -21,8 +21,13 @@ local Async = require('deck.kit.Async')
   name = "max_count"
   type = "integer?"
   desc = "Max count for log"
+
+  [[options]]
+  name = "paths"
+  type = "string[]?"
+  desc = "Limit log to specific paths (files or directories)."
 ]=]
----@param option { cwd: string, max_count?: integer }
+---@param option { cwd: string, max_count?: integer, paths?: string[] }
 return function(option)
   option.max_count = option.max_count or math.huge
 
@@ -39,7 +44,7 @@ return function(option)
           if ctx.aborted() then
             break
           end
-          local logs = git:log({ count = chunk, offset = offset }):await() ---@type deck.x.Git.Log[]
+          local logs = git:log({ count = chunk, offset = offset, paths = option.paths }):await() ---@type deck.x.Git.Log[]
           local display_texts, highlights = x.create_aligned_display_texts(logs, function(log)
             return {
               log.author_date,
@@ -177,6 +182,7 @@ return function(option)
                 :get_unified_diff({
                   from_rev = item.data.hash_parents[1],
                   to_rev = item.data.hash,
+                  paths = option.paths,
                 })
                 :sync(5000)
             env.cleanup()

@@ -81,6 +81,8 @@ local Context = require('deck.Context')
 ---@field public get_config fun(): deck.StartConfig
 ---@field public aborted fun(): boolean
 ---@field public on_abort fun(callback: fun())
+---@field public get_prev_win fun(): integer
+---@field public get_prev_buf fun(): integer
 
 ---@doc.type
 ---@class deck.Action
