@@ -574,10 +574,11 @@ deck.start(require('deck.builtin.source.git.changeset')({
 
 Show git log.
 
-| Name      | Type     | Default | Description       |
-| --------- | -------- | ------- | ----------------- |
-| cwd       | string   |         | Target git root.  |
-| max_count | integer? |         | Max count for log |
+| Name      | Type      | Default | Description                                         |
+| --------- | --------- | ------- | --------------------------------------------------- |
+| cwd       | string    |         | Target git root.                                    |
+| max_count | integer?  |         | Max count for log                                   |
+| paths     | string[]? |         | Limit log to specific paths (files or directories). |
 
 ```lua
 deck.start(require('deck.builtin.source.git.log')({
@@ -610,6 +611,20 @@ Show git remotes.
 
 ```lua
 deck.start(require('deck.builtin.source.git.remote')({
+  cwd = vim.fn.getcwd(),
+}))
+```
+
+### git.stash
+
+Show git stash list.
+
+| Name | Type   | Default | Description      |
+| ---- | ------ | ------- | ---------------- |
+| cwd  | string |         | Target git root. |
+
+```lua
+deck.start(require('deck.builtin.source.git.stash')({
   cwd = vim.fn.getcwd(),
 }))
 ```
@@ -1297,6 +1312,8 @@ Start deck with given sources.
 ---@field public get_config fun(): deck.StartConfig
 ---@field public aborted fun(): boolean
 ---@field public on_abort fun(callback: fun())
+---@field public get_prev_win fun(): integer
+---@field public get_prev_buf fun(): integer
 ```
 
 ```vimdoc
