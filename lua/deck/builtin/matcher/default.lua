@@ -34,7 +34,7 @@ end
 ---@param text string
 ---@param semantic_indexes integer[]
 ---@param with_ranges boolean
----@return integer, { [1]: integer, [2]: integer }[]?
+---@return number, { [1]: integer, [2]: integer }[]?
 local function compute(
     query,
     text,
@@ -322,7 +322,7 @@ local default = {}
 ---Match query against text and return a score.
 ---@param input string
 ---@param text string
----@return integer
+---@return number
 function default.match(input, text)
   local fuzzies, filters = parse_query(input)
   if #fuzzies == 0 and #filters == 0 then
