@@ -339,6 +339,15 @@ return function(option)
   return {
     name = 'explorer',
     events = {
+      Start = function(ctx)
+        ctx.on_dispose(x.autocmd('DirChanged', function(e)
+          local new_cwd = IO.normalize(e.file)
+          if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
+            state = State.new(new_cwd, state:get_config())
+            ctx.execute()
+          end
+        end))
+      end,
       BufWinEnter = function(ctx, env)
         require('deck.builtin.source.recent_dirs'):add(state:get_root().path)
 
