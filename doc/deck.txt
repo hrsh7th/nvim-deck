@@ -1221,7 +1221,7 @@ Start deck with given sources.
     ---@field public display_text string|(deck.VirtualText[])
     ---@field public highlights? deck.Highlight[]
     ---@field public filter_text? string
-    ---@field public score_bonus? integer
+    ---@field public score_bonus? number
     ---@field public dedup_id? string
     ---@field public data? table
 <

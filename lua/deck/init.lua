@@ -40,7 +40,7 @@ local Context = require('deck.Context')
 ---@field public conceal? string
 
 ---@doc.type
----@alias deck.Matcher.MatchFunction fun(query: string, text: string): integer
+---@alias deck.Matcher.MatchFunction fun(query: string, text: string): number
 ---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
 ---@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }
 
@@ -49,7 +49,7 @@ local Context = require('deck.Context')
 ---@field public display_text string|(deck.VirtualText[])
 ---@field public highlights? deck.Highlight[]
 ---@field public filter_text? string
----@field public score_bonus? integer
+---@field public score_bonus? number
 ---@field public dedup_id? string
 ---@field public data? table
 

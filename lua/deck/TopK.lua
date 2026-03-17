@@ -1,7 +1,7 @@
 ---@class deck.TopK
 ---@field _size integer
----@field _entries { item: deck.Item, score: integer }[]
----@field _min_score integer
+---@field _entries { item: deck.Item, score: number }[]
+---@field _min_score number
 local TopK = {}
 TopK.__index = TopK
 
@@ -18,7 +18,7 @@ end
 
 ---Try to add an item with a score to the TopK.
 ---@param item deck.Item
----@param score integer
+---@param score number
 ---@return deck.Item?
 function TopK:add(item, score)
   local entries = self._entries
