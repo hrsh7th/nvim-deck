@@ -340,11 +340,14 @@ return function(option)
     name = 'explorer',
     events = {
       Start = function(ctx)
-        ctx.on_dispose(x.autocmd('DirChanged', function(e)
-          local new_cwd = IO.normalize(e.file)
-          if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
-            state = State.new(new_cwd, state:get_config())
-            ctx.execute()
+        ctx.on_dispose(x.autocmd('DirChanged', function()
+          local event = vim.v.event
+          if not event.changed_window and vim.tbl_contains({ 'global', 'tabpage' }, event.scope) then
+            local new_cwd = IO.normalize(event.cwd)
+            if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
+              state = State.new(new_cwd, state:get_config())
+              ctx.execute()
+            end
           end
         end))
       end,
