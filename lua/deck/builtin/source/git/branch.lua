@@ -271,59 +271,34 @@ local function source(option)
         name = 'git.branch.delete',
         execute = function(ctx)
           Async.run(function()
-            local worktree_by_branch = {} ---@type table<string, deck.x.Git.Worktree>
-            for _, worktree in ipairs(git:worktree_list():await()) do
-              if worktree.branch then
-                worktree_by_branch[worktree.branch] = worktree
-              end
-            end
-            local deletables = {} ---@type deck.x.Git.Branch[]
-            local prompt = { 'Delete branches?' }
-            for _, item in ipairs(ctx.get_action_items()) do
-              local branch = item.data --[[@as deck.x.Git.Branch]]
-              if branch.current then
-                notify.add_message('default', {
-                  { { ('Cannot delete branch %q used by current worktree'):format(branch.name), 'WarningMsg' } },
-                })
-              else
-                local worktree = worktree_by_branch[branch.name]
-                if not worktree then
-                  table.insert(deletables, branch)
-                  table.insert(prompt, ('  - %s'):format(get_branch_label(branch)))
-                elseif worktree.main then
-                  notify.add_message('default', {
-                    { { ('Cannot delete branch %q used by main worktree'):format(branch.name), 'WarningMsg' } },
-                  })
-                elseif worktree.locked then
-                  notify.add_message('default', {
-                    { { ('Cannot delete branch %q used by locked worktree'):format(branch.name), 'WarningMsg' } },
-                  })
-                elseif Git.new(worktree.path):status():await()[1] then
-                  notify.add_message('default', {
-                    { { ('Cannot delete branch %q used by unclean worktree'):format(branch.name), 'WarningMsg' } },
-                  })
-                else
-                  table.insert(deletables, branch)
-                  table.insert(prompt, ('  - %s (worktree: %s)'):format(get_branch_label(branch), branch.worktree))
+            if x.confirm(
+                  kit.concat(
+                    { 'Delete branches?' },
+                    vim.iter(ctx.get_action_items()):map(function(item)
+                      return ('  - %s'):format(get_branch_label(item.data))
+                    end):totable() --[[@as deck.x.Git.Branch]]
+                  )
+                )
+            then
+              for _, branch in ipairs(ctx.get_action_items()) do
+                if not branch.data.current and not branch.data.worktree then
+                  if branch.data.remote then
+                    git
+                        :exec_print({
+                          'git',
+                          'push',
+                          branch.data.remotename,
+                          '--delete',
+                          branch.data.name,
+                        })
+                        :await()
+                  else
+                    git:exec_print({ 'git', 'branch', '-D', branch.data.name }):await()
+                  end
                 end
               end
+              ctx.execute()
             end
-            if not deletables[1] or not x.confirm(prompt) then
-              return
-            end
-            for _, branch in ipairs(deletables) do
-              if branch.remote then
-                git:exec_print({ 'git', 'push', branch.remotename, '--delete', branch.name }):await()
-              else
-                if branch.worktree then
-                  -- `--force` is for worktrees with submodules.
-                  git:exec_print({ 'git', 'worktree', 'remove', '--force', branch.name }):await()
-                end
-                git:exec_print({ 'git', 'branch', '-D', branch.name }):await()
-              end
-            end
-          end):next(function()
-            ctx.execute()
           end)
         end,
       },
