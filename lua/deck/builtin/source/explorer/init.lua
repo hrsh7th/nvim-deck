@@ -273,430 +273,368 @@ function State:get_parent_item(entry)
   end
 end
 
---[=[@doc
-  category = "source"
-  name = "explorer"
-  desc = "Explorer source."
-  example = """
-    To use explorer, you must set `start_preset` or use `require('deck.easy').setup()`.
-    If you call `require('deck.easy').setup()`, then you can use explorer by `:Deck explorer` command.
-  """
-
-  [[options]]
-  name = "cwd"
-  type = "string"
-  desc = "Target directory."
-
-  [[options]]
-  name = "mode"
-  type = "'drawer' | 'filer'"
-  desc = "Mode of explorer."
-
-  [[options]]
-  name = "narrow"
-  type = "{ enabled?: boolean, ignore_globs?: string[] }"
-  desc = "Narrow finder options."
-
-  [[options]]
-  name = "reveal"
-  type = "string"
-  desc = "Reveal target path."
-
-  [[options]]
-  name = "config"
-  type = "deck.builtin.source.explorer.State.Config"
-  desc = "State config."
-]=]
----@class deck.builtin.source.explorer.Option
----@field cwd string
----@field mode 'drawer' | 'filer'
----@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
----@field reveal? string
----@field config? deck.builtin.source.explorer.State.Config
----@param option deck.builtin.source.explorer.Option
-return function(option)
-  if #option.cwd == 0 or vim.fn.isdirectory(option.cwd) == 0 then
-    error('Invalid cwd: ' .. option.cwd)
+local source
+source = setmetatable({
+  --Customize source option globally.
+  ---@param option deck.builtin.source.explorer.Option
+  ---@return deck.builtin.source.explorer.Option
+  customize = function(option)
+    return option
   end
+}, {
+  --[=[@doc
+    category = "source"
+    name = "explorer"
+    desc = "Explorer source."
+    example = """
+      To use explorer, you must set `start_preset` or use `require('deck.easy').setup()`.
+      If you call `require('deck.easy').setup()`, then you can use explorer by `:Deck explorer` command.
 
-  option = option or {}
-  option.cwd = IO.normalize(option.cwd)
-  option.reveal = option.reveal and IO.normalize(option.reveal) or nil
-  option.mode = option.mode or 'filer'
-  option.narrow = kit.merge(option.narrow, {
-    enabled = true,
-    ignore_globs = {},
-  })
-  option.config = kit.merge(option.config or {}, {
-    dotfiles = false,
-    auto_resize = true,
-  })
+      And you can customize explorer option dynamically via `require('deck.builtin.source.explorer').customize = function(option) ... end`.
+    """
 
-  local deck = require('deck')
-  local state = State.new(option.cwd, option.config)
+    [[options]]
+    name = "cwd"
+    type = "string"
+    desc = "Target directory."
 
-  ---@type deck.Source
-  return {
-    name = 'explorer',
-    events = {
-      Start = function(ctx)
-        ctx.on_dispose(x.autocmd('DirChanged', function()
-          local event = vim.v.event
-          if not event.changed_window and vim.tbl_contains({ 'global', 'tabpage' }, event.scope) then
-            local new_cwd = IO.normalize(event.cwd)
-            if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
-              state = State.new(new_cwd, state:get_config())
-              ctx.execute()
-            end
-          end
-        end))
-      end,
-      BufWinEnter = function(ctx, env)
-        require('deck.builtin.source.recent_dirs'):add(state:get_root().path)
+    [[options]]
+    name = "mode"
+    type = "'drawer' | 'filer'"
+    desc = "Mode of explorer."
 
-        -- TODO: I can't understand that but change directory to root causes infinite loop...
-        if state:get_root().path ~= '/' then
-          vim.cmd.lcd(state:get_root().path)
-        end
+    [[options]]
+    name = "narrow"
+    type = "{ enabled?: boolean, ignore_globs?: string[] }"
+    desc = "Narrow finder options."
 
-        if env.first and option.reveal then
-          Async.run(function()
-            local root = state:get_root().path
-            -- both paths are already normalized
-            if vim.startswith(option.reveal, root) then
-              local relpath = option.reveal:sub(#root + #'/' + 1)
-              local paths = vim.fn.split(relpath, '/')
-              local current_path = option.cwd
-              while current_path and #paths > 0 do
-                local item = state:get_item(current_path)
-                if item then
-                  state:expand(item)
-                end
-                local prev_path = current_path
-                current_path = IO.join(current_path, table.remove(paths, 1))
-                if current_path == prev_path then
-                  break
-                end
-              end
-              local target_item = state:get_item(option.reveal)
-              if target_item then
+    [[options]]
+    name = "reveal"
+    type = "string"
+    desc = "Reveal target path."
+
+    [[options]]
+    name = "config"
+    type = "deck.builtin.source.explorer.State.Config"
+    desc = "State config."
+  ]=]
+  ---@class deck.builtin.source.explorer.Option
+  ---@field cwd string
+  ---@field mode 'drawer' | 'filer'
+  ---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
+  ---@field reveal? string
+  ---@field config? deck.builtin.source.explorer.State.Config
+  ---@param option deck.builtin.source.explorer.Option
+  __call = function(_, option)
+    if #option.cwd == 0 or vim.fn.isdirectory(option.cwd) == 0 then
+      error('Invalid cwd: ' .. option.cwd)
+    end
+
+    option = option or {}
+    option.cwd = IO.normalize(option.cwd)
+    option.reveal = option.reveal and IO.normalize(option.reveal) or nil
+    option.mode = option.mode or 'filer'
+    option.narrow = kit.merge(option.narrow, {
+      enabled = true,
+      ignore_globs = {},
+    })
+    option.config = kit.merge(option.config or {}, {
+      dotfiles = false,
+      auto_resize = true,
+    })
+
+    option = source.customize(option)
+
+    local deck = require('deck')
+    local state = State.new(option.cwd, option.config)
+
+    ---@type deck.Source
+    return {
+      name = 'explorer',
+      events = {
+        Start = function(ctx)
+          ctx.on_dispose(x.autocmd('DirChanged', function()
+            local event = vim.v.event
+            if not event.changed_window and vim.tbl_contains({ 'global', 'tabpage' }, event.scope) then
+              local new_cwd = IO.normalize(event.cwd)
+              if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
+                state = State.new(new_cwd, state:get_config())
                 ctx.execute()
-                ctx.sync()
-                focus(ctx, target_item)
               end
             end
-          end):sync(5 * 1000)
-        end
-      end,
-    },
-    parse_query = function(query)
-      return {
-        dynamic_query = query,
-      }
-    end,
-    execute = function(ctx)
-      -- narrow.
-      if option.narrow.enabled then
-        if ctx.get_query() ~= '' then
-          local added_parents = {}
-          ---@param entry deck.builtin.source.explorer.Entry
-          local function add(entry)
-            local depth = misc.get_depth_from_path(option.cwd, entry.path)
-            local item = Async.run(function()
-              return misc.get_item_by_path(entry.path, depth)
-            end):sync(1 * 1000)
-            if item and not state:is_hidden_item(item) then
-              ctx.item({
-                display_text = misc.create_display_text(item, item.type == 'directory', depth),
-                data = {
-                  filename = entry.path,
-                  entry = entry,
-                  depth = depth,
-                },
-              })
-            end
+          end))
+        end,
+        BufWinEnter = function(ctx, env)
+          require('deck.builtin.source.recent_dirs'):add(state:get_root().path)
+
+          -- TODO: I can't understand that but change directory to root causes infinite loop...
+          if state:get_root().path ~= '/' then
+            vim.cmd.lcd(state:get_root().path)
           end
-          misc.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
-            ctx.queue(function()
-              local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path))
-              if score == 0 then
-                return
+
+          if env.first and option.reveal then
+            Async.run(function()
+              local root = state:get_root().path
+              -- both paths are already normalized
+              if vim.startswith(option.reveal, root) then
+                local relpath = option.reveal:sub(#root + #'/' + 1)
+                local paths = vim.fn.split(relpath, '/')
+                local current_path = option.cwd
+                while current_path and #paths > 0 do
+                  local item = state:get_item(current_path)
+                  if item then
+                    state:expand(item)
+                  end
+                  local prev_path = current_path
+                  current_path = IO.join(current_path, table.remove(paths, 1))
+                  if current_path == prev_path then
+                    break
+                  end
+                end
+                local target_item = state:get_item(option.reveal)
+                if target_item then
+                  ctx.execute()
+                  ctx.sync()
+                  focus(ctx, target_item)
+                end
               end
-              local parents = {}
-              do
-                local parent = IO.dirname(path)
-                while parent and not added_parents[parent] and #option.cwd <= #parent do
-                  added_parents[parent] = true
-                  table.insert(parents, {
-                    path = parent,
-                    type = 'directory',
-                  })
-                  local prev_parent = parent
-                  parent = IO.dirname(parent)
-                  if parent == prev_parent then
+            end):sync(5 * 1000)
+          end
+        end,
+      },
+      parse_query = function(query)
+        return {
+          dynamic_query = query,
+        }
+      end,
+      execute = function(ctx)
+        -- narrow.
+        if option.narrow.enabled then
+          if ctx.get_query() ~= '' then
+            local added_parents = {}
+            ---@param entry deck.builtin.source.explorer.Entry
+            local function add(entry)
+              local depth = misc.get_depth_from_path(option.cwd, entry.path)
+              local item = Async.run(function()
+                return misc.get_item_by_path(entry.path, depth)
+              end):sync(1 * 1000)
+              if item and not state:is_hidden_item(item) then
+                ctx.item({
+                  display_text = misc.create_display_text(item, item.type == 'directory', depth),
+                  data = {
+                    filename = entry.path,
+                    entry = entry,
+                    depth = depth,
+                  },
+                })
+              end
+            end
+            misc.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
+              ctx.queue(function()
+                local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path))
+                if score == 0 then
+                  return
+                end
+                local parents = {}
+                do
+                  local parent = IO.dirname(path)
+                  while parent and not added_parents[parent] and #option.cwd <= #parent do
+                    added_parents[parent] = true
+                    table.insert(parents, {
+                      path = parent,
+                      type = 'directory',
+                    })
+                    local prev_parent = parent
+                    parent = IO.dirname(parent)
+                    if parent == prev_parent then
+                      break
+                    end
+                  end
+                end
+                for i = #parents, 1, -1 do
+                  add(parents[i])
+                end
+                add({
+                  path = path,
+                  type = 'file',
+                })
+              end)
+            end, ctx.done)
+            return
+          end
+        end
+
+        -- tree.
+        Async.run(function()
+          state:refresh()
+          for item in state:iter() do
+            ctx.item({
+              display_text = misc.create_display_text(item, item.expanded, item.depth),
+              data = {
+                filename = item.path,
+                entry = item,
+                depth = item.depth,
+              },
+            })
+          end
+          ctx.done()
+        end)
+      end,
+      actions = kit.concat(option.mode == 'drawer' and {
+        deck.alias_action('open', 'open_keep'),
+        deck.alias_action('open_split', 'open_split_keep'),
+        deck.alias_action('open_vsplit', 'open_vsplit_keep'),
+      } or {}, {
+        deck.alias_action('default', 'explorer.cd_or_open'),
+        deck.alias_action('create', 'explorer.create'),
+        deck.alias_action('delete', 'explorer.delete'),
+        deck.alias_action('rename', 'explorer.rename'),
+        deck.alias_action('yank', 'explorer.yank'),
+        deck.alias_action('refresh', 'explorer.refresh'),
+        {
+          name = 'explorer.get_api',
+          hidden = true,
+          execute = function(ctx)
+            return {
+              ---@param path string
+              ---@param reveal? string
+              set_cwd = function(path, reveal)
+                deck.start(
+                  require('deck.builtin.source.explorer')(kit.merge({
+                    cwd = path,
+                    reveal = reveal or path,
+                    config = state:get_config(),
+                  }, option)),
+                  ctx.get_config()
+                )
+              end,
+              ---@return string
+              get_cwd = function()
+                return state:get_root().path
+              end,
+            }
+          end,
+        },
+        {
+          name = 'explorer.cd_or_open',
+          execute = function(ctx)
+            local item = ctx.get_cursor_item()
+            if item and item.data.filename then
+              if item.data.entry.type == 'directory' then
+                ctx.do_action('explorer.get_api').set_cwd(item.data.filename)
+              else
+                ctx.do_action('open')
+              end
+            end
+          end,
+        },
+        {
+          name = 'explorer.expand',
+          resolve = function(ctx)
+            if ctx.get_query() ~= '' then
+              return false
+            end
+            local item = ctx.get_cursor_item()
+            return item and not state:is_expanded(item.data.entry) and item.data.entry.type == 'directory'
+          end,
+          execute = function(ctx)
+            return Async.run(function()
+              local item = ctx.get_cursor_item()
+              if item and not state:is_expanded(item.data.entry) then
+                state:expand(ctx.get_cursor_item().data.entry)
+                ctx.execute()
+                ctx.set_cursor(ctx.get_cursor() + 1)
+              end
+            end)
+          end,
+        },
+        {
+          name = 'explorer.collapse',
+          resolve = function(ctx)
+            if ctx.get_query() ~= '' then
+              return false
+            end
+            return true
+          end,
+          execute = function(ctx)
+            return Async.run(function()
+              local item = ctx.get_cursor_item()
+              if item then
+                local target_item = state:get_item(item.data.entry.path)
+                while target_item do
+                  if not state:is_root(target_item) and state:is_expanded(target_item) then
+                    state:collapse(target_item)
+                    focus(ctx, target_item)
+                    ctx.execute()
+                    return
+                  end
+                  local prev_target_item = target_item
+                  target_item = state:get_parent_item(target_item)
+                  if target_item == prev_target_item then
                     break
                   end
                 end
               end
-              for i = #parents, 1, -1 do
-                add(parents[i])
-              end
-              add({
-                path = path,
-                type = 'file',
-              })
+              ctx.do_action('explorer.cd_up')
             end)
-          end, ctx.done)
-          return
-        end
-      end
-
-      -- tree.
-      Async.run(function()
-        state:refresh()
-        for item in state:iter() do
-          ctx.item({
-            display_text = misc.create_display_text(item, item.expanded, item.depth),
-            data = {
-              filename = item.path,
-              entry = item,
-              depth = item.depth,
-            },
-          })
-        end
-        ctx.done()
-      end)
-    end,
-    actions = kit.concat(option.mode == 'drawer' and {
-      deck.alias_action('open', 'open_keep'),
-      deck.alias_action('open_split', 'open_split_keep'),
-      deck.alias_action('open_vsplit', 'open_vsplit_keep'),
-    } or {}, {
-      deck.alias_action('default', 'explorer.cd_or_open'),
-      deck.alias_action('create', 'explorer.create'),
-      deck.alias_action('delete', 'explorer.delete'),
-      deck.alias_action('rename', 'explorer.rename'),
-      deck.alias_action('refresh', 'explorer.refresh'),
-      {
-        name = 'explorer.get_api',
-        hidden = true,
-        execute = function(ctx)
-          return {
-            ---@param path string
-            ---@param reveal? string
-            set_cwd = function(path, reveal)
-              deck.start(
-                require('deck.builtin.source.explorer')(kit.merge({
-                  cwd = path,
-                  reveal = reveal or path,
-                  config = state:get_config(),
-                }, option)),
-                ctx.get_config()
-              )
-            end,
-            ---@return string
-            get_cwd = function()
-              return state:get_root().path
-            end,
-          }
-        end,
-      },
-      {
-        name = 'explorer.cd_or_open',
-        execute = function(ctx)
-          local item = ctx.get_cursor_item()
-          if item and item.data.filename then
-            if item.data.entry.type == 'directory' then
-              ctx.do_action('explorer.get_api').set_cwd(item.data.filename)
-            else
-              ctx.do_action('open')
-            end
-          end
-        end,
-      },
-      {
-        name = 'explorer.expand',
-        resolve = function(ctx)
-          if ctx.get_query() ~= '' then
-            return false
-          end
-          local item = ctx.get_cursor_item()
-          return item and not state:is_expanded(item.data.entry) and item.data.entry.type == 'directory'
-        end,
-        execute = function(ctx)
-          return Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item and not state:is_expanded(item.data.entry) then
-              state:expand(ctx.get_cursor_item().data.entry)
-              ctx.execute()
-              ctx.set_cursor(ctx.get_cursor() + 1)
-            end
-          end)
-        end,
-      },
-      {
-        name = 'explorer.collapse',
-        resolve = function(ctx)
-          if ctx.get_query() ~= '' then
-            return false
-          end
-          return true
-        end,
-        execute = function(ctx)
-          return Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item then
-              local target_item = state:get_item(item.data.entry.path)
-              while target_item do
-                if not state:is_root(target_item) and state:is_expanded(target_item) then
-                  state:collapse(target_item)
-                  focus(ctx, target_item)
-                  ctx.execute()
-                  return
-                end
-                local prev_target_item = target_item
-                target_item = state:get_parent_item(target_item)
-                if target_item == prev_target_item then
-                  break
-                end
-              end
-            end
-            ctx.do_action('explorer.cd_up')
-          end)
-        end,
-      },
-      {
-        name = 'explorer.cd_up',
-        execute = function(ctx)
-          ctx.do_action('explorer.get_api').set_cwd(IO.dirname(state:get_root().path), state:get_root().path)
-        end,
-      },
-      {
-        name = 'explorer.toggle_dotfiles',
-        execute = function(ctx)
-          state:set_config(kit.merge({
-            dotfiles = not state:get_config().dotfiles,
-          }, state:get_config()))
-          ctx.execute()
-        end,
-      },
-      {
-        name = 'explorer.dirs',
-        execute = function(explorer_ctx)
-          deck.start({
-            require('deck.builtin.source.recent_dirs')(),
-            require('deck.builtin.source.dirs')({
-              root_dir = state:get_root().path,
-            }),
-          }, {
-            actions = {
-              {
-                name = 'default',
-                execute = function(ctx)
-                  explorer_ctx.focus()
-                  explorer_ctx.do_action('explorer.get_api').set_cwd(ctx.get_cursor_item().data.filename,
-                    state:get_root().path)
-                  ctx.hide()
-                end,
-              },
-            },
-          })
-        end,
-      },
-      {
-        name = 'explorer.create',
-        execute = function(ctx)
-          return Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item then
-              local parent_item = (function()
-                local target_item = state:get_item(item.data.entry.path)
-                if target_item then
-                  if state:is_expanded(target_item) then
-                    return target_item
-                  end
-                  return state:get_parent_item(target_item)
-                end
-                return state:get_root()
-              end)()
-
-              local path = vim.fn.input(('Create: %s/'):format(parent_item.path), '')
-              if path == '' then
-                return
-              end
-              path = IO.join(parent_item.path, path)
-
-              if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
-                return notify.add_message('default', { { 'Already exists: ' .. path } })
-              end
-
-              if path:sub(-1, -1) == '/' then
-                vim.fn.mkdir(path, 'p')
-              else
-                vim.fn.mkdir(vim.fs.dirname(vim.fs.normalize(path, { expand_env = false })), 'p')
-                vim.fn.writefile({}, path)
-              end
-              state:dirty(parent_item.path)
-              state:refresh()
-              ctx.execute()
-            end
-          end)
-        end,
-      },
-      {
-        name = 'explorer.delete',
-        execute = function(ctx)
-          return Async.run(function()
-            local items = ctx.get_action_items()
-            table.sort(items, function(a, b)
-              return a.data.entry.depth > b.data.entry.depth
-            end)
-
-            if not x.confirm(('Delete below items?\n%s'):format(vim
-                  .iter(items)
-                  :map(function(item)
-                    return ('  %s'):format(vim.fs.relpath(state:get_root().path, item.data.filename))
-                  end)
-                  :join('\n'))) then
-              return
-            end
-
-            operation
-                .delete(vim
-                  .iter(items)
-                  :map(function(item)
-                    ---@type deck.x.operation.Delete
-                    return {
-                      type = 'delete',
-                      path = item.data.filename,
-                      kind = item.data.entry.type == 'directory' and operation.Kind.folder or operation.Kind.file,
-                    }
-                  end)
-                  :totable())
-                :await()
-
-            for _, item in ipairs(items) do
-              state:dirty(misc.dirpath(item.data.entry.path))
-              if item.data.entry.type == 'directory' then
-                vim.fn.delete(item.data.entry.path, 'rf')
-              else
-                vim.fn.delete(item.data.entry.path)
-              end
-            end
-            state:refresh()
+          end,
+        },
+        {
+          name = 'explorer.cd_up',
+          execute = function(ctx)
+            ctx.do_action('explorer.get_api').set_cwd(IO.dirname(state:get_root().path), state:get_root().path)
+          end,
+        },
+        {
+          name = 'explorer.toggle_dotfiles',
+          execute = function(ctx)
+            state:set_config(kit.merge({
+              dotfiles = not state:get_config().dotfiles,
+            }, state:get_config()))
             ctx.execute()
-          end)
-        end,
-      },
-      {
-        name = 'explorer.rename',
-        execute = function(ctx)
-          return Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item then
-              local parent_item = state:get_parent_item(item.data.entry)
-              if parent_item then
-                local path = vim.fn.input(('Rename: %s/'):format(parent_item.path), vim.fs.basename(item.data.filename))
+          end,
+        },
+        {
+          name = 'explorer.dirs',
+          execute = function(explorer_ctx)
+            deck.start({
+              require('deck.builtin.source.recent_dirs')(),
+              require('deck.builtin.source.dirs')({
+                root_dir = state:get_root().path,
+              }),
+            }, {
+              actions = {
+                {
+                  name = 'default',
+                  execute = function(ctx)
+                    explorer_ctx.focus()
+                    explorer_ctx.do_action('explorer.get_api').set_cwd(ctx.get_cursor_item().data.filename,
+                      state:get_root().path)
+                    ctx.hide()
+                  end,
+                },
+              },
+            })
+          end,
+        },
+        {
+          name = 'explorer.create',
+          execute = function(ctx)
+            return Async.run(function()
+              local item = ctx.get_cursor_item()
+              if item then
+                local parent_item = (function()
+                  local target_item = state:get_item(item.data.entry.path)
+                  if target_item then
+                    if state:is_expanded(target_item) then
+                      return target_item
+                    end
+                    return state:get_parent_item(target_item)
+                  end
+                  return state:get_root()
+                end)()
+
+                local path = vim.fn.input(('Create: %s/'):format(parent_item.path), '')
                 if path == '' then
                   return
                 end
@@ -706,188 +644,281 @@ return function(option)
                   return notify.add_message('default', { { 'Already exists: ' .. path } })
                 end
 
-                operation
-                    .rename({
-                      {
-                        type = 'rename',
-                        path = item.data.filename,
-                        path_new = path,
-                        kind = vim.fn.isdirectory(item.data.filename) == 1 and operation.Kind.folder or
-                            operation.Kind.file,
-                      },
-                    })
-                    :await()
+                if path:sub(-1, -1) == '/' then
+                  vim.fn.mkdir(path, 'p')
+                else
+                  vim.fn.mkdir(vim.fs.dirname(vim.fs.normalize(path, { expand_env = false })), 'p')
+                  vim.fn.writefile({}, path)
+                end
                 state:dirty(parent_item.path)
                 state:refresh()
                 ctx.execute()
               end
-            end
-          end)
-        end,
-      },
-      {
-        name = 'explorer.ui_open',
-        execute = function(ctx)
-          vim.ui.open(ctx.get_cursor_item().data.filename)
-        end,
-      },
-      {
-        name = 'explorer.clipboard.save_copy',
-        resolve = function(ctx)
-          local depth = nil
-          for _, item in ipairs(ctx.get_action_items()) do
-            if depth and item.data.depth ~= depth then
-              return false
-            end
-            depth = item.data.depth
-          end
-          return true
-        end,
-        execute = function(ctx)
-          local paths = {}
-          for _, item in ipairs(ctx.get_action_items()) do
-            table.insert(paths, item.data.filename)
-          end
-          Clipboard.instance:set({ type = 'copy', paths = paths })
-          notify.add_message('default', kit.concat(
-            {
-              { 'Save clipboard to copy:' },
-            },
-            vim
-            .iter(paths)
-            :map(function(path)
-              return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
             end)
-            :totable()
-          ))
-        end,
-      },
-      {
-        name = 'explorer.clipboard.save_move',
-        resolve = function(ctx)
-          local depth = nil
-          for _, item in ipairs(ctx.get_action_items()) do
-            if depth and item.data.depth ~= depth then
-              return false
-            end
-            depth = item.data.depth
-          end
-          return true
-        end,
-        execute = function(ctx)
-          local paths = {}
-          for _, item in ipairs(ctx.get_action_items()) do
-            table.insert(paths, item.data.filename)
-          end
-          Clipboard.instance:set({ type = 'move', paths = paths })
-          notify.add_message('default', kit.concat(
-            {
-              { 'Save clipboard to move:' },
-            },
-            vim
-            .iter(paths)
-            :map(function(path)
-              return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
-            end)
-            :totable()
-          ))
-        end,
-      },
-      {
-        name = 'explorer.clipboard.paste',
-        resolve = function()
-          if not Clipboard.instance:get() then
-            return false
-          end
-          for _, path in ipairs(Clipboard.instance:get().paths) do
-            if vim.fn.filereadable(path) == 0 and vim.fn.isdirectory(path) == 0 then
-              return true
-            end
-          end
-          return true
-        end,
-        execute = function(ctx)
-          return Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item then
-              local paste_target_item = state:get_item(item.data.entry.path)
-              if paste_target_item then
-                if paste_target_item.type == 'file' or not state:is_expanded(paste_target_item) then
-                  paste_target_item = state:get_parent_item(paste_target_item) or state:get_root()
-                end
-                state:dirty(paste_target_item.path)
+          end,
+        },
+        {
+          name = 'explorer.delete',
+          execute = function(ctx)
+            return Async.run(function()
+              local items = ctx.get_action_items()
+              table.sort(items, function(a, b)
+                return a.data.entry.depth > b.data.entry.depth
+              end)
 
-                local clipboard = Clipboard.instance:get()
-                local renames = vim.iter(clipboard.paths):fold({}, function(renames, path)
-                  state:dirty(path)
+              if not x.confirm(('Delete below items?\n%s'):format(vim
+                    .iter(items)
+                    :map(function(item)
+                      return ('  %s'):format(vim.fs.relpath(state:get_root().path, item.data.filename))
+                    end)
+                    :join('\n'))) then
+                return
+              end
 
-                  local path_new = IO.join(paste_target_item.path, vim.fs.basename(path))
-                  if path == path_new then
-                    local index = 1
-                    while true do
-                      path_new = IO.join(paste_target_item.path, ('%s - copy%s'):format(
-                        vim.fs.basename(path),
-                        index
-                      ))
-                      if vim.fn.filereadable(path_new) == 0 and vim.fn.isdirectory(path_new) == 0 then
-                        break
-                      end
-                      index = index + 1
-                    end
-                  end
+              operation
+                  .delete(vim
+                    .iter(items)
+                    :map(function(item)
+                      ---@type deck.x.operation.Delete
+                      return {
+                        type = 'delete',
+                        path = item.data.filename,
+                        kind = item.data.entry.type == 'directory' and operation.Kind.folder or operation.Kind.file,
+                      }
+                    end)
+                    :totable())
+                  :await()
 
-                  table.insert(renames, {
-                    type = 'rename',
-                    path = path,
-                    path_new = path_new,
-                    kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
-                  })
-                  return renames
-                end)
-
-                if clipboard.type == 'move' then
-                  operation.rename(renames):await()
+              for _, item in ipairs(items) do
+                state:dirty(misc.dirpath(item.data.entry.path))
+                if item.data.entry.type == 'directory' then
+                  vim.fn.delete(item.data.entry.path, 'rf')
                 else
-                  for _, rename in ipairs(renames) do
-                    IO.cp(rename.path, rename.path_new, { recursive = true }):await()
-                  end
+                  vim.fn.delete(item.data.entry.path)
                 end
-                state:refresh()
-                ctx.execute()
+              end
+              state:refresh()
+              ctx.execute()
+            end)
+          end,
+        },
+        {
+          name = 'explorer.rename',
+          execute = function(ctx)
+            return Async.run(function()
+              local item = ctx.get_cursor_item()
+              if item then
+                local parent_item = state:get_parent_item(item.data.entry)
+                if parent_item then
+                  local path = vim.fn.input(('Rename: %s/'):format(parent_item.path), vim.fs.basename(item.data.filename))
+                  if path == '' then
+                    return
+                  end
+                  path = IO.join(parent_item.path, path)
+
+                  if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
+                    return notify.add_message('default', { { 'Already exists: ' .. path } })
+                  end
+
+                  operation
+                      .rename({
+                        {
+                          type = 'rename',
+                          path = item.data.filename,
+                          path_new = path,
+                          kind = vim.fn.isdirectory(item.data.filename) == 1 and operation.Kind.folder or
+                              operation.Kind.file,
+                        },
+                      })
+                      :await()
+                  state:dirty(parent_item.path)
+                  state:refresh()
+                  ctx.execute()
+                end
+              end
+            end)
+          end,
+        },
+        {
+          name = 'explorer.ui_open',
+          execute = function(ctx)
+            vim.ui.open(ctx.get_cursor_item().data.filename)
+          end,
+        },
+        {
+          name = 'explorer.clipboard.save_copy',
+          resolve = function(ctx)
+            local depth = nil
+            for _, item in ipairs(ctx.get_action_items()) do
+              if depth and item.data.depth ~= depth then
+                return false
+              end
+              depth = item.data.depth
+            end
+            return true
+          end,
+          execute = function(ctx)
+            local paths = {}
+            for _, item in ipairs(ctx.get_action_items()) do
+              table.insert(paths, item.data.filename)
+            end
+            Clipboard.instance:set({ type = 'copy', paths = paths })
+            notify.add_message('default', kit.concat(
+              {
+                { 'Save clipboard to copy:' },
+              },
+              vim
+              .iter(paths)
+              :map(function(path)
+                return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
+              end)
+              :totable()
+            ))
+          end,
+        },
+        {
+          name = 'explorer.clipboard.save_move',
+          resolve = function(ctx)
+            local depth = nil
+            for _, item in ipairs(ctx.get_action_items()) do
+              if depth and item.data.depth ~= depth then
+                return false
+              end
+              depth = item.data.depth
+            end
+            return true
+          end,
+          execute = function(ctx)
+            local paths = {}
+            for _, item in ipairs(ctx.get_action_items()) do
+              table.insert(paths, item.data.filename)
+            end
+            Clipboard.instance:set({ type = 'move', paths = paths })
+            notify.add_message('default', kit.concat(
+              {
+                { 'Save clipboard to move:' },
+              },
+              vim
+              .iter(paths)
+              :map(function(path)
+                return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
+              end)
+              :totable()
+            ))
+          end,
+        },
+        {
+          name = 'explorer.clipboard.paste',
+          resolve = function()
+            if not Clipboard.instance:get() then
+              return false
+            end
+            for _, path in ipairs(Clipboard.instance:get().paths) do
+              if vim.fn.filereadable(path) == 0 and vim.fn.isdirectory(path) == 0 then
+                return true
               end
             end
-          end)
-        end,
+            return true
+          end,
+          execute = function(ctx)
+            return Async.run(function()
+              local item = ctx.get_cursor_item()
+              if item then
+                local paste_target_item = state:get_item(item.data.entry.path)
+                if paste_target_item then
+                  if paste_target_item.type == 'file' or not state:is_expanded(paste_target_item) then
+                    paste_target_item = state:get_parent_item(paste_target_item) or state:get_root()
+                  end
+                  state:dirty(paste_target_item.path)
+
+                  local clipboard = Clipboard.instance:get()
+                  local renames = vim.iter(clipboard.paths):fold({}, function(renames, path)
+                    state:dirty(path)
+
+                    local path_new = IO.join(paste_target_item.path, vim.fs.basename(path))
+                    if path == path_new then
+                      local index = 1
+                      while true do
+                        path_new = IO.join(paste_target_item.path, ('%s - copy%s'):format(
+                          vim.fs.basename(path),
+                          index
+                        ))
+                        if vim.fn.filereadable(path_new) == 0 and vim.fn.isdirectory(path_new) == 0 then
+                          break
+                        end
+                        index = index + 1
+                      end
+                    end
+
+                    table.insert(renames, {
+                      type = 'rename',
+                      path = path,
+                      path_new = path_new,
+                      kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
+                    })
+                    return renames
+                  end)
+
+                  if clipboard.type == 'move' then
+                    operation.rename(renames):await()
+                  else
+                    for _, rename in ipairs(renames) do
+                      IO.cp(rename.path, rename.path_new, { recursive = true }):await()
+                    end
+                  end
+                  state:refresh()
+                  ctx.execute()
+                end
+              end
+            end)
+          end,
+        },
+        {
+          name = 'explorer.refresh',
+          execute = function(ctx)
+            return Async.run(function()
+              state:refresh(true)
+              ctx.execute()
+            end)
+          end,
+        },
+        {
+          name = 'explorer.yank',
+          execute = function(ctx)
+            return Async.run(function()
+              local contents = {}
+              for _, item in ipairs(ctx.get_action_items()) do
+                table.insert(contents, item.data.entry.path)
+              end
+              vim.fn.setreg(vim.v.register, table.concat(contents, '\n'), 'V')
+              notify.add_message('default', {
+                { { ('Yanked %d items.'):format(#contents), 'Normal' } },
+              })
+            end)
+          end,
+        },
+      }),
+      decorators = {
+        {
+          name = 'explorer.selection',
+          decorate = function(ctx, item)
+            local signs = {}
+            if ctx.get_selected(item) then
+              table.insert(signs, '▌')
+            else
+              table.insert(signs, ' ')
+            end
+            return {
+              {
+                col = 0,
+                sign_text = table.concat(signs),
+                sign_hl_group = 'SignColumn',
+              },
+            }
+          end,
+        },
       },
-      {
-        name = 'explorer.refresh',
-        execute = function(ctx)
-          return Async.run(function()
-            state:refresh(true)
-            ctx.execute()
-          end)
-        end,
-      },
-    }),
-    decorators = {
-      {
-        name = 'explorer.selection',
-        decorate = function(ctx, item)
-          local signs = {}
-          if ctx.get_selected(item) then
-            table.insert(signs, '▌')
-          else
-            table.insert(signs, ' ')
-          end
-          return {
-            {
-              col = 0,
-              sign_text = table.concat(signs),
-              sign_hl_group = 'SignColumn',
-            },
-          }
-        end,
-      },
-    },
-  }
-end
+    }
+  end
+})
+return source
