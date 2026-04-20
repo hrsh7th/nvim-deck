@@ -504,8 +504,10 @@ Explorer source.
 | config | deck.builtin.source.explorer.State.Config      |         | State config.          |
 
 ```lua
-To use explorer, you must set `start_preset` or use `require('deck.easy').setup()`.
-If you call `require('deck.easy').setup()`, then you can use explorer by `:Deck explorer` command.
+      To use explorer, you must set `start_preset` or use `require('deck.easy').setup()`.
+      If you call `require('deck.easy').setup()`, then you can use explorer by `:Deck explorer` command.
+
+      And you can customize explorer option dynamically via `require('deck.builtin.source.explorer').customize = function(option) ... end`.
 ```
 
 ### files
