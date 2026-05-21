@@ -161,8 +161,10 @@ function easy.setup(config)
 
     -- Register `git` start preset.
     deck.register_start_preset('git', function()
+      local buffer_path = config.get_buffer_path(vim.api.nvim_get_current_buf())
+      local cwd = config.get_project_root(buffer_path) or config.get_cwd()
       deck.start(require('deck.builtin.source.git')({
-        cwd = config.get_cwd(),
+        cwd = cwd,
       }))
     end)
 

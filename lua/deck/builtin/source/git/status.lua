@@ -61,7 +61,7 @@ return function(option)
         end,
         execute = function(ctx)
           for _, item in ipairs(ctx.get_action_items()) do
-            if item.data.type ~= 'untracked' or item.data.type ~= 'ignored' then
+            if item.data.type ~= 'untracked' and item.data.type ~= 'ignored' then
               git
                   :vimdiff({
                     filename = item.data.filename,

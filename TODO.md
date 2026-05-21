@@ -1,0 +1,13 @@
+# TODO
+
+- fix `git.status.stash` to bundle multiple selected files into a single stash instead of one stash per file
+- add stash message input to `git.status.stash`
+- add `git.log.cherry_pick` action
+- improve `git.branch.rebase_onto` old-base selection using a switch source (branch picker vs log picker) once switch source is implemented
+- implement per-item actions: items can carry their own actions that take priority over source-level actions
+- implement switch source: a meta-source that shows switcher items at the top and replaces its items when a mode is selected (requires per-item actions)
+- add `git.log.copy_hash` action to copy commit hash to clipboard
+- allow `git.branch.fetch` to operate on multiple selected items (currently resolve requires exactly 1 item)
+- add staged/unstaged toggle action to `git.status` (instead of separate `add` and `reset` actions)
+- add merge continuation menu item in git launcher: detect `.git/MERGE_HEAD` and show a commit item (same pattern as rebase continue/skip/abort)
+- investigate possible bug: diff path from `git.log` / `git.file` may not be correctly passed through when opening changeset

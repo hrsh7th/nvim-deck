@@ -309,4 +309,28 @@ function x.get_bufnr_from_filename(filename)
   return nil
 end
 
+---Stable sort. comp returns true (a<b), false (a>b), or nil (equal → preserve original order).
+---@generic T
+---@param t T[]
+---@param comp fun(a: T, b: T): boolean?
+---@return T[]
+function x.stable_sort(t, comp)
+  local indices = {}
+  for i = 1, #t do
+    indices[i] = i
+  end
+  table.sort(indices, function(a, b)
+    local result = comp(t[a], t[b])
+    if result == nil then
+      return a < b
+    end
+    return result
+  end)
+  local sorted = {}
+  for _, idx in ipairs(indices) do
+    sorted[#sorted + 1] = t[idx]
+  end
+  return sorted
+end
+
 return x

@@ -29,6 +29,23 @@ end
 local Git = {}
 Git.__index = Git
 
+---Resolve the actual git directory.
+---In a linked worktree `.git` is a file pointing to the real git dir.
+---@return string
+function Git:get_git_dir()
+  local git_path = vim.fs.joinpath(self.cwd, '.git')
+  if vim.fn.isdirectory(git_path) == 1 then
+    return git_path
+  end
+  local line = vim.fn.readfile(git_path)[1] or ''
+  local ref = line:match('^gitdir:%s*(.-)%s*$')
+  if ref then
+    local git_dir = ref:sub(1, 1) == '/' and ref or vim.fs.joinpath(self.cwd, ref)
+    return vim.fs.normalize(git_dir)
+  end
+  return git_path
+end
+
 ---Create Git.
 ---@param dir string
 ---@param option? { commit_message_sep?: string }
@@ -114,7 +131,7 @@ function Git:branch()
         '--all',
         '--sort=-committerdate',
         '--sort=refname:rstrip=-2',
-        '--format=%(HEAD)%00%(refname:rstrip=-2)%00%(refname)%00%(push)%00%(push:remotename)%00%(push:track)%00%(push:trackshort)%00%(subject)%00%(worktreepath)' ..
+        '--format=%(HEAD)%00%(refname:rstrip=-2)%00%(refname)%00%(upstream)%00%(upstream:remotename)%00%(upstream:track)%00%(upstream:trackshort)%00%(subject)%00%(worktreepath)' ..
         ('%00'):rep(sep_count),
       }, {
         buffering = System.DelimiterBuffering.new({ delimiter = ('\0'):rep(sep_count) .. '\n' }),
@@ -153,59 +170,67 @@ end
 
 ---Get worktree list.
 ---@class deck.x.Git.Worktree
----@field main boolean
 ---@field path string
----@field head? string
----@field branch? string
----@field bare boolean
----@field detached boolean
----@field locked boolean
----@field prunable boolean
+---@field head string
+---@field head_short string
+---@field branch string?
+---@field is_main boolean
+---@field is_current boolean
+---@field is_bare boolean
+---@field is_detached boolean
+---@field is_locked boolean
+---@field is_prunable boolean
 ---@return deck.kit.Async.AsyncTask
-function Git:worktree_list()
+function Git:worktree()
+  local cwd = vim.fs.normalize(self.cwd)
   return self
-    :exec({
-      'git',
-      'worktree',
-      'list',
-      '--porcelain',
-      '-z',
-    }, {
-      buffering = System.DelimiterBuffering.new({ delimiter = '\0\0' }),
-    })
-    :next(function(out)
-      local items = {}
-      for i, text in ipairs(out.stdout) do
-        local item ---@type deck.x.Git.Worktree
-        for line in vim.gsplit(text, '\0') do
-          local key, value = string.match(line, '([^ ]+) ?(.*)')
-          if key == 'worktree' then
-            item = {
-              main = i == 1,
-              path = value,
-              bare = false,
-              detached = false,
-              locked = false,
-              prunable = false,
-            }
-          elseif key == 'HEAD' then
-            item.head = value
-          elseif key == 'branch' then
-            item.branch = string.gsub(value, '^refs/heads/', '')
-          elseif key == 'bare' then
-            item.bare = true
-          elseif key == 'detached' then
-            item.detached = true
-          elseif key == 'locked' then
-            item.locked = true
-          elseif key == 'prunable' then
-            item.prunable = true
+      :exec({
+        'git',
+        'worktree',
+        'list',
+        '--porcelain',
+        '-z',
+      }, {
+        buffering = System.DelimiterBuffering.new({ delimiter = '\0\0' }),
+      })
+      :next(function(out)
+        local items = {}
+        for i, text in ipairs(out.stdout) do
+          local item ---@type deck.x.Git.Worktree
+          for line in vim.gsplit(text, '\0') do
+            local key, value = string.match(line, '([^ ]+) ?(.*)')
+            if key == 'worktree' then
+              local path = vim.fs.normalize(value)
+              item = {
+                path = path,
+                head = '',
+                head_short = '',
+                is_main = i == 1,
+                is_current = path == cwd,
+                is_bare = false,
+                is_detached = false,
+                is_locked = false,
+                is_prunable = false,
+              }
+            elseif key == 'HEAD' then
+              item.head = value
+              item.head_short = value:sub(1, 7)
+            elseif key == 'branch' then
+              item.branch = string.gsub(value, '^refs/heads/', '')
+            elseif key == 'bare' then
+              item.is_bare = true
+            elseif key == 'detached' then
+              item.is_detached = true
+            elseif key == 'locked' then
+              item.is_locked = true
+            elseif key == 'prunable' then
+              item.is_prunable = true
+            end
           end
+          table.insert(items, item)
         end
-        table.insert(items, item)
-      end
-      return items
-    end)
+        return items
+      end)
 end
 
 ---Get status.
@@ -614,7 +639,7 @@ function Git:commit(params, callbacks)
     end
 
     -- open commit tab.
-    vim.cmd.tabedit(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'))
+    vim.cmd.tabedit(vim.fs.joinpath(self:get_git_dir(), 'COMMIT_EDITMSG'))
     local bufnr = vim.api.nvim_get_current_buf()
     vim.api.nvim_set_option_value('swapfile', false, { buf = bufnr })
     vim.api.nvim_set_option_value('filetype', 'gitcommit', { buf = bufnr })
@@ -637,7 +662,7 @@ function Git:commit(params, callbacks)
             :await().stdout
 
         local s = vim.uv.hrtime() / 1e6
-        while IO.exists(vim.fs.joinpath(self.cwd, '.git', 'index.lock')):await() do
+        while IO.exists(vim.fs.joinpath(self:get_git_dir(), 'index.lock')):await() do
           local n = vim.uv.hrtime() / 1e6
           if n - s > 1000 then
             break
@@ -707,19 +732,19 @@ function Git:commit(params, callbacks)
               close_callback_once()
               vim.api.nvim_buf_delete(bufnr, { force = true })
 
-              IO.cp(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'),
-                vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG')):await()
+              IO.cp(vim.fs.joinpath(self:get_git_dir(), 'COMMIT_EDITMSG'),
+                vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG')):await()
               self
                   :exec_print(kit.concat({
                     'git',
                     'commit',
                     params.amend and '--amend' or nil,
                     '--file',
-                    vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
+                    vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG'),
                     '--',
                   }, filenames))
                   :await()
-              IO.rm(vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
+              IO.rm(vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
               callbacks.commit()
             else
               notify.add_message('default', {
@@ -750,7 +775,7 @@ function Git:push(params)
           :exec_print({
             'git',
             'push',
-            params.force and '--force' or nil,
+            params.force and '--force-with-lease' or nil,
             params.branch.remotename,
             params.branch.name,
           })
@@ -769,7 +794,7 @@ function Git:push(params)
             :exec_print({
               'git',
               'push',
-              params.force and '--force' or nil,
+              params.force and '--force-with-lease' or nil,
               '--set-upstream',
               remotes[1].name,
               params.branch.name,
@@ -791,7 +816,7 @@ function Git:push(params)
             :exec_print({
               'git',
               'push',
-              params.force and '--force' or nil,
+              params.force and '--force-with-lease' or nil,
               '--set-upstream',
               remote.name,
               params.branch.name,

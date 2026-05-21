@@ -261,7 +261,7 @@ function Buffer:_step_filter()
   if self._query == '' then
     self._cursor_filtered = #self._items
   else
-    local checker = self:_interrupt_checker(config.filter_batch_size, config.filter_bugdet_ms)
+    local checker = self._interrupt_checker(config.filter_batch_size, config.filter_bugdet_ms)
     for i = self._cursor_filtered + 1, #self._items do
       local item = self._items[i]
       if not item[symbols.query_unmatch] or not vim.startswith(self._query, item[symbols.query_unmatch] or '') then
@@ -370,7 +370,7 @@ function Buffer:_step_render()
   end
 
   -- rendering.
-  local checker = self:_interrupt_checker(config.render_batch_size, config.render_bugdet_ms)
+  local checker = self._interrupt_checker(config.render_batch_size, config.render_bugdet_ms)
   kit.clear(rendering_lines)
   for item, i in self:iter_filtered_items(self._cursor_rendered + 1) do
     self._cursor_rendered = i
@@ -415,7 +415,7 @@ end
 ---@param batch_size integer
 ---@param budget_ms integer
 ---@return fun(): boolean
-function Buffer:_interrupt_checker(batch_size, budget_ms)
+function Buffer._interrupt_checker(batch_size, budget_ms)
   local start_ms = now_ms()
   local count = 0
   return function()

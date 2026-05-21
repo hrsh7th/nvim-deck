@@ -360,6 +360,15 @@ source = setmetatable({
               if vim.fn.isdirectory(new_cwd) == 1 and new_cwd ~= state:get_root().path then
                 state = State.new(new_cwd, state:get_config())
                 ctx.execute()
+                if new_cwd ~= '/' then
+                  for _, win in ipairs(vim.api.nvim_list_wins()) do
+                    if vim.api.nvim_win_get_buf(win) == ctx.buf then
+                      vim.api.nvim_win_call(win, function()
+                        vim.cmd.lcd(vim.fn.fnameescape(new_cwd))
+                      end)
+                    end
+                  end
+                end
               end
             end
           end))

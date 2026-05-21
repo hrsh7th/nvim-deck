@@ -92,7 +92,6 @@ local function walk(root_dir, ignore_globs, ctx)
         if ignore_glob:match(entry.path) then
           return IO.WalkStatus.SkipDir
         end
-        return
       end
     end
 
