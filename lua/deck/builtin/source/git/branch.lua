@@ -78,19 +78,19 @@ local function source(option)
           if #ctx.get_action_items() > 1 then
             return false
           end
-          local item = ctx.get_cursor_item()
-          if not item then
-            return false
-          end
-          return item.data.upstream
+          return ctx.get_cursor_item() ~= nil
         end,
         execute = function(ctx)
           Async.run(function()
             local item = ctx.get_cursor_item()
             if item then
               local remotes = git:remote():await() --[=[@type deck.x.Git.Remote[]]=]
+              local target_remotename = item.data.remotename
+              if not target_remotename and remotes[1] then
+                target_remotename = remotes[1].name
+              end
               for _, remote in ipairs(remotes) do
-                if remote.name == item.data.remotename then
+                if remote.name == target_remotename then
                   local browser_url = Git.to_browser_url(remote.fetch_url)
                   if browser_url then
                     vim.ui.open(('%s/tree/%s'):format(browser_url, item.data.name))
@@ -240,6 +240,56 @@ local function source(option)
             end
             ctx.execute()
           end)
+        end,
+      },
+      {
+        name = 'git.branch.rebase_onto',
+        resolve = function(ctx)
+          return #ctx.get_action_items() == 1
+        end,
+        execute = function(rebase_ctx)
+          local item = rebase_ctx.get_action_items()[1]
+          local new_base
+          if item.data.remote then
+            new_base = ('%s/%s'):format(item.data.remotename, item.data.name)
+          else
+            new_base = item.data.name
+          end
+          require('deck').start(
+            require('deck.builtin.source.git.branch')({ cwd = option.cwd }),
+            {
+              view = function()
+                return require('deck.builtin.view.float_picker')({ title = (' rebase --onto %s | old base: '):format(new_base) })
+              end,
+              actions = {
+                {
+                  name = 'default',
+                  resolve = function(ctx)
+                    return #ctx.get_action_items() == 1
+                  end,
+                  execute = function(old_base_ctx)
+                    old_base_ctx.hide()
+                    Async.run(function()
+                      local old_base_item = old_base_ctx.get_cursor_item()
+                      if not old_base_item then return end
+                      local old_base
+                      if old_base_item.data.remote then
+                        old_base = ('%s/%s'):format(old_base_item.data.remotename, old_base_item.data.name)
+                      else
+                        old_base = old_base_item.data.name
+                      end
+                      if item.data.remote then
+                        git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
+                      end
+                      git:exec_print({ 'git', 'rebase', '--onto', new_base, old_base }):await()
+                      old_base_ctx.dispose()
+                      rebase_ctx.execute()
+                    end)
+                  end,
+                },
+              },
+            }
+          )
         end,
       },
       {
