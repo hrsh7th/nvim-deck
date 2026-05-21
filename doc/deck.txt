@@ -696,6 +696,20 @@ Show git status.
 <
 
 
+GIT.WORKTREE ~
+
+Show git worktree list.
+
+  Name   Type     Default   Description
+  ------ -------- --------- ------------------
+  cwd    string             Target git root.
+>lua
+    deck.start(require('deck.builtin.source.git.worktree')({
+      cwd = vim.fn.getcwd(),
+    }))
+<
+
+
 GREP ~
 
 Grep files under specified root directory. (required `ripgrep`)

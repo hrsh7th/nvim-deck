@@ -645,6 +645,20 @@ deck.start(require('deck.builtin.source.git.status')({
 }))
 ```
 
+### git.worktree
+
+Show git worktree list.
+
+| Name | Type   | Default | Description      |
+| ---- | ------ | ------- | ---------------- |
+| cwd  | string |         | Target git root. |
+
+```lua
+deck.start(require('deck.builtin.source.git.worktree')({
+  cwd = vim.fn.getcwd(),
+}))
+```
+
 ### grep
 
 Grep files under specified root directory. (required `ripgrep`)
