@@ -64,6 +64,18 @@ return function(option)
 
         table.insert(menu, {
           columns = {
+            'worktree',
+            { 'show worktrees', 'Comment' },
+          },
+          execute = function()
+            require('deck').start(require('deck.builtin.source.git.worktree')({
+              cwd = option.cwd,
+            }))
+          end,
+        })
+
+        table.insert(menu, {
+          columns = {
             'log',
             { 'show logs', 'Comment' },
           },

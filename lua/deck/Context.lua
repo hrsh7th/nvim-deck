@@ -575,9 +575,7 @@ function Context.create(id, source, start_config, prev)
 
     ---Get cursor item.
     get_cursor_item = function()
-      for item in buffer:iter_rendered_items(state.cursor, state.cursor) do
-        return item
-      end
+      return buffer:iter_rendered_items(state.cursor, state.cursor)()
     end,
 
     ---Get action items.

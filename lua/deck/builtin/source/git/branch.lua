@@ -2,12 +2,17 @@ local x = require('deck.x')
 local notify = require('deck.notify')
 local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
+local misc = require('deck.builtin.source.git.misc')
 
 ---@param branch deck.x.Git.Branch
 ---@return string
 local function get_branch_label(branch)
-  return branch.remote and ('(remote) %s/%s'):format(branch.remotename, branch.name) or branch.name
+  if branch.remote then
+    return ('(remote) %s/%s'):format(branch.remotename, branch.name)
+  end
+  return branch.name
 end
+
 
 --[=[@doc
   category = "source"
@@ -24,7 +29,7 @@ end
   type = "string"
   desc = "Target git root."
 ]=]
----@param option { cwd: string }
+---@param option { cwd: string, filter?: fun(branch: deck.x.Git.Branch): boolean, sort?: fun(a: deck.x.Git.Branch, b: deck.x.Git.Branch): boolean }
 local function source(option)
   local git = Git.new(option.cwd)
   ---@type deck.Source
@@ -33,10 +38,17 @@ local function source(option)
     execute = function(ctx)
       Async.run(function()
         local branches = git:branch():await() ---@type deck.x.Git.Branch[]
+        if option.filter then
+          branches = vim.tbl_filter(option.filter, branches)
+        end
+        if option.sort then
+          branches = x.stable_sort(branches, option.sort)
+        end
         local display_texts, highlights = x.create_aligned_display_texts(branches, function(branch)
           return {
-            branch.current and '*' or branch.worktree and '+' or ' ',
+            branch.current and '*' or ' ',
             get_branch_label(branch),
+            branch.worktree and '+' or ' ',
             branch.trackshort or '',
             branch.upstream or '',
             branch.subject or '',
@@ -54,7 +66,7 @@ local function source(option)
       end)
     end,
     actions = {
-      require('deck').alias_action('default', 'git.branch.worktree_cd'),
+      require('deck').alias_action('default', 'git.branch.worktree.tcd'),
       require('deck').alias_action('default', 'git.branch.checkout'),
       require('deck').alias_action('delete', 'git.branch.delete'),
       require('deck').alias_action('create', 'git.branch.create'),
@@ -108,29 +120,33 @@ local function source(option)
         end,
       },
       {
-        name = 'git.branch.worktree_cd',
+        name = 'git.branch.worktree.create',
         resolve = function(ctx)
           if #ctx.get_action_items() ~= 1 then
             return false
           end
           local item = ctx.get_cursor_item()
-          return item and item.data.worktree ~= nil
+          return item and (item.data.remote or item.data.worktree == nil)
         end,
         execute = function(ctx)
-          local item = assert(ctx.get_cursor_item())
-          if vim.fn.isdirectory(item.data.worktree) ~= 1 then
-            notify.add_message('default', {
-              { { ('%q is registered as a worktree but not a directory'):format(item.data.worktree), 'WarningMsg' } },
-            })
+          Async.run(function()
+            local branch = assert(ctx.get_cursor_item()).data ---@type deck.x.Git.Branch
+
+            local worktree_path = vim.fn.input('worktree path: ', misc.get_default_worktree_path(git.cwd, branch.name))
+            if worktree_path == '' then
+              return
+            end
+
+            local ref
+            if branch.remote then
+              git:exec_print({ 'git', 'fetch', branch.remotename, branch.name }):await()
+              ref = ('%s/%s'):format(branch.remotename, branch.name)
+            else
+              ref = branch.name
+            end
+            git:exec_print({ 'git', 'worktree', 'add', worktree_path, ref }):await()
             ctx.execute()
-            return
-          end
-          ctx.dispose()
-          vim.cmd.tcd(item.data.worktree)
-          notify.add_message('default', {
-            { { (':tcd %s'):format(item.data.worktree), 'ModeMsg' } },
-          })
-          require('deck').start(source({ cwd = item.data.worktree }), ctx.get_config())
+          end)
         end,
       },
       {
@@ -240,8 +256,26 @@ local function source(option)
       },
       {
         name = 'git.branch.create',
+        resolve = function(ctx)
+          return #ctx.get_action_items() == 1
+        end,
         execute = function(ctx)
-          git:exec_print({ 'git', 'branch', vim.fn.input('name: ') }):next(function()
+          Async.run(function()
+            local branch = assert(ctx.get_cursor_item()).data ---@type deck.x.Git.Branch
+            local base
+            if branch.remote then
+              base = ('%s/%s'):format(branch.remotename, branch.name)
+            else
+              base = branch.name
+            end
+            local name = vim.fn.input(('branching from: %s\nnew branch name: '):format(base))
+            if name == '' then
+              return
+            end
+            if branch.remote then
+              git:exec_print({ 'git', 'fetch', branch.remotename, branch.name }):await()
+            end
+            git:exec_print({ 'git', 'branch', name, base }):await()
             ctx.execute()
           end)
         end,
@@ -269,37 +303,93 @@ local function source(option)
       },
       {
         name = 'git.branch.delete',
+        resolve = function(ctx)
+          local items = ctx.get_action_items()
+          if #items == 0 then
+            return false
+          end
+          for _, item in ipairs(items) do
+            if item.data.current then
+              return false
+            end
+          end
+          return true
+        end,
         execute = function(ctx)
           Async.run(function()
-            if x.confirm(
-                  kit.concat(
-                    { 'Delete branches?' },
-                    vim.iter(ctx.get_action_items()):map(function(item)
-                      return ('  - %s'):format(get_branch_label(item.data))
-                    end):totable() --[[@as deck.x.Git.Branch]]
-                  )
-                )
-            then
-              for _, branch in ipairs(ctx.get_action_items()) do
-                if not branch.data.current and not branch.data.worktree then
-                  if branch.data.remote then
-                    git
-                        :exec_print({
-                          'git',
-                          'push',
-                          branch.data.remotename,
-                          '--delete',
-                          branch.data.name,
-                        })
-                        :await()
+            local worktrees = git:worktree():await() ---@type deck.x.Git.Worktree[]
+            local worktree_by_branch = {}
+            for _, wt in ipairs(worktrees) do
+              if wt.branch then
+                worktree_by_branch[wt.branch] = wt
+              end
+            end
+
+            local deletables = {} ---@type deck.x.Git.Branch[]
+            local prompt = { 'Delete branches?' }
+            for _, item in ipairs(ctx.get_action_items()) do
+              local branch = item.data ---@type deck.x.Git.Branch
+              local wt = worktree_by_branch[branch.name]
+              if wt then
+                if wt.is_main then
+                  notify.add_message('default', {
+                    { { ('Cannot delete %q: used by main worktree'):format(branch.name), 'WarningMsg' } },
+                  })
+                elseif wt.is_locked then
+                  notify.add_message('default', {
+                    { { ('Cannot delete %q: worktree is locked'):format(branch.name), 'WarningMsg' } },
+                  })
+                else
+                  local out = git:exec({ 'git', '-C', wt.path, 'status', '--porcelain' }):await()
+                  if out.stdout[1] then
+                    notify.add_message('default', {
+                      { { ('Cannot delete %q: worktree has uncommitted changes'):format(branch.name), 'WarningMsg' } },
+                    })
                   else
-                    git:exec_print({ 'git', 'branch', '-D', branch.data.name }):await()
+                    table.insert(deletables, branch)
+                    table.insert(prompt, ('  - %s (worktree: %s)'):format(get_branch_label(branch), wt.path))
                   end
                 end
+              else
+                table.insert(deletables, branch)
+                table.insert(prompt, ('  - %s'):format(get_branch_label(branch)))
               end
-              ctx.execute()
             end
+
+            if #deletables == 0 or not x.confirm(prompt) then
+              return
+            end
+
+            for _, branch in ipairs(deletables) do
+              if branch.remote then
+                git:exec_print({ 'git', 'push', branch.remotename, '--delete', branch.name }):await()
+              else
+                local wt = worktree_by_branch[branch.name]
+                if wt then
+                  git:exec_print({ 'git', 'worktree', 'remove', '--force', wt.path }):await()
+                end
+                git:exec_print({ 'git', 'branch', '-D', branch.name }):await()
+              end
+            end
+            ctx.execute()
           end)
+        end,
+      },
+      {
+        name = 'git.branch.worktree.tcd',
+        resolve = function(ctx)
+          if #ctx.get_action_items() ~= 1 then
+            return false
+          end
+          local item = ctx.get_cursor_item()
+          return item ~= nil and item.data.worktree ~= nil
+        end,
+        execute = function(ctx)
+          local item = assert(ctx.get_cursor_item())
+          vim.cmd.tcd(vim.fn.fnameescape(item.data.worktree))
+          require('deck').start(require('deck.builtin.source.git')({
+            cwd = item.data.worktree,
+          }))
         end,
       },
       {
