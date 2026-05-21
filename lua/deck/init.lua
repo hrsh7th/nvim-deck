@@ -343,7 +343,6 @@ function deck.start(sources, start_config_specifier)
     start_config_specifier or {},
     internal.config.default_start_config or {}
   ) --[[@as deck.StartConfig]])
-  start_config.name = start_config.name or source.name
 
   -- get previous context.
   local prev = nil
@@ -359,6 +358,7 @@ function deck.start(sources, start_config_specifier)
       buf = vim.api.nvim_get_current_buf(),
     }
   end
+  start_config.name = start_config.name or source.name
 
   -- create context.
   local context = Context.create(kit.unique_id(), source, start_config, prev)

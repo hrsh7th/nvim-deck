@@ -464,6 +464,9 @@ action.choose_action = {
       }),
       {
         history = false,
+        view = function()
+          return require('deck.builtin.view.float_picker')({})
+        end,
       }
     )
   end,

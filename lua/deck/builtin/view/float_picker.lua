@@ -1,3 +1,4 @@
+local x = require('deck.x')
 local Keymap = require('deck.kit.Vim.Keymap')
 local Context = require('deck.Context')
 
@@ -47,19 +48,28 @@ return function(option)
         local row = math.floor((vim.o.lines - height) / 2)
         local col = math.floor((vim.o.columns - width) / 2)
 
-        state.win = vim.api.nvim_open_win(ctx.buf, true, {
-          noautocmd = true,
-          relative = 'editor',
-          width = width,
-          height = height,
-          row = row,
-          col = col,
-          style = 'minimal',
-          border = 'rounded',
-          title = option.title,
-          title_pos = option.title and 'center' or nil,
-          zindex = 50,
-        })
+        state.win = x.ensure_win('deck.builtin.view.float_picker', function()
+          return vim.api.nvim_open_win(ctx.buf, true, {
+            noautocmd = true,
+            relative = 'editor',
+            width = width,
+            height = height,
+            row = row,
+            col = col,
+            style = 'minimal',
+            border = 'rounded',
+            title = option.title,
+            title_pos = option.title and 'center' or nil,
+            zindex = 50,
+          })
+        end, function(win)
+          vim.api.nvim_set_current_win(win)
+          vim.api.nvim_win_set_buf(win, ctx.buf)
+          vim.api.nvim_win_set_config(win, {
+            title = option.title,
+            title_pos = option.title and 'center' or nil,
+          })
+        end)
 
         vim.api.nvim_set_option_value('wrap', false, { win = state.win })
         vim.api.nvim_set_option_value('number', false, { win = state.win })
@@ -87,6 +97,12 @@ return function(option)
           ctx.count_items(),
           is_running and (' %s'):format(spinner.get()) or ''
         ), { win = state.win })
+      end))
+
+      table.insert(state.disposes, x.autocmd('WinLeave', function()
+        if vim.api.nvim_get_current_win() == state.win then
+          ctx.hide()
+        end
       end))
     end,
 
