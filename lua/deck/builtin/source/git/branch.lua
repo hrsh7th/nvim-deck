@@ -29,7 +29,7 @@ end
   type = "string"
   desc = "Target git root."
 ]=]
----@param option { cwd: string, filter?: fun(branch: deck.x.Git.Branch): boolean, sort?: fun(a: deck.x.Git.Branch, b: deck.x.Git.Branch): boolean }
+---@param option { cwd: string, filter?: (fun(branch: deck.x.Git.Branch): boolean), sort?: fun(a: deck.x.Git.Branch, b: deck.x.Git.Branch): boolean }
 local function source(option)
   local git = Git.new(option.cwd)
   ---@type deck.Source
@@ -271,17 +271,21 @@ local function source(option)
                     old_base_ctx.hide()
                     Async.run(function()
                       local old_base_item = old_base_ctx.get_cursor_item()
-                      if not old_base_item then return end
-                      local old_base
-                      if old_base_item.data.remote then
-                        old_base = ('%s/%s'):format(old_base_item.data.remotename, old_base_item.data.name)
-                      else
-                        old_base = old_base_item.data.name
+                      if not old_base_item then
+                        return
                       end
+
+                      local old_base_name
+                      if old_base_item.data.remote then
+                        old_base_name = ('%s/%s'):format(old_base_item.data.remotename, old_base_item.data.name)
+                      else
+                        old_base_name = old_base_item.data.name
+                      end
+
                       if item.data.remote then
                         git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
                       end
-                      git:exec_print({ 'git', 'rebase', '--onto', new_base, old_base }):await()
+                      git:exec_print({ 'git', 'rebase', '--onto', new_base, old_base_name }):await()
                       old_base_ctx.dispose()
                       rebase_ctx.execute()
                     end)
@@ -300,19 +304,23 @@ local function source(option)
         execute = function(ctx)
           Async.run(function()
             local branch = assert(ctx.get_cursor_item()).data ---@type deck.x.Git.Branch
+
             local base
             if branch.remote then
               base = ('%s/%s'):format(branch.remotename, branch.name)
             else
               base = branch.name
             end
+
             local name = vim.fn.input(('branching from: %s\nnew branch name: '):format(base))
             if name == '' then
               return
             end
+
             if branch.remote then
               git:exec_print({ 'git', 'fetch', branch.remotename, branch.name }):await()
             end
+
             git:exec_print({ 'git', 'branch', name, base }):await()
             ctx.execute()
           end)
@@ -420,7 +428,7 @@ local function source(option)
             return false
           end
           local item = ctx.get_cursor_item()
-          return item ~= nil and item.data.worktree ~= nil
+          return item and item.data.worktree ~= nil
         end,
         execute = function(ctx)
           local item = assert(ctx.get_cursor_item())
