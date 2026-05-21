@@ -29,6 +29,23 @@ end
 local Git = {}
 Git.__index = Git
 
+---Resolve the actual git directory.
+---In a linked worktree `.git` is a file pointing to the real git dir.
+---@return string
+function Git:get_git_dir()
+  local git_path = vim.fs.joinpath(self.cwd, '.git')
+  if vim.fn.isdirectory(git_path) == 1 then
+    return git_path
+  end
+  local line = vim.fn.readfile(git_path)[1] or ''
+  local ref = line:match('^gitdir:%s*(.-)%s*$')
+  if ref then
+    local git_dir = ref:sub(1, 1) == '/' and ref or vim.fs.joinpath(self.cwd, ref)
+    return vim.fs.normalize(git_dir)
+  end
+  return git_path
+end
+
 ---Create Git.
 ---@param dir string
 ---@param option? { commit_message_sep?: string }
@@ -622,7 +639,7 @@ function Git:commit(params, callbacks)
     end
 
     -- open commit tab.
-    vim.cmd.tabedit(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'))
+    vim.cmd.tabedit(vim.fs.joinpath(self:get_git_dir(), 'COMMIT_EDITMSG'))
     local bufnr = vim.api.nvim_get_current_buf()
     vim.api.nvim_set_option_value('swapfile', false, { buf = bufnr })
     vim.api.nvim_set_option_value('filetype', 'gitcommit', { buf = bufnr })
@@ -645,7 +662,7 @@ function Git:commit(params, callbacks)
             :await().stdout
 
         local s = vim.uv.hrtime() / 1e6
-        while IO.exists(vim.fs.joinpath(self.cwd, '.git', 'index.lock')):await() do
+        while IO.exists(vim.fs.joinpath(self:get_git_dir(), 'index.lock')):await() do
           local n = vim.uv.hrtime() / 1e6
           if n - s > 1000 then
             break
@@ -715,19 +732,19 @@ function Git:commit(params, callbacks)
               close_callback_once()
               vim.api.nvim_buf_delete(bufnr, { force = true })
 
-              IO.cp(vim.fs.joinpath(self.cwd, '.git', 'COMMIT_EDITMSG'),
-                vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG')):await()
+              IO.cp(vim.fs.joinpath(self:get_git_dir(), 'COMMIT_EDITMSG'),
+                vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG')):await()
               self
                   :exec_print(kit.concat({
                     'git',
                     'commit',
                     params.amend and '--amend' or nil,
                     '--file',
-                    vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'),
+                    vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG'),
                     '--',
                   }, filenames))
                   :await()
-              IO.rm(vim.fs.joinpath(self.cwd, '.git', 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
+              IO.rm(vim.fs.joinpath(self:get_git_dir(), 'DECK_COMMIT_EDITMSG'), { recursive = false }):await()
               callbacks.commit()
             else
               notify.add_message('default', {
@@ -758,7 +775,7 @@ function Git:push(params)
           :exec_print({
             'git',
             'push',
-            params.force and '--force' or nil,
+            params.force and '--force-with-lease' or nil,
             params.branch.remotename,
             params.branch.name,
           })
@@ -777,7 +794,7 @@ function Git:push(params)
             :exec_print({
               'git',
               'push',
-              params.force and '--force' or nil,
+              params.force and '--force-with-lease' or nil,
               '--set-upstream',
               remotes[1].name,
               params.branch.name,
@@ -799,7 +816,7 @@ function Git:push(params)
             :exec_print({
               'git',
               'push',
-              params.force and '--force' or nil,
+              params.force and '--force-with-lease' or nil,
               '--set-upstream',
               remote.name,
               params.branch.name,

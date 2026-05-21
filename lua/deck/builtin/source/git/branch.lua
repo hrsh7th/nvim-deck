@@ -132,17 +132,22 @@ local function source(option)
           Async.run(function()
             local branch = assert(ctx.get_cursor_item()).data ---@type deck.x.Git.Branch
 
-            local worktree_path = vim.fn.input('worktree path: ', misc.get_default_worktree_path(git.cwd, branch.name))
+            local fetch_task
+            local ref
+            if branch.remote then
+              fetch_task = git:exec_print({ 'git', 'fetch', branch.remotename, branch.name })
+              ref = ('%s/%s'):format(branch.remotename, branch.name)
+            else
+              ref = branch.name
+            end
+
+            local worktree_path = vim.fn.input('worktree path: ', misc.get_default_worktree_path(git, branch.name))
             if worktree_path == '' then
               return
             end
 
-            local ref
-            if branch.remote then
-              git:exec_print({ 'git', 'fetch', branch.remotename, branch.name }):await()
-              ref = ('%s/%s'):format(branch.remotename, branch.name)
-            else
-              ref = branch.name
+            if fetch_task then
+              fetch_task:await()
             end
             git:exec_print({ 'git', 'worktree', 'add', worktree_path, ref }):await()
             ctx.execute()
@@ -174,14 +179,8 @@ local function source(option)
           Async.run(function()
             local item = ctx.get_action_items()[1]
             if item.data.remote then
-              git
-                  :exec_print({
-                    'git',
-                    'merge',
-                    '--ff-only',
-                    ('%s/%s'):format(item.data.remotename, item.data.name),
-                  })
-                  :await()
+              git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
+              git:exec_print({ 'git', 'merge', '--ff-only', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
             else
               git:exec_print({ 'git', 'merge', '--ff-only', item.data.name }):await()
             end
@@ -198,14 +197,8 @@ local function source(option)
           Async.run(function()
             local item = ctx.get_action_items()[1]
             if item.data.remote then
-              git
-                  :exec_print({
-                    'git',
-                    'merge',
-                    '--no-ff',
-                    ('%s/%s'):format(item.data.remotename, item.data.name),
-                  })
-                  :await()
+              git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
+              git:exec_print({ 'git', 'merge', '--no-ff', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
             else
               git:exec_print({ 'git', 'merge', '--no-ff', item.data.name }):await()
             end
@@ -222,14 +215,8 @@ local function source(option)
           Async.run(function()
             local item = ctx.get_action_items()[1]
             if item.data.remote then
-              git
-                  :exec_print({
-                    'git',
-                    'merge',
-                    '--squash',
-                    ('%s/%s'):format(item.data.remotename, item.data.name),
-                  })
-                  :await()
+              git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
+              git:exec_print({ 'git', 'merge', '--squash', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
             else
               git:exec_print({ 'git', 'merge', '--squash', item.data.name }):await()
             end
@@ -246,6 +233,7 @@ local function source(option)
           Async.run(function()
             local item = ctx.get_action_items()[1]
             if item.data.remote then
+              git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
               git:exec_print({ 'git', 'rebase', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
             else
               git:exec_print({ 'git', 'rebase', item.data.name }):await()

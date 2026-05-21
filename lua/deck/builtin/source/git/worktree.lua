@@ -74,16 +74,11 @@ return function(option)
           require('deck').start(
             require('deck.builtin.source.git.branch')({
               cwd = git.cwd,
-              sort = function(a, b)
-                if a.remote ~= b.remote then
-                  return a.remote
-                end
-                return nil
-              end,
+              filter = function(branch) return branch.remote end,
             }),
             {
               view = function()
-                return require('deck.builtin.view.float_picker')({ title = ' Create Worktree ' })
+                return require('deck.builtin.view.float_picker')({ title = ' Select Remote Branch ' })
               end,
               actions = {
                 {
@@ -96,33 +91,27 @@ return function(option)
                     Async.run(function()
                       local branch = branch_ctx.get_cursor_item().data ---@type deck.x.Git.Branch
 
-                      local local_name
-                      if branch.remote then
-                        git:exec_print({ 'git', 'fetch', branch.remotename, branch.name }):await()
-                        local_name = vim.fn.input(('branching from: %s/%s\nnew branch name: '):format(branch.remotename, branch.name), branch.name)
-                        if local_name == '' then
-                          return
-                        end
+                      local fetch_task = git:exec_print({ 'git', 'fetch', branch.remotename, branch.name })
+
+                      local local_name = vim.fn.input(('branching from: %s/%s\nnew branch name: '):format(branch.remotename, branch.name), branch.name)
+                      if local_name == '' then
+                        return
                       end
 
                       local worktree_path = vim.fn.input('worktree path: ',
-                        misc.get_default_worktree_path(git.cwd, local_name or branch.name))
+                        misc.get_default_worktree_path(git, local_name))
                       if worktree_path == '' then
                         return
                       end
 
-                      local command = { 'git', 'worktree', 'add' }
-                      if branch.remote then
-                        vim.list_extend(command, {
-                          '-b',
-                          local_name,
-                          worktree_path,
-                          ('%s/%s'):format(branch.remotename, branch.name),
-                        })
-                      else
-                        vim.list_extend(command, { worktree_path, branch.name })
-                      end
-                      git:exec_print(command):await()
+                      fetch_task:await()
+
+                      git:exec_print({
+                        'git', 'worktree', 'add',
+                        '-b', local_name,
+                        worktree_path,
+                        ('%s/%s'):format(branch.remotename, branch.name),
+                      }):await()
 
                       branch_ctx.dispose()
                       worktree_ctx.execute()
@@ -157,7 +146,7 @@ return function(option)
             return false
           end
           for _, item in ipairs(items) do
-            if item.data.is_main then
+            if item.data.is_main or item.data.is_current then
               return false
             end
           end
@@ -167,10 +156,13 @@ return function(option)
           Async.run(function()
             if
                 x.confirm(kit.concat(
-                  { 'Force delete worktrees?' },
+                  { 'Force delete worktrees and branches?' },
                   vim
                   .iter(ctx.get_action_items())
                   :map(function(item)
+                    if item.data.branch then
+                      return ('  - %s (branch: %s)'):format(item.data.path, item.data.branch)
+                    end
                     return ('  - %s'):format(item.data.path)
                   end)
                   :totable()
@@ -178,6 +170,9 @@ return function(option)
             then
               for _, item in ipairs(ctx.get_action_items()) do
                 git:exec_print({ 'git', 'worktree', 'remove', '--force', item.data.path }):await()
+                if item.data.branch then
+                  git:exec_print({ 'git', 'branch', '-D', item.data.branch }):await()
+                end
               end
               ctx.execute()
             end
