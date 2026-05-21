@@ -1,5 +1,4 @@
 local x = require('deck.x')
-local kit = require('deck.kit')
 local notify = require('deck.notify')
 local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
@@ -26,7 +25,7 @@ end
   desc = "Target git root."
 ]=]
 ---@param option { cwd: string }
-return function(option)
+local function source(option)
   local git = Git.new(option.cwd)
   ---@type deck.Source
   return {
@@ -36,7 +35,7 @@ return function(option)
         local branches = git:branch():await() ---@type deck.x.Git.Branch[]
         local display_texts, highlights = x.create_aligned_display_texts(branches, function(branch)
           return {
-            branch.current and '*' or ' ',
+            branch.current and '*' or branch.worktree and '+' or ' ',
             get_branch_label(branch),
             branch.trackshort or '',
             branch.upstream or '',
@@ -55,6 +54,7 @@ return function(option)
       end)
     end,
     actions = {
+      require('deck').alias_action('default', 'git.branch.worktree_cd'),
       require('deck').alias_action('default', 'git.branch.checkout'),
       require('deck').alias_action('delete', 'git.branch.delete'),
       require('deck').alias_action('create', 'git.branch.create'),
@@ -94,15 +94,43 @@ return function(option)
       {
         name = 'git.branch.checkout',
         resolve = function(ctx)
-          return #ctx.get_action_items() == 1
+          if #ctx.get_action_items() ~= 1 then
+            return false
+          end
+          local item = ctx.get_cursor_item()
+          return item and item.data.worktree == nil
         end,
         execute = function(ctx)
-          local item = ctx.get_cursor_item()
-          if item then
-            git:exec_print({ 'git', 'checkout', item.data.name }):next(function()
-              ctx.execute()
-            end)
+          local item = assert(ctx.get_cursor_item())
+          git:exec_print({ 'git', 'checkout', item.data.name }):next(function()
+            ctx.execute()
+          end)
+        end,
+      },
+      {
+        name = 'git.branch.worktree_cd',
+        resolve = function(ctx)
+          if #ctx.get_action_items() ~= 1 then
+            return false
           end
+          local item = ctx.get_cursor_item()
+          return item and item.data.worktree ~= nil
+        end,
+        execute = function(ctx)
+          local item = assert(ctx.get_cursor_item())
+          if vim.fn.isdirectory(item.data.worktree) ~= 1 then
+            notify.add_message('default', {
+              { { ('%q is registered as a worktree but not a directory'):format(item.data.worktree), 'WarningMsg' } },
+            })
+            ctx.execute()
+            return
+          end
+          ctx.dispose()
+          vim.cmd.tcd(item.data.worktree)
+          notify.add_message('default', {
+            { { (':tcd %s'):format(item.data.worktree), 'ModeMsg' } },
+          })
+          require('deck').start(source({ cwd = item.data.worktree }), ctx.get_config())
         end,
       },
       {
@@ -253,7 +281,7 @@ return function(option)
                 )
             then
               for _, branch in ipairs(ctx.get_action_items()) do
-                if not branch.data.current then
+                if not branch.data.current and not branch.data.worktree then
                   if branch.data.remote then
                     git
                         :exec_print({
@@ -324,3 +352,5 @@ return function(option)
     },
   }
 end
+
+return source
