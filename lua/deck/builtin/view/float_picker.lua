@@ -11,7 +11,7 @@ local function is_valid_win(win)
   return vim.api.nvim_win_is_valid(win)
 end
 
----@param option { title?: string, width?: integer, height?: integer }
+---@param option { title?: string, width_ratio?: number, height_ratio?: number, preview_width_ratio?: number }
 ---@return deck.View
 return function(option)
   option = option or {}
@@ -20,6 +20,9 @@ return function(option)
 
   local state = {
     win = nil, --[[@type integer?]]
+    win_row = nil, --[[@type integer?]]
+    win_col = nil, --[[@type integer?]]
+    win_height = nil, --[[@type integer?]]
     disposes = {}, --[[@type fun()[] ]]
   }
 
@@ -43,10 +46,24 @@ return function(option)
       if not view.is_visible(ctx) then
         ctx.sync()
 
-        local width = math.min(option.width or math.floor(vim.o.columns * 0.6), vim.o.columns - 4)
-        local height = math.min(option.height or math.floor(vim.o.lines * 0.4), vim.o.lines - 4)
+        local height = math.min(math.floor(vim.o.lines * (option.height_ratio or 0.4)), vim.o.lines - 4)
         local row = math.floor((vim.o.lines - height) / 2)
-        local col = math.floor((vim.o.columns - width) / 2)
+
+        local width, col
+        if option.preview_width_ratio then
+          -- Left-aligned: preview will be placed to the right in open_preview_win.
+          local preview_width = math.floor(vim.o.columns * option.preview_width_ratio)
+          width = math.max(10, vim.o.columns - preview_width - 5)
+          col = 1
+        else
+          -- Centered.
+          width = math.min(math.floor(vim.o.columns * (option.width_ratio or 0.6)), vim.o.columns - 4)
+          col = math.floor((vim.o.columns - width) / 2)
+        end
+
+        state.win_row = row
+        state.win_col = col
+        state.win_height = height
 
         state.win = x.ensure_win('deck.builtin.view.float_picker', function()
           return vim.api.nvim_open_win(ctx.buf, true, {
@@ -91,12 +108,15 @@ return function(option)
           return
         end
         local is_running = (ctx.get_status() ~= Context.Status.Success or ctx.is_filtering())
-        vim.api.nvim_set_option_value('statusline', ('[%s] %s/%s%s'):format(
-          ctx.name,
-          ctx.count_filtered_items(),
-          ctx.count_items(),
-          is_running and (' %s'):format(spinner.get()) or ''
-        ), { win = state.win })
+        vim.api.nvim_win_set_config(state.win, {
+          footer = (' [%s] %s/%s%s '):format(
+            ctx.name,
+            ctx.count_filtered_items(),
+            ctx.count_items(),
+            is_running and (' %s'):format(spinner.get()) or ''
+          ),
+          footer_pos = 'left',
+        })
       end))
 
       table.insert(state.disposes, x.autocmd('WinLeave', function()
@@ -121,7 +141,45 @@ return function(option)
 
     ---@return integer?
     open_preview_win = function()
-      return nil
+      if not is_valid_win(state.win) then
+        return nil
+      end
+
+      local win_config = vim.api.nvim_win_get_config(state.win)
+      local list_col = state.win_col
+      local list_row = state.win_row
+      local list_width = win_config.width
+      local list_height = state.win_height
+
+      local preview_col = list_col + list_width + 2
+      local preview_width = vim.o.columns - preview_col - 2
+
+      if preview_width < 10 then
+        return nil
+      end
+
+      local preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, {
+        noautocmd = true,
+        relative = 'editor',
+        width = preview_width,
+        height = list_height,
+        row = list_row,
+        col = preview_col,
+        style = 'minimal',
+        border = 'rounded',
+        zindex = 50,
+      })
+      vim.api.nvim_set_option_value('wrap', false, { win = preview_win })
+      vim.api.nvim_set_option_value(
+        'winhighlight',
+        'FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal',
+        { win = preview_win }
+      )
+      vim.api.nvim_set_option_value('number', true, { win = preview_win })
+      vim.api.nvim_set_option_value('numberwidth', 5, { win = preview_win })
+      vim.api.nvim_set_option_value('scrolloff', 0, { win = preview_win })
+
+      return preview_win
     end,
 
     ---@param ctx deck.Context

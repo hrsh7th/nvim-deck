@@ -566,6 +566,7 @@ function Context.create(id, source, start_config, prev)
 
       state.preview_mode = preview_mode
       redraw()
+      events.redraw_tick.emit(nil)
     end,
 
     ---Get preview mode.

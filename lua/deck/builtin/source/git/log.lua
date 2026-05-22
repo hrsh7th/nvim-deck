@@ -27,7 +27,7 @@ local Async = require('deck.kit.Async')
   type = "string[]?"
   desc = "Limit log to specific paths (files or directories)."
 ]=]
----@param option { cwd: string, max_count?: integer, paths?: string[] }
+---@param option { cwd: string, max_count?: integer, paths?: string[], rev_range?: string }
 return function(option)
   option.max_count = option.max_count or math.huge
 
@@ -44,7 +44,7 @@ return function(option)
           if ctx.aborted() then
             break
           end
-          local logs = git:log({ count = chunk, offset = offset, paths = option.paths }):await() ---@type deck.x.Git.Log[]
+          local logs = git:log({ count = chunk, offset = offset, paths = option.paths, rev_range = option.rev_range }):await() ---@type deck.x.Git.Log[]
           local display_texts, highlights = x.create_aligned_display_texts(logs, function(log)
             return {
               log.author_date,

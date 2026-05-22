@@ -420,7 +420,7 @@ end
 ---@field reflog_selector string
 ---@field reflog_selector_short string
 ---@field reflog_subject string
----@param params { count?: integer, offset?: integer, paths?: string[] }
+---@param params { count?: integer, offset?: integer, paths?: string[], rev_range?: string }
 ---@return deck.kit.Async.AsyncTask
 function Git:log(params)
   local sep_count = 12
@@ -430,6 +430,7 @@ function Git:log(params)
         'log',
         params.count and ('--max-count=%s'):format((params.count or 100) + 1),
         params.offset and ('--skip=%s'):format(params.offset),
+        params.rev_range,
         '--pretty=format:%H%x00%P%x00%an%x00%ae%x00%ai%x00%s%x00%b%x00%B%x00%gD%x00%gd%x00%gs' .. ('%x00'):rep(sep_count),
       }, params.paths and #params.paths > 0 and kit.concat({ '--' }, params.paths) or {}), {
         buffering = System.DelimiterBuffering.new({ delimiter = ('\0'):rep(sep_count) .. '\n' }),
