@@ -96,7 +96,7 @@ function easy.setup(config)
             },
           }),
         }, {
-          view = function()
+          get_view = function()
             return require('deck.builtin.view.drawer_picker')({ auto_resize = true, min_width = option.width })
           end,
           dedup = false,

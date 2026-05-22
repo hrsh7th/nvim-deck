@@ -77,7 +77,7 @@ return function(option)
               filter = function(branch) return branch.remote end,
             }),
             {
-              view = function()
+              get_view = function()
                 return require('deck.builtin.view.float_picker')({ title = ' Select Remote Branch ' })
               end,
               actions = {

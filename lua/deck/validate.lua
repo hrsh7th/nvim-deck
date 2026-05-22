@@ -23,8 +23,8 @@ end
 ---@param start_config deck.StartConfig
 ---@return deck.StartConfig
 function validate.start_config(start_config)
-  if type(start_config.view) ~= 'function' then
-    error('start_config.view must be function')
+  if type(start_config.get_view) ~= 'function' then
+    error('start_config.get_view must be function')
   end
   if type(start_config.matcher) ~= 'table' then
     error('start_config.matcher must be { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }')

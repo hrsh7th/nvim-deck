@@ -158,7 +158,8 @@ local Context = require('deck.Context')
 ---@doc.type
 ---@class deck.StartConfigSpecifier
 ---@field public name? string
----@field public view? fun(): deck.View
+---@field public get_view? fun(): deck.View
+---@field public view? fun(): deck.View @deprecated use get_view
 ---@field public matcher? deck.Matcher
 ---@field public history? boolean
 ---@field public actions? deck.Action[]
@@ -175,7 +176,7 @@ local Context = require('deck.Context')
 ---@doc.type
 ---@class deck.StartConfig: deck.StartConfigSpecifier
 ---@field public name string
----@field public view fun(): deck.View
+---@field public get_view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
 ---@field public performance deck.PerformanceConfig
@@ -190,12 +191,14 @@ local Context = require('deck.Context')
 ---@field public guicursor? string
 ---@field public max_history_size? integer
 ---@field public default_start_config? deck.StartConfigSpecifier
+---@field public get_choose_action_view? (fun(): deck.View)
 
 ---@doc.type
 ---@class deck.Config: deck.ConfigSpecifier
 ---@field public guicursor? string
 ---@field public max_history_size integer
 ---@field public default_start_config? deck.StartConfigSpecifier
+---@field public get_choose_action_view (fun(): deck.View)
 
 local internal = {
   ---@type integer
@@ -224,8 +227,13 @@ local internal = {
   ---@type deck.ConfigSpecifier
   config = {
     max_history_size = 5,
+    get_choose_action_view = function()
+      return require('deck.builtin.view.bottom_picker')({
+        max_height = math.floor(vim.o.lines * 0.25),
+      })
+    end,
     default_start_config = {
-      view = function()
+      get_view = function()
         return require('deck.builtin.view.bottom_picker')({
           max_height = math.floor(vim.o.lines * 0.25),
         })
@@ -298,6 +306,12 @@ function deck.setup(config)
     error('`default_start_config.name` must not be set globally.')
   end
 
+  if config.default_start_config and config.default_start_config.view and not config.default_start_config.get_view then
+    vim.notify_once('nvim-deck: default_start_config.view is deprecated, use get_view instead', vim.log.levels.WARN)
+    config.default_start_config.get_view = config.default_start_config.view
+    config.default_start_config.view = nil
+  end
+
   internal.config = kit.merge(kit.clone(config), internal.config)
 end
 
@@ -339,6 +353,13 @@ function deck.start(sources, start_config_specifier)
   local source = sources --[[@as deck.Source]]
 
   --- check start_config.
+  if start_config_specifier and start_config_specifier.view and not start_config_specifier.get_view then
+    vim.notify_once('nvim-deck: start_config.view is deprecated, use get_view instead', vim.log.levels.WARN)
+    start_config_specifier = vim.tbl_extend('force', start_config_specifier, {
+      get_view = start_config_specifier.view,
+      view = nil,
+    })
+  end
   local start_config = validate.start_config(kit.merge(
     start_config_specifier or {},
     internal.config.default_start_config or {}

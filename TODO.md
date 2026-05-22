@@ -12,3 +12,4 @@
 - add staged/unstaged toggle action to `git.status` (instead of separate `add` and `reset` actions)
 - add merge continuation menu item in git launcher: detect `.git/MERGE_HEAD` and show a commit item (same pattern as rebase continue/skip/abort)
 - investigate possible bug: diff path from `git.log` / `git.file` may not be correctly passed through when opening changeset
+- allow focusing the preview window to freely scroll its contents: currently preview closes when focus leaves any deck window, including the preview window itself; fix by tracking all deck-managed windows (picker + preview) via a shared `deck` window variable, and only closing preview when focus moves to a window outside the deck-managed set

@@ -97,7 +97,7 @@ Context.Status = {
 ---@param start_config deck.StartConfig
 ---@param prev? { win: integer, buf: integer }
 function Context.create(id, source, start_config, prev)
-  local view = start_config.view()
+  local view = start_config.get_view()
   local context ---@type deck.Context
   local namespace = vim.api.nvim_create_namespace(('deck.%s'):format(id))
 

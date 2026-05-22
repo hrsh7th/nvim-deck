@@ -8,7 +8,7 @@ end
 
 deck.setup({
   default_start_config = {
-    view = function()
+    get_view = function()
       return require('deck.builtin.view.bottom_picker')({
         max_height = vim.o.lines
       })

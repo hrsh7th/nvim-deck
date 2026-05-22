@@ -464,9 +464,7 @@ action.choose_action = {
       }),
       {
         history = false,
-        view = function()
-          return require('deck.builtin.view.float_picker')({})
-        end,
+        get_view = require('deck').get_config().get_choose_action_view,
       }
     )
   end,

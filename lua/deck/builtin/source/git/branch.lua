@@ -258,7 +258,7 @@ local function source(option)
           require('deck').start(
             require('deck.builtin.source.git.branch')({ cwd = option.cwd }),
             {
-              view = function()
+              get_view = function()
                 return require('deck.builtin.view.float_picker')({ title = (' rebase --onto %s | old base: '):format(new_base) })
               end,
               actions = {
