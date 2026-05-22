@@ -1202,6 +1202,7 @@ Start deck with given sources.
 ---@field public guicursor? string
 ---@field public max_history_size integer
 ---@field public default_start_config? deck.StartConfigSpecifier
+---@field public get_choose_action_view (fun(): deck.View)
 ```
 
 ```vimdoc
@@ -1213,6 +1214,7 @@ Start deck with given sources.
 ---@field public guicursor? string
 ---@field public max_history_size? integer
 ---@field public default_start_config? deck.StartConfigSpecifier
+---@field public get_choose_action_view? (fun(): deck.View)
 ```
 
 ```vimdoc
@@ -1412,7 +1414,7 @@ Start deck with given sources.
 ```lua
 ---@class deck.StartConfig: deck.StartConfigSpecifier
 ---@field public name string
----@field public view fun(): deck.View
+---@field public get_view fun(): deck.View
 ---@field public matcher deck.Matcher
 ---@field public history boolean
 ---@field public performance deck.PerformanceConfig
@@ -1430,7 +1432,8 @@ Start deck with given sources.
 ```lua
 ---@class deck.StartConfigSpecifier
 ---@field public name? string
----@field public view? fun(): deck.View
+---@field public get_view? fun(): deck.View
+---@field public view? fun(): deck.View @deprecated use get_view
 ---@field public matcher? deck.Matcher
 ---@field public history? boolean
 ---@field public actions? deck.Action[]
