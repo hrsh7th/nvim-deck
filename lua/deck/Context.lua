@@ -645,19 +645,28 @@ function Context.create(id, source, start_config, prev)
 
       -- config.
       for _, action in ipairs(start_config.actions or {}) do
-        action.desc = action.desc or 'start_config'
+        action.desc = action.desc or 'from start_config'
         table.insert(actions, action)
+      end
+
+      -- per-item actions.
+      local cursor_item = context.get_cursor_item()
+      if cursor_item then
+        for _, action in ipairs(cursor_item[symbols.item_actions] or {}) do
+          action.desc = action.desc or 'from item'
+          table.insert(actions, action)
+        end
       end
 
       -- source.
       for _, action in ipairs(source.actions or {}) do
-        action.desc = action.desc or source.name
+        action.desc = action.desc or ('from %s'):format(source.name)
         table.insert(actions, action)
       end
 
       -- global.
       for _, action in ipairs(require('deck').get_actions()) do
-        action.desc = action.desc or 'global'
+        action.desc = action.desc or 'from global'
         table.insert(actions, action)
       end
 
@@ -744,6 +753,13 @@ function Context.create(id, source, start_config, prev)
       end
 
       local previewers = {}
+
+      -- per-item previewers (highest priority).
+      for _, previewer in ipairs(get_sorted_previewers(item[symbols.item_previewers] or {})) do
+        if not previewer.resolve or previewer.resolve(context, item) then
+          table.insert(previewers, previewer)
+        end
+      end
 
       -- config.
       for _, previewer in ipairs(get_sorted_previewers(start_config.previewers or {})) do

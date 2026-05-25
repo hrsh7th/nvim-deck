@@ -270,7 +270,7 @@ require('deck').start({
 
 ### Action
 
-The action is typed as |deck.Action| and can be registered below three different
+The action is typed as |deck.Action| and can be registered below four different
 levels.
 
 1. _Config Action_ : Provided by a start configuration.
@@ -290,7 +290,28 @@ require('deck').start(some_of_the_source, {
 })
 ```
 
-2. _Source Action_ : Provided by a source.
+2. _Item Action_ : Carried by an individual item.
+
+Items can carry their own actions via the `actions` field of |deck.ItemSpecifier|.
+Item actions are derived from the cursor item and take priority over source-level
+and global actions.
+
+```lua
+ctx.item({
+  display_text = 'Special item',
+  data = {},
+  actions = {
+    {
+      name = 'default',
+      execute = function(ctx)
+        -- item-specific behavior
+      end,
+    },
+  },
+})
+```
+
+3. _Source Action_ : Provided by a source.
 
 This level of actions can be registered by `source.actions` field.
 
@@ -309,7 +330,7 @@ require('deck').start({
 })
 ```
 
-3. _Global Action_ : Registered globally.
+4. _Global Action_ : Registered globally.
 
 This level of actions can be registered by `deck.register_action()`.
 
@@ -327,7 +348,7 @@ require('deck').register_action({
 })
 ```
 
-Note: The same name actions are choosen in the order of 1 -> 2 -> 3.
+Note: The same name actions are chosen in the order of 1 -> 2 -> 3 -> 4.
 
 ### StartPreset
 
@@ -406,6 +427,25 @@ require('deck').register_previewer({
       vim.fn.termopen(('bat --color=always %s'):format(item.data.filename))
     end)
   end
+})
+```
+
+Items can also carry their own previewers via the `previewers` field of
+|deck.ItemSpecifier|. Item previewers take priority over source-level and global
+previewers.
+
+```lua
+ctx.item({
+  display_text = 'Special item',
+  data = {},
+  previewers = {
+    {
+      name = 'my_previewer',
+      preview = function(ctx, item, env)
+        -- item-specific preview
+      end,
+    },
+  },
 })
 ```
 

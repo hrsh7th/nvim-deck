@@ -52,6 +52,8 @@ local Context = require('deck.Context')
 ---@field public score_bonus? number
 ---@field public dedup_id? string
 ---@field public data? table
+---@field public actions? deck.Action[]
+---@field public previewers? deck.Previewer[]
 
 ---@doc.type
 ---@class deck.Item: deck.ItemSpecifier

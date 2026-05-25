@@ -119,6 +119,16 @@ function ExecuteContext.create(params)
         item_specifier.data = symbols.empty
       end
 
+      -- move per-item actions/previewers to symbols.
+      if item_specifier.actions then
+        item_specifier[symbols.item_actions] = item_specifier.actions
+        item_specifier.actions = nil
+      end
+      if item_specifier.previewers then
+        item_specifier[symbols.item_previewers] = item_specifier.previewers
+        item_specifier.previewers = nil
+      end
+
       params.on_item(item_specifier --[[@as deck.Item]])
     end,
 
