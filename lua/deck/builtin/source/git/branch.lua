@@ -32,11 +32,32 @@ end
 ---@param option { cwd: string, filter?: (fun(branch: deck.x.Git.Branch): boolean), sort?: fun(a: deck.x.Git.Branch, b: deck.x.Git.Branch): boolean }
 local function source(option)
   local git = Git.new(option.cwd)
+  local git_dir = git:get_git_dir()
+  local main_git_dir = git:get_common_git_dir()
+  local main_cwd = main_git_dir ~= git_dir and vim.fs.normalize(vim.fs.dirname(main_git_dir)) or nil
   ---@type deck.Source
   return {
     name = 'git.branch',
     execute = function(ctx)
       Async.run(function()
+        if main_cwd then
+          ctx.item({
+            display_text = '(Back to main worktree)',
+            highlights = {},
+            data = {},
+            actions = {
+              {
+                name = 'default',
+                execute = function()
+                  vim.cmd.tcd(vim.fn.fnameescape(main_cwd))
+                  require('deck').start(require('deck.builtin.source.git')({
+                    cwd = main_cwd,
+                  }))
+                end,
+              },
+            },
+          })
+        end
         local branches = git:branch():await() ---@type deck.x.Git.Branch[]
         if option.filter then
           branches = vim.tbl_filter(option.filter, branches)
@@ -110,7 +131,7 @@ local function source(option)
             return false
           end
           local item = ctx.get_cursor_item()
-          return item and item.data.worktree == nil
+          return item and item.data.name ~= nil and item.data.worktree == nil
         end,
         execute = function(ctx)
           local item = assert(ctx.get_cursor_item())
@@ -180,7 +201,8 @@ local function source(option)
             local item = ctx.get_action_items()[1]
             if item.data.remote then
               git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
-              git:exec_print({ 'git', 'merge', '--ff-only', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
+              git:exec_print({ 'git', 'merge', '--ff-only', ('%s/%s'):format(item.data.remotename, item.data.name) })
+                  :await()
             else
               git:exec_print({ 'git', 'merge', '--ff-only', item.data.name }):await()
             end
@@ -198,7 +220,8 @@ local function source(option)
             local item = ctx.get_action_items()[1]
             if item.data.remote then
               git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
-              git:exec_print({ 'git', 'merge', '--no-ff', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
+              git:exec_print({ 'git', 'merge', '--no-ff', ('%s/%s'):format(item.data.remotename, item.data.name) })
+                  :await()
             else
               git:exec_print({ 'git', 'merge', '--no-ff', item.data.name }):await()
             end
@@ -216,7 +239,8 @@ local function source(option)
             local item = ctx.get_action_items()[1]
             if item.data.remote then
               git:exec_print({ 'git', 'fetch', item.data.remotename, item.data.name }):await()
-              git:exec_print({ 'git', 'merge', '--squash', ('%s/%s'):format(item.data.remotename, item.data.name) }):await()
+              git:exec_print({ 'git', 'merge', '--squash', ('%s/%s'):format(item.data.remotename, item.data.name) })
+                  :await()
             else
               git:exec_print({ 'git', 'merge', '--squash', item.data.name }):await()
             end
@@ -259,7 +283,8 @@ local function source(option)
             require('deck.builtin.source.git.branch')({ cwd = option.cwd }),
             {
               get_view = function()
-                return require('deck.builtin.view.float_picker')({ title = (' rebase --onto %s | old base: '):format(new_base) })
+                return require('deck.builtin.view.float_picker')({ title = (' rebase --onto %s | old base: '):format(
+                new_base) })
               end,
               actions = {
                 {

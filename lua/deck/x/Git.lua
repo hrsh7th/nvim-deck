@@ -46,6 +46,13 @@ function Git:get_git_dir()
   return git_path
 end
 
+---Get the common git dir (equivalent to `git rev-parse --git-common-dir`).
+---@return string
+function Git:get_common_git_dir()
+  local git_dir = self:get_git_dir()
+  return git_dir:match('^(.+%.git)/worktrees/') or git_dir
+end
+
 ---Create Git.
 ---@param dir string
 ---@param option? { commit_message_sep?: string }

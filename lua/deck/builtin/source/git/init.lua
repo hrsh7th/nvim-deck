@@ -287,27 +287,15 @@ return function(option)
           execute_context.item({
             display_text = display_texts[i],
             highlights = highlights[i],
-            data = item,
+            data = {},
+            actions = {
+              { name = 'default', execute = item.execute },
+            },
           })
         end
 
         execute_context.done()
       end)
     end,
-    actions = {
-      require('deck').alias_action('default', 'git.execute'),
-      {
-        name = 'git.execute',
-        resolve = function(ctx)
-          return #ctx.get_action_items() == 1
-        end,
-        execute = function(ctx)
-          local item = ctx.get_cursor_item()
-          if item and item.data.execute then
-            item.data.execute(ctx)
-          end
-        end,
-      },
-    },
   }
 end
