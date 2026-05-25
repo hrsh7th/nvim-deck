@@ -292,9 +292,9 @@ require('deck').start(some_of_the_source, {
 
 2. _Item Action_ : Carried by an individual item.
 
-Items can carry their own actions via the `actions` field of |deck.ItemSpecifier|.
-Item actions are derived from the cursor item and take priority over source-level
-and global actions.
+Items can carry their own actions via the `actions` field of
+|deck.ItemSpecifier|. Item actions are derived from the cursor item and take
+priority over source-level and global actions.
 
 ```lua
 ctx.item({
@@ -1396,6 +1396,8 @@ Start deck with given sources.
 ---@field public score_bonus? number
 ---@field public dedup_id? string
 ---@field public data? table
+---@field public actions? deck.Action[]
+---@field public previewers? deck.Previewer[]
 ```
 
 ```vimdoc
