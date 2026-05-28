@@ -5,7 +5,7 @@ local System = require('deck.kit.System')
 
 ---@type deck.builtin.source.files.Finder
 local function ripgrep(root_dir, ignore_globs, ctx)
-  local command = { 'rg', '--files', '-.' }
+  local command = { 'rg', '--files', '-.', root_dir }
   for _, glob in ipairs(ignore_globs or {}) do
     table.insert(command, '--glob')
     table.insert(command, '!' .. glob)
@@ -13,24 +13,15 @@ local function ripgrep(root_dir, ignore_globs, ctx)
 
   root_dir = vim.fs.normalize(root_dir)
 
-  ---The metatable for `item.data.filename`.
-  local filename_mt = {
-    __index = function(self, key)
-      if key == 'filename' then
-        return IO.join(self.root_dir, self.display_text)
-      end
-      return rawget(self, key)
-    end,
-  }
-
   ---@param text string
   ---@return deck.Item
   local function to_item(text)
-    local item = setmetatable({
+    local item = {
       display_text = text,
       filter_text = text,
+      filename = text,
       root_dir = root_dir,
-    }, filename_mt)
+    }
     item.data = item
     return item
   end

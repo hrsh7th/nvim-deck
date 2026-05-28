@@ -50,7 +50,17 @@ end
 ---@return string
 function Git:get_common_git_dir()
   local git_dir = self:get_git_dir()
-  return git_dir:match('^(.+%.git)/worktrees/') or git_dir
+  local commondir_file = vim.fs.joinpath(git_dir, 'commondir')
+  if vim.fn.filereadable(commondir_file) == 1 then
+    local ref = vim.fn.readfile(commondir_file)[1] or ''
+    if ref ~= '' then
+      if ref:sub(1, 1) == '/' then
+        return vim.fs.normalize(ref)
+      end
+      return vim.fs.normalize(vim.fs.joinpath(git_dir, ref))
+    end
+  end
+  return git_dir
 end
 
 ---Create Git.

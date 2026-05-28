@@ -236,7 +236,8 @@ return function(option)
           })
         end
 
-        local is_rebasing = (IO.is_directory(IO.join(git.cwd, '.git/rebase-apply')):await() or IO.is_directory(IO.join(git.cwd, '.git/rebase-merge')):await())
+        local git_dir = git:get_git_dir()
+        local is_rebasing = (IO.is_directory(IO.join(git_dir, 'rebase-apply')):await() or IO.is_directory(IO.join(git_dir, 'rebase-merge')):await())
         if is_rebasing then
           table.insert(menu, {
             columns = {
