@@ -337,6 +337,12 @@ local function source(option)
               base = branch.name
             end
 
+            if not branch.current then
+              if not x.confirm(('Branch from %q, not current?'):format(base)) then
+                return
+              end
+            end
+
             local name = vim.fn.input(('branching from: %s\nnew branch name: '):format(base))
             if name == '' then
               return
