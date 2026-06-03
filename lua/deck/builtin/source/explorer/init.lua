@@ -1,5 +1,6 @@
 local x = require('deck.x')
-local operation = require('deck.x.operation')
+local LSP = require('deck.kit.LSP')
+local FileOperation = require('deck.kit.LSP.FileOperation')
 local kit = require('deck.kit')
 local IO = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
@@ -653,12 +654,11 @@ source = setmetatable({
                   return notify.add_message('default', { { 'Already exists: ' .. path } })
                 end
 
-                if path:sub(-1, -1) == '/' then
-                  vim.fn.mkdir(path, 'p')
-                else
-                  vim.fn.mkdir(vim.fs.dirname(vim.fs.normalize(path, { expand_env = false })), 'p')
-                  vim.fn.writefile({}, path)
+                local kind = path:sub(-1, -1) == '/' and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file
+                if kind == LSP.FileOperationPatternKind.folder then
+                  path = path:sub(1, -2)
                 end
+                FileOperation.create({ { path = path, kind = kind } }):await()
                 state:dirty(parent_item.path)
                 state:refresh()
                 ctx.execute()
@@ -684,15 +684,13 @@ source = setmetatable({
                 return
               end
 
-              operation
+              FileOperation
                   .delete(vim
                     .iter(items)
                     :map(function(item)
-                      ---@type deck.x.operation.Delete
                       return {
-                        type = 'delete',
                         path = item.data.filename,
-                        kind = item.data.entry.type == 'directory' and operation.Kind.folder or operation.Kind.file,
+                        kind = item.data.entry.type == 'directory' and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
                       }
                     end)
                     :totable())
@@ -700,11 +698,6 @@ source = setmetatable({
 
               for _, item in ipairs(items) do
                 state:dirty(misc.dirpath(item.data.entry.path))
-                if item.data.entry.type == 'directory' then
-                  vim.fn.delete(item.data.entry.path, 'rf')
-                else
-                  vim.fn.delete(item.data.entry.path)
-                end
               end
               state:refresh()
               ctx.execute()
@@ -729,14 +722,12 @@ source = setmetatable({
                     return notify.add_message('default', { { 'Already exists: ' .. path } })
                   end
 
-                  operation
+                  FileOperation
                       .rename({
                         {
-                          type = 'rename',
                           path = item.data.filename,
                           path_new = path,
-                          kind = vim.fn.isdirectory(item.data.filename) == 1 and operation.Kind.folder or
-                              operation.Kind.file,
+                          kind = vim.fn.isdirectory(item.data.filename) == 1 and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
                         },
                       })
                       :await()
@@ -860,16 +851,15 @@ source = setmetatable({
                     end
 
                     table.insert(renames, {
-                      type = 'rename',
                       path = path,
                       path_new = path_new,
-                      kind = vim.fn.isdirectory(path) == 1 and operation.Kind.folder or operation.Kind.file,
+                      kind = vim.fn.isdirectory(path) == 1 and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
                     })
                     return renames
                   end)
 
                   if clipboard.type == 'move' then
-                    operation.rename(renames):await()
+                    FileOperation.rename(renames):await()
                   else
                     for _, rename in ipairs(renames) do
                       IO.cp(rename.path, rename.path_new, { recursive = true }):await()

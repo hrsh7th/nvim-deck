@@ -63,7 +63,6 @@ local Context = require('deck.Context')
 ---@doc.type
 ---@class deck.Source
 ---@field public name string
----@field public dynamic? boolean
 ---@field public events? { Start?: fun(ctx: deck.Context), BufWinEnter?: fun(ctx: deck.Context, env: { first: boolean }) }
 ---@field public execute deck.SourceExecuteFunction
 ---@field public actions? deck.Action[]
@@ -788,7 +787,133 @@ function deck.remove_previewers(predicate)
   end
 end
 
---Can be used to `vim.ui.select` replacement.
+do
+  local _apply = vim.lsp.util.apply_workspace_edit
+
+  ---@param workspace_edit deck.kit.LSP.WorkspaceEdit
+  ---@return { path: string, description?: string }[]
+  local function collect_edit_items(workspace_edit)
+    local items = {}
+    if workspace_edit.changes then
+      for uri in pairs(workspace_edit.changes) do
+        table.insert(items, { path = vim.uri_to_fname(uri) })
+      end
+    end
+    if workspace_edit.documentChanges then
+      for _, change in ipairs(workspace_edit.documentChanges) do
+        if change.textDocument then
+          local description
+          if workspace_edit.changeAnnotations then
+            for _, edit in ipairs(change.edits) do
+              if edit.annotationId then
+                local annotation = workspace_edit.changeAnnotations[edit.annotationId]
+                if annotation then
+                  description = annotation.description or annotation.label
+                  break
+                end
+              end
+            end
+          end
+          table.insert(items, {
+            path = vim.uri_to_fname(change.textDocument.uri),
+            description = description,
+          })
+        end
+      end
+    end
+    return items
+  end
+
+  --[=[@doc
+    category = "api"
+    name = "deck.lsp_util_apply_workspace_edit(workspace_edit, encoding)"
+    desc = "Drop-in replacement for `vim.lsp.util.apply_workspace_edit`. Applies the workspace edit and, when modified buffers result from the operation, opens a deck picker listing the affected files. Each item exposes a `write` action so the user can save buffers individually."
+
+    [[args]]
+    name = "workspace_edit"
+    type = "deck.kit.LSP.WorkspaceEdit"
+    desc = "workspace edit returned by an LSP server."
+
+    [[args]]
+    name = "encoding"
+    type = "deck.kit.LSP.PositionEncodingKind"
+    desc = "position encoding used by the LSP client."
+  --]=]
+  ---@param workspace_edit deck.kit.LSP.WorkspaceEdit
+  ---@param encoding deck.kit.LSP.PositionEncodingKind
+  function deck.lsp_util_apply_workspace_edit(workspace_edit, encoding)
+    local edit_items = collect_edit_items(workspace_edit)
+
+    _apply(workspace_edit --[[@as lsp.WorkspaceEdit]], encoding --[[@as lsp.PositionEncodingKind]])
+
+    ---@type deck.Item[]
+    local items = {}
+    for _, edit_item in ipairs(edit_items) do
+      local buf = vim.fn.bufnr(edit_item.path)
+
+      local is_candidate = true
+      is_candidate = is_candidate and buf ~= -1
+      is_candidate = is_candidate and vim.api.nvim_buf_is_valid(buf)
+      is_candidate = is_candidate and vim.api.nvim_get_option_value('modified', { buf = buf })
+      if is_candidate then
+        local display_text = vim.fn.fnamemodify(edit_item.path, ':~:.')
+        if edit_item.description then
+          display_text = display_text .. '  ' .. edit_item.description
+        end
+        table.insert(items, {
+          display_text = display_text,
+          data = {
+            filename = vim.fs.normalize(edit_item.path),
+          },
+          actions = {
+            {
+              name = 'write',
+              execute = function(ctx)
+                vim.api.nvim_buf_call(buf, function()
+                  vim.cmd.write()
+                end)
+                ctx.execute()
+              end,
+            }
+          }
+        })
+      end
+    end
+
+    if #items > 0 then
+      deck.start({
+        name = 'lsp.apply_workspace_edit',
+        execute = function(ctx)
+          for _, item in ipairs(items) do
+            ctx.item(item)
+          end
+          ctx.done()
+        end,
+      })
+    end
+  end
+end
+
+--[=[@doc
+  category = "api"
+  name = "deck.ui_select(items, opts, on_choice)"
+  desc = "Drop-in replacement for `vim.ui.select`. Opens a deck picker for the given items. Set `vim.ui.select = require('deck').ui_select` to use it globally."
+
+  [[args]]
+  name = "items"
+  type = "T[]"
+  desc = "list of items to select from."
+
+  [[args]]
+  name = "opts"
+  type = "{ prompt?: string, format_item?: fun(item: T): string }"
+  desc = "options passed by the caller."
+
+  [[args]]
+  name = "on_choice"
+  type = "fun(item: T?, idx: integer?)"
+  desc = "callback called with the chosen item and its 1-based index, or nil if the user cancelled."
+--]=]
 ---@generic T
 ---@param items T[]
 ---@param opts { prompt?: string, format_item?: fun(item: T): string }
