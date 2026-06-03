@@ -1036,6 +1036,26 @@ Get all registered start presets.
 
 _No arguments_ &nbsp;
 
+<!-- panvimdoc-include-comment deck.lsp_util_apply_workspace_edit(workspace_edit, encoding) ~ -->
+
+<!-- panvimdoc-ignore-start -->
+
+### deck.lsp_util_apply_workspace_edit(workspace_edit, encoding)
+
+<!-- panvimdoc-ignore-end -->
+
+Drop-in replacement for `vim.lsp.util.apply_workspace_edit`. Applies the
+workspace edit and, when modified buffers result from the operation, opens a
+deck picker listing the affected files. Each item exposes a `write` action so
+the user can save buffers individually.
+
+| Name           | Type                              | Description                               |
+| -------------- | --------------------------------- | ----------------------------------------- |
+| workspace_edit | deck.kit.LSP.WorkspaceEdit        | workspace edit returned by an LSP server. |
+| encoding       | deck.kit.LSP.PositionEncodingKind | position encoding used by the LSP client. |
+
+&nbsp;
+
 <!-- panvimdoc-include-comment deck.register_action(action) ~ -->
 
 <!-- panvimdoc-ignore-start -->
@@ -1211,6 +1231,25 @@ Start deck with given sources.
 | ------------ | --------------------------- | --------------------------- |
 | source       | deck.Source\\|deck.Source[] | source or sources to start. |
 | start_config | deck.StartConfigSpecifier   | start configuration.        |
+
+&nbsp;
+
+<!-- panvimdoc-include-comment deck.ui_select(items, opts, on_choice) ~ -->
+
+<!-- panvimdoc-ignore-start -->
+
+### deck.ui_select(items, opts, on_choice)
+
+<!-- panvimdoc-ignore-end -->
+
+Drop-in replacement for `vim.ui.select`. Opens a deck picker for the given
+items. Set `vim.ui.select = require('deck').ui_select` to use it globally.
+
+| Name      | Type                                                    | Description                                                                               |
+| --------- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| items     | T[]                                                     | list of items to select from.                                                             |
+| opts      | { prompt?: string, format_item?: fun(item: T): string } | options passed by the caller.                                                             |
+| on_choice | fun(item: T?, idx: integer?)                            | callback called with the chosen item and its 1-based index, or nil if the user cancelled. |
 
 &nbsp;
 
@@ -1440,7 +1479,6 @@ Start deck with given sources.
 ```lua
 ---@class deck.Source
 ---@field public name string
----@field public dynamic? boolean
 ---@field public events? { Start?: fun(ctx: deck.Context), BufWinEnter?: fun(ctx: deck.Context, env: { first: boolean }) }
 ---@field public execute deck.SourceExecuteFunction
 ---@field public actions? deck.Action[]
