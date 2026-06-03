@@ -96,7 +96,7 @@ local DocumentSelector = {}
 ---@param document_selector deck.kit.LSP.DocumentSelector
 function DocumentSelector.score(bufnr, document_selector)
   local uri = vim.uri_from_bufnr(bufnr)
-  local language = LanguageId.from_filetype(vim.api.nvim_buf_get_option(bufnr, 'filetype'))
+  local language = LanguageId.from_filetype(vim.api.nvim_get_option_value('filetype', { buf = bufnr }))
   local r = 0
   for _, document_filter in ipairs(document_selector) do
     local filter = normalize_filter(document_filter)
