@@ -37,6 +37,20 @@ end
 
 Clipboard.instance = Clipboard.new()
 
+---@param path string
+---@return boolean
+local function exists(path)
+  return vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1
+end
+
+---@param path string
+---@return string
+local function file_kind(path)
+  return vim.fn.isdirectory(path) == 1
+    and LSP.FileOperationPatternKind.folder
+    or LSP.FileOperationPatternKind.file
+end
+
 ---Focus the deck item whose path matches target_node.
 ---@param ctx deck.Context
 ---@param target_node deck.builtin.source.explorer.Node
@@ -157,6 +171,35 @@ source = setmetatable({
 
     local deck = require('deck')
     local state = State.new(option.cwd, option.config)
+
+    ---@param op 'copy' | 'move'
+    ---@return deck.Action
+    local function make_clipboard_save_action(op)
+      return {
+        name = 'explorer.clipboard.save_' .. op,
+        resolve = function(ctx)
+          local depth = nil
+          for _, item in ipairs(ctx.get_action_items()) do
+            local d = Node.get_absolute_depth(item.data.path)
+            if depth and d ~= depth then
+              return false
+            end
+            depth = d
+          end
+          return true
+        end,
+        execute = function(ctx)
+          local paths = vim.iter(ctx.get_action_items()):map(function(i) return i.data.filename end):totable()
+          Clipboard.instance:set({ type = op, paths = paths })
+          notify.add_message('default', kit.concat(
+            { { ('Save clipboard to %s:'):format(op) } },
+            vim.iter(paths):map(function(p)
+              return { '  ' .. vim.fs.relpath(state:get_root().path, p) }
+            end):totable()
+          ))
+        end,
+      }
+    end
 
     ---@type deck.Source
     return {
@@ -457,7 +500,7 @@ source = setmetatable({
                 end
                 path = IO.join(parent_node.path, path)
 
-                if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
+                if exists(path) then
                   return notify.add_message('default', { { 'Already exists: ' .. path } })
                 end
 
@@ -498,8 +541,7 @@ source = setmetatable({
                     :map(function(item)
                       return {
                         path = item.data.filename,
-                        kind = item.data.type == 'directory' and LSP.FileOperationPatternKind.folder or
-                            LSP.FileOperationPatternKind.file,
+                        kind = file_kind(item.data.filename),
                       }
                     end)
                     :totable())
@@ -528,7 +570,7 @@ source = setmetatable({
                   end
                   path = IO.join(parent_node.path, path)
 
-                  if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
+                  if exists(path) then
                     return notify.add_message('default', { { 'Already exists: ' .. path } })
                   end
 
@@ -537,8 +579,7 @@ source = setmetatable({
                         {
                           path = item.data.filename,
                           path_new = path,
-                          kind = vim.fn.isdirectory(item.data.filename) == 1 and LSP.FileOperationPatternKind.folder or
-                              LSP.FileOperationPatternKind.file,
+                          kind = file_kind(item.data.filename),
                         },
                       })
                       :await()
@@ -556,70 +597,8 @@ source = setmetatable({
             vim.ui.open(ctx.get_cursor_item().data.filename)
           end,
         },
-        {
-          name = 'explorer.clipboard.save_copy',
-          resolve = function(ctx)
-            local depth = nil
-            for _, item in ipairs(ctx.get_action_items()) do
-              local d = Node.get_absolute_depth(item.data.path)
-              if depth and d ~= depth then
-                return false
-              end
-              depth = d
-            end
-            return true
-          end,
-          execute = function(ctx)
-            local paths = {}
-            for _, item in ipairs(ctx.get_action_items()) do
-              table.insert(paths, item.data.filename)
-            end
-            Clipboard.instance:set({ type = 'copy', paths = paths })
-            notify.add_message('default', kit.concat(
-              {
-                { 'Save clipboard to copy:' },
-              },
-              vim
-              .iter(paths)
-              :map(function(path)
-                return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
-              end)
-              :totable()
-            ))
-          end,
-        },
-        {
-          name = 'explorer.clipboard.save_move',
-          resolve = function(ctx)
-            local depth = nil
-            for _, item in ipairs(ctx.get_action_items()) do
-              local d = Node.get_absolute_depth(item.data.path)
-              if depth and d ~= depth then
-                return false
-              end
-              depth = d
-            end
-            return true
-          end,
-          execute = function(ctx)
-            local paths = {}
-            for _, item in ipairs(ctx.get_action_items()) do
-              table.insert(paths, item.data.filename)
-            end
-            Clipboard.instance:set({ type = 'move', paths = paths })
-            notify.add_message('default', kit.concat(
-              {
-                { 'Save clipboard to move:' },
-              },
-              vim
-              .iter(paths)
-              :map(function(path)
-                return { '  ' .. vim.fs.relpath(state:get_root().path, path) }
-              end)
-              :totable()
-            ))
-          end,
-        },
+        make_clipboard_save_action('copy'),
+        make_clipboard_save_action('move'),
         {
           name = 'explorer.clipboard.paste',
           resolve = function()
@@ -667,8 +646,7 @@ source = setmetatable({
                     table.insert(renames, {
                       path = path,
                       path_new = path_new,
-                      kind = vim.fn.isdirectory(path) == 1 and LSP.FileOperationPatternKind.folder or
-                          LSP.FileOperationPatternKind.file,
+                      kind = file_kind(path),
                     })
                     return renames
                   end)
