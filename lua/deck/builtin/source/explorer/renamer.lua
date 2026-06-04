@@ -1,5 +1,5 @@
-local Icon = require('deck.x.Icon')
 local Node = require('deck.builtin.source.explorer.node')
+local View = require('deck.builtin.source.explorer.view')
 
 local ns = vim.api.nvim_create_namespace('deck.explorer.rename')
 
@@ -8,28 +8,6 @@ local ns = vim.api.nvim_create_namespace('deck.explorer.rename')
 ---@field new_name string
 
 local Renamer = {}
-
----Build the inline virt_text prefix (indent + expand-marker + icon).
----Mirrors the portion of create_display_text that comes before node.name.
----@param state deck.builtin.source.explorer.State
----@param node deck.builtin.source.explorer.Node
----@return table
-local function prefix_virt_text(state, node)
-  local depth = Node.get_relative_depth(state:get_root().path, node.path)
-  local t = { { string.rep('  ', depth), 'Normal' } }
-  if node.type == 'directory' then
-    table.insert(t, { state:is_expanded(node) and '' or '', 'Normal' })
-    table.insert(t, { ' ', 'Normal' })
-  else
-    table.insert(t, { '  ', 'Normal' })
-  end
-  local icon, hl = Icon.filename(node.path)
-  if icon then
-    table.insert(t, { icon, hl or 'Normal' })
-  end
-  table.insert(t, { ' ', 'Normal' })
-  return t
-end
 
 ---Open an inline floating window over the item's line for in-place rename.
 ---Calls on_confirm(new_name) on <CR>, on_confirm(nil) on <Esc> or external close.
@@ -85,8 +63,14 @@ local function open_float(ctx, item, state, on_confirm)
 
   -- Inject indent + marker + icon as inline virtual text so they appear
   -- visually but are not part of the editable buffer content.
+  local prefix = View.create_display_text(
+    node,
+    state:is_expanded(node),
+    Node.get_relative_depth(state:get_root().path, node.path)
+  )
+  table.remove(prefix, #prefix)
   vim.api.nvim_buf_set_extmark(float_buf, ns, 0, 0, {
-    virt_text = prefix_virt_text(state, node),
+    virt_text = prefix,
     virt_text_pos = 'inline',
   })
 

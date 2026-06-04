@@ -1,11 +1,11 @@
 local x = require('deck.x')
-local Icon = require('deck.x.Icon')
 local LSP = require('deck.kit.LSP')
 local FileOperation = require('deck.kit.LSP.FileOperation')
 local kit = require('deck.kit')
 local IO = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
 local Node = require('deck.builtin.source.explorer.node')
+local View = require('deck.builtin.source.explorer.view')
 local State = require('deck.builtin.source.explorer.state')
 local Renamer = require('deck.builtin.source.explorer.renamer')
 local notify = require('deck.notify')
@@ -48,8 +48,8 @@ end
 ---@return string
 local function file_kind(path)
   return vim.fn.isdirectory(path) == 1
-    and LSP.FileOperationPatternKind.folder
-    or LSP.FileOperationPatternKind.file
+      and LSP.FileOperationPatternKind.folder
+      or LSP.FileOperationPatternKind.file
 end
 
 ---Focus the deck item whose path matches target_node.
@@ -63,40 +63,6 @@ local function focus(ctx, target_node)
     end
   end
 end
-
----Build display_text for a tree node.
----@param node deck.builtin.source.explorer.Node
----@param is_expanded boolean
----@param depth integer
----@return deck.VirtualText[]
-local function create_display_text(node, is_expanded, depth)
-  local parts = {}
-  table.insert(parts, { string.rep('  ', depth) })
-  if node.type == 'directory' then
-    if is_expanded then
-      table.insert(parts, { '' })
-    else
-      table.insert(parts, { '' })
-    end
-    table.insert(parts, { ' ' })
-    local icon, hl = Icon.filename(node.path)
-    if icon then
-      table.insert(parts, { icon, hl })
-    end
-    table.insert(parts, { ' ' })
-    table.insert(parts, { node.name, 'Directory' })
-  else
-    table.insert(parts, { '  ' })
-    local icon, hl = Icon.filename(node.path)
-    if icon then
-      table.insert(parts, { icon, hl })
-    end
-    table.insert(parts, { ' ' })
-    table.insert(parts, { node.name })
-  end
-  return parts
-end
-
 
 local source
 source = setmetatable({
@@ -279,7 +245,7 @@ source = setmetatable({
             if not state:is_hidden(node) then
               local depth = Node.get_relative_depth(option.cwd, path)
               ctx.item({
-                display_text = create_display_text(node, node.type == 'directory', depth),
+                display_text = View.create_display_text(node, node.type == 'directory', depth),
                 data = {
                   filename = node.path,
                   path = node.path,
@@ -321,7 +287,7 @@ source = setmetatable({
             for node in state:iter() do
               local depth = Node.get_relative_depth(state:get_root().path, node.path)
               ctx.item({
-                display_text = create_display_text(node, state:is_expanded(node), depth),
+                display_text = View.create_display_text(node, state:is_expanded(node), depth),
                 data = {
                   filename = node.path,
                   path = node.path,
