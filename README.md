@@ -187,6 +187,7 @@ actions for them.
 - delete
 - rename
 - write
+- yank
 - refresh
 - open
 - open_split

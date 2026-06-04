@@ -1,10 +1,12 @@
 local x = require('deck.x')
+local Icon = require('deck.x.Icon')
 local LSP = require('deck.kit.LSP')
 local FileOperation = require('deck.kit.LSP.FileOperation')
 local kit = require('deck.kit')
 local IO = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
-local misc = require('deck.builtin.source.explorer.misc')
+local Node = require('deck.builtin.source.explorer.node')
+local State = require('deck.builtin.source.explorer.state')
 local notify = require('deck.notify')
 
 ---@class deck.builtin.source.explorer.Clipboard
@@ -12,20 +14,15 @@ local notify = require('deck.notify')
 local Clipboard = {}
 Clipboard.__index = Clipboard
 
----Create Clipboard object.
 function Clipboard.new()
   return setmetatable({}, Clipboard)
 end
 
----Set copy data.
 ---@param data any
 function Clipboard:set(data)
-  self._entry = {
-    data = data,
-  }
+  self._entry = { data = data }
 end
 
----Get data.
 ---@return any
 function Clipboard:get()
   if not self._entry then
@@ -34,245 +31,57 @@ function Clipboard:get()
   return self._entry.data
 end
 
----Clear data.
 function Clipboard:clear()
   self._entry = nil
 end
 
 Clipboard.instance = Clipboard.new()
 
----@class deck.builtin.source.explorer.Entry
----@field public path string
----@field public type 'directory' | 'file'
-
----@class deck.builtin.source.explorer.Item: deck.builtin.source.explorer.Entry
----@field public name string
----@field public link boolean
----@field public dirty boolean
----@field public depth integer
----@field public expanded boolean
----@field public children? deck.builtin.source.explorer.Item[]
-
----Focus target item.
+---Focus the deck item whose path matches target_node.
 ---@param ctx deck.Context
----@param target_item deck.builtin.source.explorer.Entry
-local function focus(ctx, target_item)
+---@param target_node deck.builtin.source.explorer.Node
+local function focus(ctx, target_node)
   for item, i in ctx.iter_rendered_items() do
-    if item.data.entry.path == target_item.path then
+    if item.data.path == target_node.path then
       ctx.set_cursor(i)
       break
     end
   end
 end
 
----@class deck.builtin.source.explorer.State.Config
----@field dotfiles boolean
----@field auto_resize boolean
-
----@class deck.builtin.source.explorer.State
----@field private _cwd string
----@field private _config deck.builtin.source.explorer.State.Config
----@field private _root deck.builtin.source.explorer.Item
-local State = {}
-State.__index = State
-
----Create State object.
----@param cwd string
----@param config deck.builtin.source.explorer.State.Config
----@return deck.builtin.source.explorer.State
-function State.new(cwd, config)
-  return setmetatable({
-    _cwd = cwd,
-    _config = config,
-    _root = Async.run(function()
-      local item = misc.get_item_by_path(cwd, 0)
-      item.expanded = true
-      return item
-    end):sync(10 * 1000),
-  }, State)
-end
-
----@param config deck.builtin.source.explorer.State.Config
-function State:set_config(config)
-  self._config = config
-end
-
----@return deck.builtin.source.explorer.State.Config
-function State:get_config()
-  return self._config
-end
-
----@return deck.builtin.source.explorer.Item
-function State:get_root()
-  return self._root
-end
-
----@param item deck.builtin.source.explorer.Item
----@return boolean
-function State:is_hidden_item(item)
-  if self:is_expanded(item) then
-    return false
-  end
-  if self._config.dotfiles then
-    return false
-  end
-  return vim.fs.basename(item.path):find('.', 1, true) == 1
-end
-
----@return fun(): deck.builtin.source.explorer.Item
-function State:iter()
-  ---@param item deck.builtin.source.explorer.Item
-  local function iter(item)
-    coroutine.yield(item)
-    if item.expanded and item.children then
-      for _, child in ipairs(item.children) do
-        if not self:is_hidden_item(child) then
-          iter(child)
-        end
-      end
+---Build display_text for a tree node.
+---@param node deck.builtin.source.explorer.Node
+---@param is_expanded boolean
+---@param depth integer
+---@return deck.VirtualText[]
+local function create_display_text(node, is_expanded, depth)
+  local parts = {}
+  table.insert(parts, { string.rep('  ', depth) })
+  if node.type == 'directory' then
+    if is_expanded then
+      table.insert(parts, { '' })
+    else
+      table.insert(parts, { '' })
     end
-  end
-  return coroutine.wrap(function()
-    iter(self:get_root())
-  end)
-end
-
----@param entry deck.builtin.source.explorer.Entry
----@return boolean
-function State:is_root(entry)
-  return entry.path == self:get_root().path
-end
-
----@param entry deck.builtin.source.explorer.Entry
----@return boolean
-function State:is_expanded(entry)
-  local item = self:get_item(entry.path)
-  return item and item.expanded or false
-end
-
----@param entry deck.builtin.source.explorer.Entry
-function State:expand(entry)
-  local item = self:get_item(entry.path)
-  if item and item.type == 'directory' and not item.expanded then
-    item.expanded = true
-    self:refresh()
-  end
-end
-
----@param entry deck.builtin.source.explorer.Entry
-function State:collapse(entry)
-  local item = self:get_item(entry.path)
-  if item and item.type == 'directory' and item.expanded then
-    item.expanded = false
-  end
-end
-
----@param path string
-function State:dirty(path)
-  local item = self:get_item(path)
-  if not item or item.type == 'file' then
-    item = self:get_item(IO.dirname(path))
-  end
-  if item then
-    item.dirty = true
-  end
-end
-
----Refresh target items children with keeping expanded state.
----@param force? boolean
-function State:refresh(force)
-  ---@param item deck.builtin.source.explorer.Item
-  local function refresh(item)
-    if item.type == 'file' then
-      item = self:get_parent_item(item) or item
+    table.insert(parts, { ' ' })
+    local icon, hl = Icon.filename(node.path)
+    if icon then
+      table.insert(parts, { icon, hl })
     end
-
-    if item.type == 'directory' and self:is_expanded(item) then
-      local should_retrive = false
-      should_retrive = should_retrive or force or false
-      should_retrive = should_retrive or item.dirty
-      should_retrive = should_retrive or item.children == nil
-      if should_retrive then
-        item.dirty = false
-        local prev_children = item.children or {}
-        local next_children = misc.get_children(item, item.depth + 1)
-        local new_children = {}
-
-        -- keep.
-        for _, prev_c in ipairs(prev_children) do
-          local keep = vim.iter(next_children):find(function(next_c)
-            return prev_c.path == next_c.path
-          end)
-          if keep then
-            table.insert(new_children, prev_c)
-          end
-        end
-
-        -- new items.
-        for _, next_c in ipairs(next_children) do
-          local found = vim.iter(prev_children):find(function(prev_c)
-            return prev_c.path == next_c.path
-          end)
-          if not found then
-            table.insert(new_children, next_c)
-          end
-        end
-
-        -- update items.
-        misc.sort_entries(new_children)
-        item.children = new_children
-      end
-
-      -- recursive.
-      for _, child in ipairs(item.children) do
-        if child.type == 'directory' then
-          refresh(child)
-        end
-      end
+    table.insert(parts, { ' ' })
+    table.insert(parts, { node.name, 'Directory' })
+  else
+    table.insert(parts, { '  ' })
+    local icon, hl = Icon.filename(node.path)
+    if icon then
+      table.insert(parts, { icon, hl })
     end
+    table.insert(parts, { ' ' })
+    table.insert(parts, { node.name })
   end
-  refresh(self:get_root())
+  return parts
 end
 
----@param path string
----@return deck.builtin.source.explorer.Item?
-function State:get_item(path)
-  local function find_item(item)
-    if item.path == path then
-      return item
-    end
-    if item.expanded and item.children then
-      for _, child in ipairs(item.children) do
-        local found = find_item(child)
-        if found then
-          return found
-        end
-      end
-    end
-  end
-  return find_item(self:get_root())
-end
-
----@param entry deck.builtin.source.explorer.Entry
----@return deck.builtin.source.explorer.Item?
-function State:get_parent_item(entry)
-  if entry.path == '/' then
-    return
-  end
-
-  local parent_path = IO.dirname(entry.path)
-  while parent_path do
-    local parent_item = self:get_item(parent_path)
-    if parent_item then
-      return parent_item
-    end
-    local prev_parent_path = parent_path
-    parent_path = IO.dirname(parent_path)
-    if parent_path == prev_parent_path then
-      break
-    end
-  end
-end
 
 local source
 source = setmetatable({
@@ -322,7 +131,7 @@ source = setmetatable({
   ---@class deck.builtin.source.explorer.Option
   ---@field cwd string
   ---@field mode 'drawer' | 'filer'
-  ---@field narrow? { enabled?: boolean, ignore_globs?: string[]  }
+  ---@field narrow? { enabled?: boolean, ignore_globs?: string[] }
   ---@field reveal? string
   ---@field config? deck.builtin.source.explorer.State.Config
   ---@param option deck.builtin.source.explorer.Option
@@ -385,15 +194,14 @@ source = setmetatable({
           if env.first and option.reveal then
             Async.run(function()
               local root = state:get_root().path
-              -- both paths are already normalized
               if vim.startswith(option.reveal, root) then
                 local relpath = option.reveal:sub(#root + #'/' + 1)
                 local paths = vim.fn.split(relpath, '/')
                 local current_path = option.cwd
                 while current_path and #paths > 0 do
-                  local item = state:get_item(current_path)
-                  if item then
-                    state:expand(item)
+                  local node = state:get_node(current_path)
+                  if node then
+                    state:expand(node)
                   end
                   local prev_path = current_path
                   current_path = IO.join(current_path, table.remove(paths, 1))
@@ -401,11 +209,11 @@ source = setmetatable({
                     break
                   end
                 end
-                local target_item = state:get_item(option.reveal)
-                if target_item then
+                local target_node = state:get_node(option.reveal)
+                if target_node then
                   ctx.execute()
                   ctx.sync()
-                  focus(ctx, target_item)
+                  focus(ctx, target_node)
                 end
               end
             end):sync(5 * 1000)
@@ -418,77 +226,69 @@ source = setmetatable({
         }
       end,
       execute = function(ctx)
-        -- narrow.
-        if option.narrow.enabled then
-          if ctx.get_query() ~= '' then
-            local added_parents = {}
-            ---@param entry deck.builtin.source.explorer.Entry
-            local function add(entry)
-              local depth = misc.get_depth_from_path(option.cwd, entry.path)
-              local item = Async.run(function()
-                return misc.get_item_by_path(entry.path, depth)
-              end):sync(1 * 1000)
-              if item and not state:is_hidden_item(item) then
-                ctx.item({
-                  display_text = misc.create_display_text(item, item.type == 'directory', depth),
-                  data = {
-                    filename = entry.path,
-                    entry = entry,
-                    depth = depth,
-                  },
-                })
-              end
+        if option.narrow.enabled and ctx.get_query() ~= '' then
+          -- narrow.
+          local added_parents = {}
+
+          ---@param path string
+          local function add(path)
+            local node = Node.resolve(path):sync(2 * 1000) --[[@as deck.builtin.source.explorer.Node]]
+            if not state:is_hidden(node) then
+              local depth = Node.get_relative_depth(option.cwd, path)
+              ctx.item({
+                display_text = create_display_text(node, node.type == 'directory', depth),
+                data = {
+                  filename = node.path,
+                  path = node.path,
+                  type = node.type,
+                },
+              })
             end
-            misc.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
-              ctx.queue(function()
-                local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path))
-                if score == 0 then
-                  return
-                end
-                local parents = {}
-                do
-                  local parent = IO.dirname(path)
-                  while parent and not added_parents[parent] and #option.cwd <= #parent do
-                    added_parents[parent] = true
-                    table.insert(parents, {
-                      path = parent,
-                      type = 'directory',
-                    })
-                    local prev_parent = parent
-                    parent = IO.dirname(parent)
-                    if parent == prev_parent then
-                      break
-                    end
+          end
+
+          Node.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
+            ctx.queue(function()
+              local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path))
+              if score == 0 then
+                return
+              end
+              local parents = {}
+              do
+                local parent = IO.dirname(path)
+                while parent and not added_parents[parent] and #option.cwd <= #parent do
+                  added_parents[parent] = true
+                  table.insert(parents, parent)
+                  local prev_parent = parent
+                  parent = IO.dirname(parent)
+                  if parent == prev_parent then
+                    break
                   end
                 end
-                for i = #parents, 1, -1 do
-                  add(parents[i])
-                end
-                add({
-                  path = path,
-                  type = 'file',
-                })
-              end)
-            end, ctx.done)
-            return
-          end
+              end
+              for i = #parents, 1, -1 do
+                add(parents[i])
+              end
+              add(path)
+            end)
+          end, ctx.done)
+        else
+          -- tree.
+          Async.run(function()
+            state:refresh()
+            for node in state:iter() do
+              local depth = Node.get_relative_depth(state:get_root().path, node.path)
+              ctx.item({
+                display_text = create_display_text(node, state:is_expanded(node), depth),
+                data = {
+                  filename = node.path,
+                  path = node.path,
+                  type = node.type,
+                },
+              })
+            end
+            ctx.done()
+          end)
         end
-
-        -- tree.
-        Async.run(function()
-          state:refresh()
-          for item in state:iter() do
-            ctx.item({
-              display_text = misc.create_display_text(item, item.expanded, item.depth),
-              data = {
-                filename = item.path,
-                entry = item,
-                depth = item.depth,
-              },
-            })
-          end
-          ctx.done()
-        end)
       end,
       actions = kit.concat(option.mode == 'drawer' and {
         deck.alias_action('open', 'open_keep'),
@@ -530,7 +330,7 @@ source = setmetatable({
           execute = function(ctx)
             local item = ctx.get_cursor_item()
             if item and item.data.filename then
-              if item.data.entry.type == 'directory' then
+              if item.data.type == 'directory' then
                 ctx.do_action('explorer.get_api').set_cwd(item.data.filename)
               else
                 ctx.do_action('open')
@@ -545,15 +345,22 @@ source = setmetatable({
               return false
             end
             local item = ctx.get_cursor_item()
-            return item and not state:is_expanded(item.data.entry) and item.data.entry.type == 'directory'
+            if not item then
+              return false
+            end
+            local node = state:get_node(item.data.path)
+            return node and not state:is_expanded(node) and node.type == 'directory'
           end,
           execute = function(ctx)
             return Async.run(function()
               local item = ctx.get_cursor_item()
-              if item and not state:is_expanded(item.data.entry) then
-                state:expand(ctx.get_cursor_item().data.entry)
-                ctx.execute()
-                ctx.set_cursor(ctx.get_cursor() + 1)
+              if item then
+                local node = state:get_node(item.data.path)
+                if node and not state:is_expanded(node) then
+                  state:expand(node)
+                  ctx.execute()
+                  ctx.set_cursor(ctx.get_cursor() + 1)
+                end
               end
             end)
           end,
@@ -570,17 +377,17 @@ source = setmetatable({
             return Async.run(function()
               local item = ctx.get_cursor_item()
               if item then
-                local target_item = state:get_item(item.data.entry.path)
-                while target_item do
-                  if not state:is_root(target_item) and state:is_expanded(target_item) then
-                    state:collapse(target_item)
-                    focus(ctx, target_item)
+                local node = state:get_node(item.data.path)
+                while node do
+                  if not state:is_root(node) and state:is_expanded(node) then
+                    state:collapse(node)
+                    focus(ctx, node)
                     ctx.execute()
                     return
                   end
-                  local prev_target_item = target_item
-                  target_item = state:get_parent_item(target_item)
-                  if target_item == prev_target_item then
+                  local prev_node = node
+                  node = state:get_parent_node(node)
+                  if node == prev_node then
                     break
                   end
                 end
@@ -633,33 +440,34 @@ source = setmetatable({
             return Async.run(function()
               local item = ctx.get_cursor_item()
               if item then
-                local parent_item = (function()
-                  local target_item = state:get_item(item.data.entry.path)
-                  if target_item then
-                    if state:is_expanded(target_item) then
-                      return target_item
+                local parent_node = (function()
+                  local node = state:get_node(item.data.path)
+                  if node then
+                    if state:is_expanded(node) then
+                      return node
                     end
-                    return state:get_parent_item(target_item)
+                    return state:get_parent_node(node)
                   end
                   return state:get_root()
                 end)()
 
-                local path = vim.fn.input(('Create: %s/'):format(parent_item.path), '')
+                local path = vim.fn.input(('Create: %s/'):format(parent_node.path), '')
                 if path == '' then
                   return
                 end
-                path = IO.join(parent_item.path, path)
+                path = IO.join(parent_node.path, path)
 
                 if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
                   return notify.add_message('default', { { 'Already exists: ' .. path } })
                 end
 
-                local kind = path:sub(-1, -1) == '/' and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file
+                local kind = path:sub(-1, -1) == '/' and LSP.FileOperationPatternKind.folder or
+                    LSP.FileOperationPatternKind.file
                 if kind == LSP.FileOperationPatternKind.folder then
                   path = path:sub(1, -2)
                 end
                 FileOperation.create({ { path = path, kind = kind } }):await()
-                state:dirty(parent_item.path)
+                state:dirty(parent_node.path)
                 state:refresh()
                 ctx.execute()
               end
@@ -672,7 +480,7 @@ source = setmetatable({
             return Async.run(function()
               local items = ctx.get_action_items()
               table.sort(items, function(a, b)
-                return a.data.entry.depth > b.data.entry.depth
+                return Node.get_absolute_depth(a.data.path) > Node.get_absolute_depth(b.data.path)
               end)
 
               if not x.confirm(('Delete below items?\n%s'):format(vim
@@ -690,14 +498,15 @@ source = setmetatable({
                     :map(function(item)
                       return {
                         path = item.data.filename,
-                        kind = item.data.entry.type == 'directory' and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
+                        kind = item.data.type == 'directory' and LSP.FileOperationPatternKind.folder or
+                            LSP.FileOperationPatternKind.file,
                       }
                     end)
                     :totable())
                   :await()
 
               for _, item in ipairs(items) do
-                state:dirty(misc.dirpath(item.data.entry.path))
+                state:dirty(Node.dirpath(item.data.path))
               end
               state:refresh()
               ctx.execute()
@@ -710,13 +519,14 @@ source = setmetatable({
             return Async.run(function()
               local item = ctx.get_cursor_item()
               if item then
-                local parent_item = state:get_parent_item(item.data.entry)
-                if parent_item then
-                  local path = vim.fn.input(('Rename: %s/'):format(parent_item.path), vim.fs.basename(item.data.filename))
+                local node = state:get_node(item.data.path)
+                local parent_node = node and state:get_parent_node(node)
+                if parent_node then
+                  local path = vim.fn.input(('Rename: %s/'):format(parent_node.path), vim.fs.basename(item.data.filename))
                   if path == '' then
                     return
                   end
-                  path = IO.join(parent_item.path, path)
+                  path = IO.join(parent_node.path, path)
 
                   if vim.fn.isdirectory(path) == 1 or vim.fn.filereadable(path) == 1 then
                     return notify.add_message('default', { { 'Already exists: ' .. path } })
@@ -727,11 +537,12 @@ source = setmetatable({
                         {
                           path = item.data.filename,
                           path_new = path,
-                          kind = vim.fn.isdirectory(item.data.filename) == 1 and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
+                          kind = vim.fn.isdirectory(item.data.filename) == 1 and LSP.FileOperationPatternKind.folder or
+                              LSP.FileOperationPatternKind.file,
                         },
                       })
                       :await()
-                  state:dirty(parent_item.path)
+                  state:dirty(parent_node.path)
                   state:refresh()
                   ctx.execute()
                 end
@@ -750,10 +561,11 @@ source = setmetatable({
           resolve = function(ctx)
             local depth = nil
             for _, item in ipairs(ctx.get_action_items()) do
-              if depth and item.data.depth ~= depth then
+              local d = Node.get_absolute_depth(item.data.path)
+              if depth and d ~= depth then
                 return false
               end
-              depth = item.data.depth
+              depth = d
             end
             return true
           end,
@@ -781,10 +593,11 @@ source = setmetatable({
           resolve = function(ctx)
             local depth = nil
             for _, item in ipairs(ctx.get_action_items()) do
-              if depth and item.data.depth ~= depth then
+              local d = Node.get_absolute_depth(item.data.path)
+              if depth and d ~= depth then
                 return false
               end
-              depth = item.data.depth
+              depth = d
             end
             return true
           end,
@@ -824,22 +637,23 @@ source = setmetatable({
             return Async.run(function()
               local item = ctx.get_cursor_item()
               if item then
-                local paste_target_item = state:get_item(item.data.entry.path)
-                if paste_target_item then
-                  if paste_target_item.type == 'file' or not state:is_expanded(paste_target_item) then
-                    paste_target_item = state:get_parent_item(paste_target_item) or state:get_root()
+                local node = state:get_node(item.data.path)
+                if node then
+                  local paste_target = node
+                  if paste_target.type == 'file' or not state:is_expanded(paste_target) then
+                    paste_target = state:get_parent_node(paste_target) or state:get_root()
                   end
-                  state:dirty(paste_target_item.path)
+                  state:dirty(paste_target.path)
 
                   local clipboard = Clipboard.instance:get()
                   local renames = vim.iter(clipboard.paths):fold({}, function(renames, path)
                     state:dirty(path)
 
-                    local path_new = IO.join(paste_target_item.path, vim.fs.basename(path))
+                    local path_new = IO.join(paste_target.path, vim.fs.basename(path))
                     if path == path_new then
                       local index = 1
                       while true do
-                        path_new = IO.join(paste_target_item.path, ('%s - copy%s'):format(
+                        path_new = IO.join(paste_target.path, ('%s - copy%s'):format(
                           vim.fs.basename(path),
                           index
                         ))
@@ -853,7 +667,8 @@ source = setmetatable({
                     table.insert(renames, {
                       path = path,
                       path_new = path_new,
-                      kind = vim.fn.isdirectory(path) == 1 and LSP.FileOperationPatternKind.folder or LSP.FileOperationPatternKind.file,
+                      kind = vim.fn.isdirectory(path) == 1 and LSP.FileOperationPatternKind.folder or
+                          LSP.FileOperationPatternKind.file,
                     })
                     return renames
                   end)
@@ -887,7 +702,7 @@ source = setmetatable({
             return Async.run(function()
               local contents = {}
               for _, item in ipairs(ctx.get_action_items()) do
-                table.insert(contents, item.data.entry.path)
+                table.insert(contents, item.data.path)
               end
               vim.fn.setreg(vim.v.register, table.concat(contents, '\n'), 'V')
               notify.add_message('default', {
