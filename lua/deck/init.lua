@@ -864,6 +864,7 @@ do
           display_text = display_text,
           data = {
             filename = vim.fs.normalize(edit_item.path),
+            bufnr = buf
           },
           actions = {
             {
@@ -880,7 +881,16 @@ do
       end
     end
 
-    if #items > 0 then
+    -- remove current buffer.
+    local count_without_current = 0
+    for i = #items, 1, -1 do
+      local item = items[i]
+      if vim.api.nvim_get_current_buf() ~= item.data.bufnr then
+        count_without_current = count_without_current + 1
+      end
+    end
+
+    if count_without_current > 0 then
       deck.start({
         name = 'lsp.apply_workspace_edit',
         execute = function(ctx)
