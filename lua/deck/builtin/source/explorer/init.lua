@@ -257,7 +257,7 @@ source = setmetatable({
 
           Node.narrow(option.cwd, option.narrow.ignore_globs or {}, ctx.on_abort, ctx.aborted, function(path)
             ctx.queue(function()
-              local score = ctx.get_config().matcher.match(ctx.get_query(), vim.fs.basename(path))
+              local score = ctx.get_config().matcher.match(ctx.get_query(), assert(vim.fs.relpath(option.cwd, path, {})))
               if score == 0 then
                 return
               end
