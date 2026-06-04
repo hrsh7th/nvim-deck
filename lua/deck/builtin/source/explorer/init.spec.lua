@@ -78,6 +78,42 @@ describe('deck.builtin.source.explorer', function()
     pcall(vim.fn.chdir, vim.fn.getcwd(-1, -1))
   end)
 
+  ---Trigger the rename action on the item with the given basename.
+  ---Does NOT call ctx.sync() so the float stays open after returning.
+  ---@param ctx deck.Context
+  ---@param basename string
+  local function trigger_rename(ctx, basename)
+    for item, i in ctx.iter_rendered_items() do
+      if vim.fs.basename(item.data.filename) == basename then
+        ctx.set_cursor(i)
+        ctx.do_action('explorer.rename')
+        vim.wait(100)
+        return
+      end
+    end
+  end
+
+  ---Confirm the currently open rename float.
+  ---Sets buffer content directly (avoids mode/Esc mapping conflicts),
+  ---then fires <CR> which is mapped for both n and i modes.
+  ---@param new_name string
+  local function confirm_rename_float(new_name)
+    local bufnr = vim.api.nvim_get_current_buf()
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { new_name })
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('<CR>', true, false, true),
+      'xt', false
+    )
+  end
+
+  ---Cancel the currently open rename float via normal-mode <Esc>.
+  local function cancel_rename_float()
+    vim.api.nvim_feedkeys(
+      vim.api.nvim_replace_termcodes('<Esc>', true, false, true),
+      'xt', false
+    )
+  end
+
   it('expand and collapse', function()
     setup()
     local ctx = start(fixture_target_dir)
@@ -136,11 +172,64 @@ describe('deck.builtin.source.explorer', function()
     setup()
     local ctx = start(fixture_target_dir)
     do_action_with_path(ctx, 'explorer.expand', 'dir1')
-    with_input('file_renamed', function()
-      do_action_with_path(ctx, 'explorer.rename', 'file1')
-    end)
+    trigger_rename(ctx, 'file1')
+    confirm_rename_float('file_renamed')
+    vim.wait(300)
+    ctx.sync()
     assert.are.same(
       { 'deck-fixture-fs', 'dir1', 'file_renamed', 'dir2' },
+      item_basenames(ctx)
+    )
+  end)
+
+  it('rename multiple', function()
+    setup()
+    local ctx = start(fixture_target_dir)
+    do_action_with_path(ctx, 'explorer.expand', 'dir1')
+    do_action_with_path(ctx, 'explorer.expand', 'dir2')
+    for item, i in ctx.iter_rendered_items() do
+      local name = vim.fs.basename(item.data.filename)
+      if name == 'file1' or name == 'file2' then
+        ctx.set_selected(item, true)
+      end
+      if name == 'file1' then
+        ctx.set_cursor(i)
+      end
+    end
+    ctx.do_action('explorer.rename')
+    vim.wait(100)
+    confirm_rename_float('file1_renamed')
+    vim.wait(100)
+    confirm_rename_float('file2_renamed')
+    vim.wait(300)
+    ctx.sync()
+    assert.are.same(
+      { 'deck-fixture-fs', 'dir1', 'file1_renamed', 'dir2', 'file2_renamed' },
+      item_basenames(ctx)
+    )
+  end)
+
+  it('rename cancel aborts sequence', function()
+    setup()
+    local ctx = start(fixture_target_dir)
+    do_action_with_path(ctx, 'explorer.expand', 'dir1')
+    do_action_with_path(ctx, 'explorer.expand', 'dir2')
+    for item, i in ctx.iter_rendered_items() do
+      local name = vim.fs.basename(item.data.filename)
+      if name == 'file1' or name == 'file2' then
+        ctx.set_selected(item, true)
+      end
+      if name == 'file1' then
+        ctx.set_cursor(i)
+      end
+    end
+    ctx.do_action('explorer.rename')
+    vim.wait(100)
+    cancel_rename_float()
+    vim.wait(300)
+    ctx.sync()
+    assert.are.same(
+      { 'deck-fixture-fs', 'dir1', 'file1', 'dir2', 'file2' },
       item_basenames(ctx)
     )
   end)

@@ -7,6 +7,7 @@ local IO = require('deck.kit.IO')
 local Async = require('deck.kit.Async')
 local Node = require('deck.builtin.source.explorer.node')
 local State = require('deck.builtin.source.explorer.state')
+local Renamer = require('deck.builtin.source.explorer.renamer')
 local notify = require('deck.notify')
 
 ---@class deck.builtin.source.explorer.Clipboard
@@ -154,7 +155,6 @@ source = setmetatable({
       error('Invalid cwd: ' .. option.cwd)
     end
 
-    option = option or {}
     option.cwd = IO.normalize(option.cwd)
     option.reveal = option.reveal and IO.normalize(option.reveal) or nil
     option.mode = option.mode or 'filer'
@@ -558,36 +558,49 @@ source = setmetatable({
         {
           name = 'explorer.rename',
           execute = function(ctx)
-            return Async.run(function()
-              local item = ctx.get_cursor_item()
-              if item then
-                local node = state:get_node(item.data.path)
-                local parent_node = node and state:get_parent_node(node)
-                if parent_node then
-                  local path = vim.fn.input(('Rename: %s/'):format(parent_node.path), vim.fs.basename(item.data.filename))
-                  if path == '' then
-                    return
-                  end
-                  path = IO.join(parent_node.path, path)
+            local cursor_path = ctx.get_cursor_item() and ctx.get_cursor_item().data.path
+            local items = {}
+            for item in ctx.iter_rendered_items() do
+              local node = state:get_node(item.data.path)
+              if node and not state:is_root(node) then
+                if ctx.get_selected(item) or item.data.path == cursor_path then
+                  table.insert(items, item)
+                end
+              end
+            end
+            if #items == 0 then return end
 
-                  if exists(path) then
-                    return notify.add_message('default', { { 'Already exists: ' .. path } })
-                  end
-
-                  FileOperation
-                      .rename({
-                        {
-                          path = item.data.filename,
-                          path_new = path,
-                          kind = file_kind(item.data.filename),
-                        },
+            Renamer.start(ctx, state, items, function(pending)
+              if #pending == 0 then return end
+              Async.run(function()
+                local ops = {}
+                local dirty_dirs = {}
+                for _, p in ipairs(pending) do
+                  local node = state:get_node(p.item.data.path)
+                  local parent = node and state:get_parent_node(node)
+                  if parent then
+                    local new_path = IO.join(parent.path, p.new_name)
+                    if exists(new_path) then
+                      notify.add_message('default', { { 'Already exists: ' .. new_path } })
+                    else
+                      table.insert(ops, {
+                        path = node.path,
+                        path_new = new_path,
+                        kind = file_kind(node.path),
                       })
-                      :await()
-                  state:dirty(parent_node.path)
+                      table.insert(dirty_dirs, parent.path)
+                    end
+                  end
+                end
+                if #ops > 0 then
+                  FileOperation.rename(ops):await()
+                  for _, dir in ipairs(dirty_dirs) do
+                    state:dirty(dir)
+                  end
                   state:refresh()
                   ctx.execute()
                 end
-              end
+              end)
             end)
           end,
         },
