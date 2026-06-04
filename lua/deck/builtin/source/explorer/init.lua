@@ -542,7 +542,7 @@ source = setmetatable({
                 local ops = {}
                 local dirty_dirs = {}
                 for _, p in ipairs(pending) do
-                  local node = state:get_node(p.item.data.path)
+                  local node = assert(state:get_node(p.item.data.path))
                   local parent = node and state:get_parent_node(node)
                   if parent then
                     local new_path = IO.join(parent.path, p.new_name)
