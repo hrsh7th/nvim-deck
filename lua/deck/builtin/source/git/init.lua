@@ -280,6 +280,38 @@ return function(option)
           })
         end
 
+        local is_merging = IO.exists(IO.join(git_dir, 'MERGE_HEAD')):await()
+        if is_merging then
+          table.insert(menu, {
+            columns = {
+              '@ merge --continue',
+              { 'continue merge', 'Comment' },
+            },
+            execute = function(ctx)
+              git
+                  :exec_print({ 'git', 'merge', '--continue' }, {
+                    env = {
+                      GIT_EDITOR = 'true',
+                    },
+                  })
+                  :next(function()
+                    ctx.execute()
+                  end)
+            end,
+          })
+          table.insert(menu, {
+            columns = {
+              '@ merge --abort',
+              { 'abort merge', 'Comment' },
+            },
+            execute = function(ctx)
+              git:exec_print({ 'git', 'merge', '--abort' }):next(function()
+                ctx.execute()
+              end)
+            end,
+          })
+        end
+
         local display_texts, highlights = x.create_aligned_display_texts(menu, function(item)
           return item.columns
         end, { sep = ' │ ' })
