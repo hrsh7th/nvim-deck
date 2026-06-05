@@ -1012,7 +1012,11 @@ function Context.create(id, source, start_config, prev)
     local preview_mode = context.get_preview_mode()
     events.dispose.on(x.autocmd('BufLeave', function()
       preview_mode = context.get_preview_mode()
-      context.set_preview_mode(false)
+      vim.schedule(function()
+        if not x.is_deck_win(vim.api.nvim_get_current_win()) then
+          context.set_preview_mode(false)
+        end
+      end)
     end, {
       pattern = ('<buffer=%s>'):format(context.buf),
     }))
