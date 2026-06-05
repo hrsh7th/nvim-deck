@@ -1,8 +1,3 @@
-local Node = require('deck.builtin.source.explorer.node')
-local View = require('deck.builtin.source.explorer.view')
-
-local ns = vim.api.nvim_create_namespace('deck.explorer.rename')
-
 ---@class deck.builtin.source.explorer.Renamer.Pending
 ---@field item deck.Item
 ---@field new_name string
@@ -57,29 +52,23 @@ local function open_float(ctx, item, state, on_confirm)
     textoff = info and info.textoff or 0
   end)
 
+  -- Locate the filename within the already-rendered buffer line so the float
+  -- starts exactly at the name column, leaving the prefix (indent/icon) visible
+  -- from the explorer's own rendering behind the float.
+  local line_text = vim.api.nvim_buf_get_lines(ctx.buf, item_line - 1, item_line, false)[1] or ''
+  local name_byte_start = line_text:find(node.name, 1, true) or 1
+  local name_col = textoff + vim.fn.strdisplaywidth(line_text:sub(1, name_byte_start - 1))
+
   local float_buf = vim.api.nvim_create_buf(false, true)
   vim.bo[float_buf].bufhidden = 'wipe'
   vim.api.nvim_buf_set_lines(float_buf, 0, -1, false, { node.name })
-
-  -- Inject indent + marker + icon as inline virtual text so they appear
-  -- visually but are not part of the editable buffer content.
-  local prefix = View.create_display_text(
-    node,
-    state:is_expanded(node),
-    Node.get_relative_depth(state:get_root().path, node.path)
-  )
-  table.remove(prefix, #prefix)
-  vim.api.nvim_buf_set_extmark(float_buf, ns, 0, 0, {
-    virt_text = prefix,
-    virt_text_pos = 'inline',
-  })
 
   local float_win = vim.api.nvim_open_win(float_buf, true, {
     relative = 'win',
     win = deck_win,
     row = row_in_win,
-    col = textoff,
-    width = vim.api.nvim_win_get_width(deck_win) - textoff,
+    col = name_col,
+    width = math.max(1, vim.api.nvim_win_get_width(deck_win) - name_col),
     height = 1,
     style = 'minimal',
     border = 'none',
