@@ -122,9 +122,10 @@ return function(option)
             { 'show stashes', 'Comment' },
           },
           execute = function()
-            require('deck').start(require('deck.builtin.source.git.stash')({
+            local ctx = require('deck').start(require('deck.builtin.source.git.stash')({
               cwd = option.cwd,
             }))
+            ctx.set_preview_mode(true)
           end,
         })
 
