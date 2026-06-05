@@ -44,7 +44,17 @@ function x.resolve_bufnr(item)
   end
 end
 
----Ensure window.
+---Check if the window is deck-managed (its buffer has b:deck set).
+---@param win integer
+---@return boolean
+function x.is_deck_win(win)
+  if not vim.api.nvim_win_is_valid(win) then return false end
+  local buf = vim.api.nvim_win_get_buf(win)
+  local ok, v = pcall(vim.api.nvim_buf_get_var, buf, 'deck')
+  return ok and v == true
+end
+
+---Ensure window. Reuses an existing window by deck_win_name, validated with is_deck_win.
 ---@param name string
 ---@param opener fun(): integer
 ---@param configure? fun(win: integer)
@@ -55,7 +65,7 @@ function x.ensure_win(name, opener, configure)
   for _, win in ipairs(vim.api.nvim_list_wins()) do
     if tab == vim.api.nvim_win_get_tabpage(win) then
       local ok, v = pcall(vim.api.nvim_win_get_var, win, 'deck_win_name')
-      if ok and v == name then
+      if ok and v == name and x.is_deck_win(win) then
         existing_win = win
         break
       end
@@ -81,6 +91,7 @@ end
 ---@param file { contents: string[], filename?: string, filetype?: string, lnum?: integer, col?: integer, end_lnum?: integer, end_col?: integer }
 function x.open_preview_buffer(win, file)
   local buf = vim.api.nvim_create_buf(false, true)
+  vim.api.nvim_buf_set_var(buf, 'deck', true)
 
   -- set contents.
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, file.contents)
