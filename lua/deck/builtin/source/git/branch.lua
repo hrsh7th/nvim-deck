@@ -178,7 +178,11 @@ local function source(option)
       {
         name = 'git.branch.fetch',
         resolve = function(ctx)
-          return #ctx.get_action_items() == 1
+          for _, item in ipairs(ctx.get_action_items()) do
+            if item.data.remotename then
+              return true
+            end
+          end
         end,
         execute = function(ctx)
           Async.run(function()
