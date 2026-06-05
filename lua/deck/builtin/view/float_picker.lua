@@ -121,7 +121,11 @@ return function(option)
 
       table.insert(state.disposes, x.autocmd('WinLeave', function()
         if vim.api.nvim_get_current_win() == state.win then
-          ctx.hide()
+          vim.schedule(function()
+            if not x.is_deck_win(vim.api.nvim_get_current_win()) then
+              ctx.hide()
+            end
+          end)
         end
       end))
     end,
@@ -158,7 +162,9 @@ return function(option)
         return nil
       end
 
-      local preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, {
+      local preview_buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_var(preview_buf, 'deck', true)
+      local preview_win = vim.api.nvim_open_win(preview_buf, false, {
         noautocmd = true,
         relative = 'editor',
         width = preview_width,
