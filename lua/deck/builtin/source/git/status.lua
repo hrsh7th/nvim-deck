@@ -145,9 +145,16 @@ return function(option)
         end,
         execute = function(ctx)
           Async.run(function()
-            for _, item in ipairs(ctx.get_action_items()) do
-              git:exec_print({ 'git', 'stash', 'push', '--', item.data.filename }):await()
+            local message = vim.fn.input('stash message: ')
+            local cmd = { 'git', 'stash', 'push' }
+            if message ~= '' then
+              vim.list_extend(cmd, { '-m', message })
             end
+            vim.list_extend(cmd, { '--' })
+            for _, item in ipairs(ctx.get_action_items()) do
+              table.insert(cmd, item.data.filename)
+            end
+            git:exec_print(cmd):await()
             ctx.execute()
           end)
         end,
