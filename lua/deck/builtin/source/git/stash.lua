@@ -50,6 +50,20 @@ return function(option)
       require('deck').alias_action('default', 'git.stash.apply'),
       require('deck').alias_action('delete', 'git.stash.drop'),
       {
+        name = 'git.stash.push',
+        execute = function(ctx)
+          Async.run(function()
+            local message = vim.fn.input('stash message: ')
+            local cmd = { 'git', 'stash', 'push' }
+            if message ~= '' then
+              vim.list_extend(cmd, { '-m', message })
+            end
+            git:exec_print(cmd):await()
+            ctx.execute()
+          end)
+        end,
+      },
+      {
         name = 'git.stash.apply',
         resolve = function(ctx)
           return #ctx.get_action_items() == 1
