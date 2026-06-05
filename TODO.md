@@ -1,23 +1,12 @@
 # TODO
 
-## git.status
-
-- fix `git.status.stash`: bundle multiple selected files into a single stash and add message input prompt
-- add staged/unstaged toggle action (instead of separate `add` and `reset` actions)
-
 ## git.log
 
-- add `git.log.cherry_pick` action
 - investigate possible bug: diff path from `git.log` / `git.file` may not be correctly passed through when opening changeset
 
 ## git.branch
 
-- allow `git.branch.fetch` to operate on multiple selected items (currently resolve requires exactly 1 item)
 - improve `git.branch.rebase_onto` old-base selection using a switch source (branch picker vs log picker) (depends on: implement switch source)
-
-## git launcher
-
-- add merge continuation menu item: detect `.git/MERGE_HEAD` and show a commit item (same pattern as rebase continue/skip/abort)
 
 ## Core features
 
