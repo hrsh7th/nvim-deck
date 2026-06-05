@@ -149,7 +149,9 @@ return function(position, calc_height_or_width)
         style = 'minimal',
         border = 'rounded',
       }
-      local preview_win = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, win_config)
+      local preview_buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_var(preview_buf, 'deck', true)
+      local preview_win = vim.api.nvim_open_win(preview_buf, false, win_config)
       vim.api.nvim_set_option_value('wrap', false, { win = preview_win })
       vim.api.nvim_set_option_value('winhighlight', 'FloatBorder:Normal,FloatTitle:Normal,FloatFooter:Normal',
         { win = preview_win })
