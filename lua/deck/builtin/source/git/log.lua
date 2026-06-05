@@ -178,6 +178,17 @@ return function(option)
         end,
       },
       {
+        name = 'git.log.cherry_pick',
+        execute = function(ctx)
+          Async.run(function()
+            for _, item in ipairs(ctx.get_action_items()) do
+              git:exec_print({ 'git', 'cherry-pick', item.data.hash }):await()
+            end
+            ctx.execute()
+          end)
+        end,
+      },
+      {
         name = 'git.log.revert',
         execute = function(ctx)
           Async.run(function()
