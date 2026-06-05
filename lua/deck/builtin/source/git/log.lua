@@ -1,6 +1,7 @@
 local x = require('deck.x')
 local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
+local notify = require('deck.notify')
 
 --[=[@doc
   category = "source"
@@ -76,6 +77,7 @@ return function(option)
     end,
     actions = {
       require('deck').alias_action('default', 'git.log.changeset'),
+      require('deck').alias_action('yank', 'git.log.yank'),
       {
         name = 'git.log.changeset',
         resolve = function(ctx)
@@ -138,6 +140,41 @@ return function(option)
               ctx.execute()
             end)
           end
+        end,
+      },
+      {
+        name = 'git.log.yank',
+        execute = function(ctx)
+          local action_items = ctx.get_action_items()
+          local function yank_action(get_text)
+            return {
+              name = 'default',
+              execute = function(next_ctx)
+                local contents = vim.iter(action_items):map(get_text):totable()
+                vim.fn.setreg(vim.v.register, table.concat(contents, '\n'), 'V')
+                notify.add_message('default', { { { ('Yanked %d items.'):format(#contents), 'Normal' } } })
+                ctx.show()
+                next_ctx.hide()
+                next_ctx.dispose()
+              end,
+            }
+          end
+          require('deck').start(
+            require('deck.builtin.source.items')({
+              {
+                display_text = 'Full Item',
+                actions = { yank_action(function(i) return i.display_text end) },
+              },
+              {
+                display_text = 'Short Hash',
+                actions = { yank_action(function(i) return i.data.hash_short end) },
+              },
+            }),
+            {
+              history = false,
+              get_view = require('deck').get_config().get_choose_action_view,
+            }
+          )
         end,
       },
       {
