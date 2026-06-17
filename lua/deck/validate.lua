@@ -27,13 +27,19 @@ function validate.start_config(start_config)
     error('start_config.get_view must be function')
   end
   if type(start_config.matcher) ~= 'table' then
-    error('start_config.matcher must be { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }')
+    error(
+      'start_config.matcher must be { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction, is_match_continuation?: deck.Matcher.ContinuationFunction }'
+    )
   end
   if type(start_config.matcher.match) ~= 'function' then
     error('start_config.matcher.match must be function')
   end
   if start_config.matcher.decor and type(start_config.matcher.decor) ~= 'function' then
     error('start_config.matcher.decor must be function')
+  end
+  local is_match_continuation = start_config.matcher.is_match_continuation
+  if is_match_continuation and type(is_match_continuation) ~= 'function' then
+    error('start_config.matcher.is_match_continuation must be function')
   end
   if start_config.history ~= nil and type(start_config.history) ~= 'boolean' then
     error('start_config.history must be boolean or nil')

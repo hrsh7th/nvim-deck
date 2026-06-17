@@ -319,6 +319,32 @@ end
 
 local default = {}
 
+---@param query string
+---@return boolean
+local function has_negate_filter(query)
+  local _, filters = parse_query(query)
+  for _, filter in ipairs(filters) do
+    if filter.negate then
+      return true
+    end
+  end
+  return false
+end
+
+---Return whether an unmatch result for prev_query can be reused for next_query.
+---@param prev_query string
+---@param next_query string
+---@return boolean
+function default.is_match_continuation(prev_query, next_query)
+  if next_query:sub(1, #prev_query) ~= prev_query then
+    return false
+  end
+  if has_negate_filter(prev_query) or has_negate_filter(next_query) then
+    return false
+  end
+  return true
+end
+
 ---Match query against text and return a score.
 ---@param input string
 ---@param text string

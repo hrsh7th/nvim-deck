@@ -50,6 +50,20 @@ local example2_source = {
   end,
 }
 
+---@type deck.Source
+local filter_source = {
+  name = 'filter',
+  execute = function(ctx)
+    ctx.item({
+      display_text = 'src/foo.test.ts (1:1): test',
+    })
+    ctx.item({
+      display_text = 'src/foo.ts (1:1): test',
+    })
+    ctx.done()
+  end,
+}
+
 describe('deck', function()
   it('{show, hide, focus}', function()
     local ctx = deck.start(example1_source)
@@ -89,6 +103,27 @@ describe('deck', function()
       return kit.shallow_equals(vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false), { '5' })
     end)
     assert.are.same({ '5' }, vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false))
+  end)
+
+  it('refilters items when narrowing negative query', function()
+    local ctx = deck.start(filter_source, {
+      history = false,
+    })
+    ctx.set_query('!.')
+    vim.wait(500, function()
+      return ctx.count_rendered_items() == 0
+    end)
+    assert.are.equal(0, ctx.count_rendered_items())
+
+    ctx.set_query('!.test.ts')
+    vim.wait(500, function()
+      return kit.shallow_equals(vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false), {
+        'src/foo.ts (1:1): test',
+      })
+    end)
+    assert.are.same({
+      'src/foo.ts (1:1): test',
+    }, vim.api.nvim_buf_get_lines(ctx.buf, 0, -1, false))
   end)
 
   it('do_action', function()

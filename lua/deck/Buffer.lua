@@ -6,6 +6,20 @@ local symbols = require('deck.symbols')
 
 local rendering_lines = {}
 
+---@param matcher deck.Matcher
+---@param prev_query string?
+---@param next_query string
+---@return boolean
+local function is_match_continuation(matcher, prev_query, next_query)
+  if not prev_query then
+    return false
+  end
+  if matcher.is_match_continuation then
+    return matcher.is_match_continuation(prev_query, next_query)
+  end
+  return vim.startswith(next_query, prev_query)
+end
+
 ---Create current time in milliseconds.
 ---@return integer
 local function now_ms()
@@ -264,7 +278,7 @@ function Buffer:_step_filter()
     local checker = self._interrupt_checker(config.filter_batch_size, config.filter_bugdet_ms)
     for i = self._cursor_filtered + 1, #self._items do
       local item = self._items[i]
-      if not item[symbols.query_unmatch] or not vim.startswith(self._query, item[symbols.query_unmatch] or '') then
+      if not is_match_continuation(self._start_config.matcher, item[symbols.query_unmatch], self._query) then
         local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
         if score > 0 then
           local not_added_item = self._topk:add(item, score)

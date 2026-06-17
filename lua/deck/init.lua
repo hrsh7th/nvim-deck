@@ -42,7 +42,8 @@ local Context = require('deck.Context')
 ---@doc.type
 ---@alias deck.Matcher.MatchFunction fun(query: string, text: string): number
 ---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
----@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction }
+---@alias deck.Matcher.ContinuationFunction fun(prev_query: string, next_query: string): boolean
+---@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction, is_match_continuation?: deck.Matcher.ContinuationFunction }
 
 ---@doc.type
 ---@class deck.ItemSpecifier

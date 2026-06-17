@@ -40,6 +40,15 @@ describe('deck.builtin.matcher.default', function()
     assert.are.equal(0, default.match('path xyz', 'path/to/file.lua'))
   end)
 
+  it('should detect match continuation', function()
+    assert.is_true(default.is_match_continuation('path', 'path lua'))
+    assert.is_true(default.is_match_continuation('^path', '^path/to'))
+
+    assert.is_false(default.is_match_continuation('path', 'lua path'))
+    assert.is_false(default.is_match_continuation('!.', '!.test.ts'))
+    assert.is_false(default.is_match_continuation('!.test.ts', '!.test.tsx'))
+  end)
+
   it('benchmark', function()
     collectgarbage('stop')
 
