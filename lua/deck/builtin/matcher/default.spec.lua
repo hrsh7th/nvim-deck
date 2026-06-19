@@ -38,6 +38,46 @@ describe('deck.builtin.matcher.default', function()
 
     assert.is_true(default.match('path lua', 'path/to/file.lua') > 0)
     assert.are.equal(0, default.match('path xyz', 'path/to/file.lua'))
+
+    assert.is_true(default.match('hoge | fuga', 'prefix_hoge_suffix') > 0)
+    assert.is_true(default.match('hoge | fuga', 'prefix_fuga_suffix') > 0)
+    assert.are.equal(0, default.match('hoge | fuga', 'prefix_piyo_suffix'))
+    assert.is_true(default.match('prefix hoge | fuga', 'prefix_hoge_suffix') > 0)
+    assert.is_true(default.match('prefix hoge | fuga', 'prefix_fuga_suffix') > 0)
+    assert.are.equal(0, default.match('prefix hoge | fuga', 'suffix_fuga'))
+    assert.is_true(default.match('hoge|fuga', 'prefix_hoge|fuga_suffix') > 0)
+    assert.are.equal(0, default.match('hoge|fuga', 'prefix_hoge_suffix'))
+  end)
+
+  it('should decorate matched or-query alternatives', function()
+    assert.same({ { 7, 11 } }, default.decor('hoge | fuga', 'prefix_hoge_suffix'))
+    assert.same({ { 7, 11 } }, default.decor('hoge | fuga', 'prefix_fuga_suffix'))
+    assert.same({}, default.decor('hoge | fuga', 'prefix_piyo_suffix'))
+  end)
+
+  it('should match expression queries', function()
+    assert.is_true(default.match("'.png | '.jpg", 'path/to/image.png') > 0)
+    assert.is_true(default.match("'.png | '.jpg", 'path/to/image.jpg') > 0)
+    assert.are.equal(0, default.match("'.png | '.jpg", 'path/to/image.gif'))
+
+    assert.is_true(default.match("src '.lua | '.vim", 'src/main.lua') > 0)
+    assert.is_true(default.match("src '.lua | '.vim", 'src/init.vim') > 0)
+    assert.are.equal(0, default.match("src '.lua | '.vim", 'test/main.lua'))
+    assert.are.equal(0, default.match("src '.lua | '.vim", 'src/main.ts'))
+
+    assert.is_true(default.match("!'.png !'.jpg", 'path/to/image.gif') > 0)
+    assert.are.equal(0, default.match("!'.png !'.jpg", 'path/to/image.png'))
+
+    assert.is_true(default.match("'foo bar", 'prefix foo bar suffix') > 0)
+    assert.is_true(default.match("'foo bar", 'prefix bar foo suffix') > 0)
+    assert.is_true(default.match('foo\\ bar', 'prefix foo bar suffix') > 0)
+    assert.are.equal(0, default.match('"foo bar"', 'prefix foo suffix bar'))
+
+    assert.is_true(default.match('".png"', 'path/to/".png"') > 0)
+    assert.are.equal(0, default.match('".png"', 'path/to/image.png'))
+
+    assert.is_true(default.match('=.png', 'path/to/=image.png') > 0)
+    assert.are.equal(0, default.match('=.png', 'path/to/image.png'))
   end)
 
   it('should detect match continuation', function()
@@ -47,6 +87,9 @@ describe('deck.builtin.matcher.default', function()
     assert.is_false(default.is_match_continuation('path', 'lua path'))
     assert.is_false(default.is_match_continuation('!.', '!.test.ts'))
     assert.is_false(default.is_match_continuation('!.test.ts', '!.test.tsx'))
+    assert.is_true(default.is_match_continuation('hoge', 'hoge|fuga'))
+    assert.is_false(default.is_match_continuation("'.png", "'.png | '.jpg"))
+    assert.is_false(default.is_match_continuation("'.png", "!'.png"))
   end)
 
   it('benchmark', function()

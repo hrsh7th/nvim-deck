@@ -35,12 +35,7 @@ end
 ---@param semantic_indexes integer[]
 ---@param with_ranges boolean
 ---@return number, { [1]: integer, [2]: integer }[]?
-local function compute(
-    query,
-    text,
-    semantic_indexes,
-    with_ranges
-)
+local function compute(query, text, semantic_indexes, with_ranges)
   local Q = #query
   local T = #text
   local S = #semantic_indexes
@@ -94,13 +89,7 @@ local function compute(
           strict_bonus = strict_bonus + (t_char == q_char and score_adjuster * 0.1 or 0)
         end
 
-        local inner_score, inner_ranges = dfs(
-          qi + mi,
-          si + 1,
-          ti + mi,
-          part_score + mi + strict_bonus,
-          part_chunks + 1
-        )
+        local inner_score, inner_ranges = dfs(qi + mi, si + 1, ti + mi, part_score + mi + strict_bonus, part_chunks + 1)
 
         -- custom
         do
@@ -138,104 +127,245 @@ local function compute(
   return dfs(1, 1, math.huge, 0, -1)
 end
 
-local chars = {
-  [' '] = string.byte(' '),
-  ['\\'] = string.byte('\\'),
-}
+local lpeg = vim.lpeg or require('lpeg')
+local C = lpeg.C
+local Ct = lpeg.Ct
+local P = lpeg.P
+local S = lpeg.S
 
----Parse a query string into parts.
----@type table|(fun(query: string): { query: string, char_map: table<integer, boolean> }[], { negate?: true, prefix?: true, suffix?: true, query: string }[])
+---@param q string
+---@return table<integer, boolean>
+local function create_char_map(q)
+  local char_map = {}
+  for i = 1, #q do
+    local c = q:byte(i)
+    char_map[c] = true
+    if Character.is_upper(c) then
+      char_map[c + 32] = true
+    elseif Character.is_lower(c) then
+      char_map[c - 32] = true
+    end
+  end
+  return char_map
+end
+
+---@param kind string
+---@param query string
+---@return table?
+local function create_predicate(kind, query)
+  if query == '' then
+    return nil
+  end
+  local predicate = {
+    type = 'predicate',
+    kind = kind,
+    query = query,
+  }
+  if kind == 'fuzzy' then
+    predicate.char_map = create_char_map(query)
+  end
+  return predicate
+end
+
+---@param type string
+---@param text? string
+---@return table
+local function create_token(type, text)
+  return {
+    type = type,
+    text = text or '',
+  }
+end
+
+local escaped_char = P('\\') * C(P(1))
+local term_char = escaped_char + C(P(1) - S(' \t\n'))
+local term = Ct(term_char ^ 1) / function(chars_)
+  return create_token('term', table.concat(chars_))
+end
+local space = S(' \t\n') ^ 1 / function()
+  return create_token('space')
+end
+local tokens_pattern = Ct((space + term) ^ 0) * -P(1)
+
+---@param query string
+---@return table[]
+local function tokenize(query)
+  return tokens_pattern:match(query) or {}
+end
+
+local Parser = {}
+Parser.__index = Parser
+
+---@param tokens table[]
+function Parser.new(tokens)
+  return setmetatable({
+    tokens = tokens,
+    index = 1,
+  }, Parser)
+end
+
+function Parser:peek()
+  return self.tokens[self.index]
+end
+
+---@param term_ string
+---@return boolean
+function Parser:accept_term(term_)
+  local token = self:peek()
+  if token and token.type == 'term' and token.text == term_ then
+    self.index = self.index + 1
+    return true
+  end
+  return false
+end
+
+---@return boolean
+function Parser:consume_space()
+  local consumed = false
+  while self:peek() and self:peek().type == 'space' do
+    self.index = self.index + 1
+    consumed = true
+  end
+  return consumed
+end
+
+---@return table?
+function Parser:parse()
+  self:consume_space()
+  return self:parse_and()
+end
+
+---@return table?
+function Parser:parse_and()
+  local nodes = {}
+  local node = self:parse_or()
+  if node then
+    nodes[#nodes + 1] = node
+  end
+
+  while true do
+    local consumed = self:consume_space()
+    if not consumed then
+      break
+    end
+    local token = self:peek()
+    if not token or token.text == '|' then
+      break
+    end
+    node = self:parse_or()
+    if not node then
+      break
+    end
+    nodes[#nodes + 1] = node
+  end
+
+  if #nodes == 0 then
+    return nil
+  end
+  if #nodes == 1 then
+    return nodes[1]
+  end
+  return {
+    type = 'and',
+    children = nodes,
+  }
+end
+
+---@return table?
+function Parser:parse_or()
+  local nodes = {}
+  local node = self:parse_unary()
+  if node then
+    nodes[#nodes + 1] = node
+  end
+
+  while true do
+    local index = self.index
+    self:consume_space()
+    if not self:accept_term('|') then
+      self.index = index
+      break
+    end
+    self:consume_space()
+    node = self:parse_unary()
+    if not node then
+      break
+    end
+    nodes[#nodes + 1] = node
+  end
+
+  if #nodes == 0 then
+    return nil
+  end
+  if #nodes == 1 then
+    return nodes[1]
+  end
+  return {
+    type = 'or',
+    children = nodes,
+  }
+end
+
+---@return table?
+function Parser:parse_unary()
+  return self:parse_predicate()
+end
+
+---@return table?
+function Parser:parse_predicate()
+  local token = self:peek()
+  if not token or token.type ~= 'term' or token.text == '|' then
+    return nil
+  end
+  self.index = self.index + 1
+
+  local query = token.text
+  local negate = false
+  if query:sub(1, 1) == '!' then
+    negate = true
+    query = query:sub(2)
+  end
+
+  local kind = negate and 'contains' or 'fuzzy'
+  if query:sub(1, 1) == "'" then
+    kind = 'contains'
+    query = query:sub(2)
+  elseif query:sub(1, 1) == '^' then
+    kind = 'prefix'
+    query = query:sub(2)
+  end
+  if query:sub(-1) == '$' then
+    query = query:sub(1, -2)
+    if kind == 'prefix' then
+      kind = 'prefix_suffix'
+    else
+      kind = 'suffix'
+    end
+  end
+
+  local predicate = create_predicate(kind, query)
+  if predicate and negate then
+    return {
+      type = 'not',
+      child = predicate,
+    }
+  end
+  return predicate
+end
+
+---Parse a query string into an AST.
+---@type table|(fun(query: string): table?)
 local parse_query = setmetatable({
   cache_query = {},
-  cache_parsed = {
-    fuzzies = {},
-    filters = {},
-  },
+  cache_ast = nil,
 }, {
   __call = function(self, query)
     if self.cache_query == query then
-      return self.cache_parsed.fuzzies, self.cache_parsed.filters
+      return self.cache_ast
     end
     self.cache_query = query
-
-    local queries = {}
-    local chunk = {}
-    local idx = 1
-    while idx <= #query do
-      local c = query:byte(idx)
-
-      if chars['\\'] == c then
-        idx = idx + 1
-        if idx > #query then
-          break
-        end
-        chunk[#chunk + 1] = string.char(query:byte(idx))
-      elseif chars[' '] == c then
-        if #chunk > 0 then
-          queries[#queries + 1] = table.concat(chunk)
-          chunk = {}
-        end
-      else
-        chunk[#chunk + 1] = string.char(c)
-      end
-
-      idx = idx + 1
-    end
-    if #chunk > 0 then
-      queries[#queries + 1] = table.concat(chunk)
-    end
-
-    local fuzzies = {}
-    local filters = {}
-    for _, q in ipairs(queries) do
-      local negate = false
-      local prefix = false
-      local suffix = false
-      local equals = false
-      if q:sub(1, 1) == '=' then
-        equals = true
-        q = q:sub(2)
-      else
-        if q:sub(1, 1) == '!' then
-          negate = true
-          q = q:sub(2)
-        end
-        if q:sub(1, 1) == '^' then
-          prefix = true
-          q = q:sub(2)
-        end
-        if q:sub(-1) == '$' then
-          suffix = true
-          q = q:sub(1, -2)
-        end
-      end
-      if q ~= '' then
-        if negate or prefix or suffix or equals then
-          filters[#filters + 1] = {
-            negate = negate,
-            prefix = prefix,
-            suffix = suffix,
-            equals = equals,
-            query = q
-          }
-        else
-          local char_map = {}
-          for i = 1, #q do
-            local c = q:byte(i)
-            char_map[c] = true
-            if Character.is_upper(c) then
-              char_map[c + 32] = true
-            elseif Character.is_lower(c) then
-              char_map[c - 32] = true
-            end
-          end
-          fuzzies[#fuzzies + 1] = { query = q, char_map = char_map }
-        end
-      end
-    end
-    self.cache_parsed = { fuzzies = fuzzies, filters = filters }
-
-    return self.cache_parsed.fuzzies, self.cache_parsed.filters
+    self.cache_ast = Parser.new(tokenize(query)):parse()
+    return self.cache_ast
   end,
 })
 
@@ -316,19 +446,218 @@ local function find_icase(query, text)
   return nil
 end
 
+---@param fuzzy { query: string, char_map: table<integer, boolean> }
+---@param text string
+---@return number?
+local function match_fuzzy(fuzzy, text)
+  local semantic_indexes = parse_semantic_indexes(text, fuzzy.char_map)
+  local score = compute(fuzzy.query, text, semantic_indexes, false)
+  if score <= 0 then
+    return nil
+  end
+  return score
+end
+
+---@param fuzzy { query: string, char_map: table<integer, boolean> }
+---@param text string
+---@param matches { [1]: integer, [2]: integer }[]
+---@return boolean
+local function decor_fuzzy(fuzzy, text, matches)
+  local semantic_indexes = parse_semantic_indexes(text, fuzzy.char_map)
+  local score, ranges = compute(fuzzy.query, text, semantic_indexes, true)
+  if score <= 0 then
+    return false
+  end
+  if ranges then
+    for _, range in ipairs(ranges) do
+      matches[#matches + 1] = { range[1] - 1, range[2] - 1 }
+    end
+  end
+  return true
+end
+
+---@param predicate { kind: string, query: string, char_map?: table<integer, boolean> }
+---@param text string
+---@return number?
+local function match_predicate(predicate, text)
+  if predicate.kind == 'fuzzy' then
+    return match_fuzzy(predicate, text)
+  end
+  if predicate.kind == 'contains' then
+    if find_icase(predicate.query, text) then
+      return 0
+    end
+    return nil
+  end
+
+  local score = 0
+  if predicate.kind == 'prefix' or predicate.kind == 'prefix_suffix' then
+    local prefix_match, prefix_strict = prefix_icase(predicate.query, text)
+    if not prefix_match then
+      return nil
+    end
+    if prefix_strict then
+      score = score + Config.strict_bonus
+    end
+  end
+  if predicate.kind == 'suffix' or predicate.kind == 'prefix_suffix' then
+    local suffix_match, suffix_strict = suffix_icase(predicate.query, text)
+    if not suffix_match then
+      return nil
+    end
+    if suffix_strict then
+      score = score + Config.strict_bonus
+    end
+  end
+  return score
+end
+
+---@type fun(node: table, text: string): number?
+local match_node
+match_node = function(node, text)
+  if node.type == 'predicate' then
+    return match_predicate(node, text)
+  end
+  if node.type == 'and' then
+    local total_score = 0
+    for _, child in ipairs(node.children) do
+      local score = match_node(child, text)
+      if not score then
+        return nil
+      end
+      total_score = total_score + score
+    end
+    return total_score
+  end
+  if node.type == 'or' then
+    local best_score
+    for _, child in ipairs(node.children) do
+      local score = match_node(child, text)
+      if score and (not best_score or score > best_score) then
+        best_score = score
+      end
+    end
+    return best_score
+  end
+  if node.type == 'not' then
+    if match_node(node.child, text) then
+      return nil
+    end
+    return 0
+  end
+  return nil
+end
+
+---@param predicate { kind: string, query: string, char_map?: table<integer, boolean> }
+---@param text string
+---@param matches { [1]: integer, [2]: integer }[]
+---@return boolean
+local function decor_predicate(predicate, text, matches)
+  if predicate.kind == 'fuzzy' then
+    return decor_fuzzy(predicate, text, matches)
+  end
+  if predicate.kind == 'contains' then
+    local s, e = find_icase(predicate.query, text)
+    if s and e then
+      matches[#matches + 1] = { s - 1, e }
+      return true
+    end
+    return false
+  end
+  if predicate.kind == 'prefix' or predicate.kind == 'prefix_suffix' then
+    if not prefix_icase(predicate.query, text) then
+      return false
+    end
+    matches[#matches + 1] = { 0, #predicate.query }
+  end
+  if predicate.kind == 'suffix' or predicate.kind == 'prefix_suffix' then
+    if not suffix_icase(predicate.query, text) then
+      return false
+    end
+    matches[#matches + 1] = { #text - #predicate.query, #text - 1 }
+  end
+  return true
+end
+
+---@type fun(node: table, text: string): { [1]: integer, [2]: integer }[]?
+local decor_node
+decor_node = function(node, text)
+  if node.type == 'predicate' then
+    local matches = {}
+    if decor_predicate(node, text, matches) then
+      return matches
+    end
+    return nil
+  end
+  if node.type == 'and' then
+    local matches = {}
+    for _, child in ipairs(node.children) do
+      local child_matches = decor_node(child, text)
+      if not child_matches then
+        return nil
+      end
+      for _, match in ipairs(child_matches) do
+        matches[#matches + 1] = match
+      end
+    end
+    return matches
+  end
+  if node.type == 'or' then
+    local best_score
+    local best_matches
+    for _, child in ipairs(node.children) do
+      local score = match_node(child, text)
+      if score and (not best_score or score > best_score) then
+        local child_matches = decor_node(child, text)
+        if child_matches then
+          best_score = score
+          best_matches = child_matches
+        end
+      end
+    end
+    return best_matches
+  end
+  if node.type == 'not' then
+    if match_node(node.child, text) then
+      return nil
+    end
+    return {}
+  end
+  return nil
+end
+
+---@param node table?
+---@param types table<string, boolean>
+---@return boolean
+local function contains_node_type(node, types)
+  if not node then
+    return false
+  end
+  if types[node.type] or (node.type == 'predicate' and types[node.kind]) then
+    return true
+  end
+  if node.child and contains_node_type(node.child, types) then
+    return true
+  end
+  if node.children then
+    for _, child in ipairs(node.children) do
+      if contains_node_type(child, types) then
+        return true
+      end
+    end
+  end
+  return false
+end
 
 local default = {}
 
 ---@param query string
 ---@return boolean
-local function has_negate_filter(query)
-  local _, filters = parse_query(query)
-  for _, filter in ipairs(filters) do
-    if filter.negate then
-      return true
-    end
-  end
-  return false
+local function has_or_or_not(query)
+  return contains_node_type(parse_query(query), {
+    ['or'] = true,
+    ['not'] = true,
+  })
 end
 
 ---Return whether an unmatch result for prev_query can be reused for next_query.
@@ -339,7 +668,7 @@ function default.is_match_continuation(prev_query, next_query)
   if next_query:sub(1, #prev_query) ~= prev_query then
     return false
   end
-  if has_negate_filter(prev_query) or has_negate_filter(next_query) then
+  if has_or_or_not(prev_query) or has_or_or_not(next_query) then
     return false
   end
   return true
@@ -350,59 +679,16 @@ end
 ---@param text string
 ---@return number
 function default.match(input, text)
-  local fuzzies, filters = parse_query(input)
-  if #fuzzies == 0 and #filters == 0 then
+  local node = parse_query(input)
+  if not node then
     return 1
   end
 
-  local total_score = 1
-
-  -- check filters.
-  for _, filter in ipairs(filters) do
-    local match = true
-    if filter.prefix or filter.suffix then
-      if match then
-        local prefix_match, prefix_strict = prefix_icase(filter.query, text)
-        if filter.prefix and not prefix_match then
-          match = false
-        end
-        if prefix_strict then
-          total_score = total_score + Config.strict_bonus
-        end
-      end
-      if match then
-        local suffix_match, suffix_strict = suffix_icase(filter.query, text)
-        if filter.suffix and not suffix_match then
-          match = false
-        end
-        if suffix_strict then
-          total_score = total_score + Config.strict_bonus
-        end
-      end
-    else
-      match = find_icase(filter.query, text) ~= nil
-    end
-    if filter.negate then
-      if match then
-        return 0
-      end
-    else
-      if not match then
-        return 0
-      end
-    end
+  local score = match_node(node, text)
+  if not score then
+    return 0
   end
-
-  -- check fuzzies.
-  for _, fuzzy in ipairs(fuzzies) do
-    local semantic_indexes = parse_semantic_indexes(text, fuzzy.char_map)
-    local score = compute(fuzzy.query, text, semantic_indexes, false)
-    if score <= 0 then
-      return 0
-    end
-    total_score = total_score + score
-  end
-  return total_score
+  return 1 + score
 end
 
 ---Get decoration matches for the matched query in the text.
@@ -410,44 +696,11 @@ end
 ---@param text string
 ---@return { [1]: integer, [2]: integer }[]
 function default.decor(input, text)
-  local fuzzies, filters = parse_query(input)
-  if #fuzzies == 0 and #filters == 0 then
+  local node = parse_query(input)
+  if not node then
     return {}
   end
-
-  local matches = {}
-
-  -- check filters.
-  for _, filter in ipairs(filters) do
-    if filter.prefix or filter.suffix then
-      if filter.prefix and prefix_icase(filter.query, text) then
-        matches[#matches + 1] = { 0, #filter.query }
-      end
-      if filter.suffix and suffix_icase(filter.query, text) then
-        matches[#matches + 1] = { #text - #filter.query, #text - 1 }
-      end
-    elseif not filter.negate then
-      local s, e = find_icase(filter.query, text)
-      if s and e then
-        matches[#matches + 1] = { s - 1, e }
-      end
-    end
-  end
-
-  -- check fuzzies.
-  for _, fuzzy in ipairs(fuzzies) do
-    local semantic_indexes = parse_semantic_indexes(text, fuzzy.char_map)
-    local score, ranges = compute(fuzzy.query, text, semantic_indexes, true)
-    if score <= 0 then
-      return {}
-    end
-    if ranges then
-      for _, range in ipairs(ranges) do
-        matches[#matches + 1] = { range[1] - 1, range[2] - 1 }
-      end
-    end
-  end
-  return matches
+  return decor_node(node, text) or {}
 end
 
 return default
