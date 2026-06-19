@@ -1,6 +1,36 @@
 local kit = require('deck.kit')
 
+local Bytes = {
+  ['\r'] = ('\r'):byte(1, 1),
+  ['\n'] = ('\n'):byte(1, 1),
+}
+
 local x = {}
+
+---Ensure oneline text.
+---@param s string
+---@param concat? boolean
+---@return string
+function x.oneline(s, concat)
+  if concat then
+    s = s:gsub('\r\n', ' ')
+    s = s:gsub('\r', ' ')
+    s = s:gsub('\n', ' ')
+    return s
+  end
+
+  local stop = {
+    [Bytes['\r']] = true,
+    [Bytes['\n']] = true,
+  }
+  for i = 1, #s do
+    local char = s:byte(i)
+    if stop[char] then
+      return s:sub(1, i)
+    end
+  end
+  return s
+end
 
 ---Normalize display_text.
 ---@param display_text string|deck.VirtualText

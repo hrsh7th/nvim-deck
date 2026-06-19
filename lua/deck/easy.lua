@@ -189,6 +189,18 @@ function easy.setup(config)
     deck.register_start_preset('deck.history', function()
       deck.start(require('deck.builtin.source.deck.history')())
     end)
+
+    -- Register `lsp.diagnostics` start preset.
+    deck.register_start_preset('lsp.diagnostics', function()
+      local ctx = deck.start({
+        require('deck.builtin.source.lsp.diagnostics')()
+      }, {
+        dedup = false,
+        history = false,
+        disable_decorators = { 'filename', 'signs' },
+      })
+      ctx.set_preview_mode(true)
+    end)
   end
 end
 
