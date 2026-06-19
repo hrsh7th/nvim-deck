@@ -460,10 +460,10 @@ ctx.item({
 
 Show buffers.
 
-| Name         | Type      | Default                | Description                                                         |
-| ------------ | --------- | ---------------------- | ------------------------------------------------------------------- |
-| ignore_paths | string[]? | [vim.fn.expand('%:p')] | Ignore paths. The default value is intented to hide current buffer. |
-| nofile       | boolean?  | false                  | Ignore nofile buffers.                                              |
+| Name         | Type      | Default | Description             |
+| ------------ | --------- | ------- | ----------------------- |
+| ignore_paths | string[]? | {}      | Ignore paths.           |
+| nofile       | boolean?  | false   | Include nofile buffers. |
 
 ```lua
 deck.start(require('deck.builtin.source.buffers')({
