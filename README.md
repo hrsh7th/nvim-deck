@@ -1438,6 +1438,7 @@ items. Set `vim.ui.select = require('deck').ui_select` to use it globally.
 ---@field public data? table
 ---@field public actions? deck.Action[]
 ---@field public previewers? deck.Previewer[]
+---@field public decorators? deck.Decorator[]
 ```
 
 ```vimdoc

@@ -1,4 +1,4 @@
-*deck.txt*              For NVIM v0.10.0             Last change: 2026 June 03
+*deck.txt*              For NVIM v0.10.0             Last change: 2026 June 19
 
 ==============================================================================
 Table of Contents                                     *deck-table-of-contents*
@@ -204,6 +204,7 @@ actions for them.
 - delete
 - rename
 - write
+- yank
 - refresh
 - open
 - open_split
@@ -486,13 +487,10 @@ BUFFERS ~
 
 Show buffers.
 
-  ----------------------------------------------------------
   Name           Type        Default   Description
-  -------------- ----------- --------- ---------------------
+  -------------- ----------- --------- -------------------------
   ignore_paths   string[]?   {}        Ignore paths.
-
   nofile         boolean?    false     Include nofile buffers.
-  ----------------------------------------------------------
 >lua
     deck.start(require('deck.builtin.source.buffers')({
       ignore_paths = { vim.fn.expand('%:p'):gsub('/$', '') },
@@ -1321,6 +1319,7 @@ items. Set `vim.ui.select = require('deck').ui_select` to use it globally.
     ---@field public data? table
     ---@field public actions? deck.Action[]
     ---@field public previewers? deck.Previewer[]
+    ---@field public decorators? deck.Decorator[]
 <
 
 *deck.PerformanceConfig*
