@@ -175,6 +175,22 @@ end)
 
 If you create nvim-deck source or action, we recommend to follow guidelines.
 
+### Built-in actions apply via duck typing on `item.data`
+
+Globally registered actions (e.g. `open`, `write_buffer`, `delete_buffer`) inspect
+`item.data` fields to decide whether they apply — **no explicit registration is needed
+inside a source**.
+
+| `item.data` field | Actions unlocked automatically |
+|---|---|
+| `filename` | `open`, `open_split`, `open_vsplit`, `delete_file`, `rename` |
+| `bufnr` | `open`, `write_buffer`, `delete_buffer` |
+| `lnum` / `col` | cursor is placed when opening |
+| `end_lnum` / `end_col` | range selection after opening |
+
+So a source that sets `item.data.filename` and `item.data.lnum` gets file-open
+with cursor placement for free, without listing any action in the source definition.
+
 ### Register alias action for common action names.
 
 nvim-deck supports the concept of duck-typing.

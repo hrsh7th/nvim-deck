@@ -34,5 +34,8 @@ Both picker buffers and preview buffers carry `b:deck = true`. Use `x.is_deck_wi
 **`ensure_win` validates with `is_deck_win`**
 Before reusing a window by `deck_win_name`, `ensure_win` confirms the window still holds a deck buffer. Stale `deck_win_name` on a repurposed window is silently ignored.
 
+**Built-in actions apply via duck typing**
+Globally registered actions (e.g. `open`, `write_buffer`, `delete_buffer`) resolve against `item.data` fields — no explicit registration needed in a source. Set `item.data.bufnr` to unlock buffer-targeted actions, `item.data.filename` for file-targeted ones, etc.
+
 **Avoid `and/or` ternary**
 Write `if/else` instead of `x and a or b`.
