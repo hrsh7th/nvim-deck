@@ -55,6 +55,7 @@ local Context = require('deck.Context')
 ---@field public data? table
 ---@field public actions? deck.Action[]
 ---@field public previewers? deck.Previewer[]
+---@field public decorators? deck.Decorator[]
 
 ---@doc.type
 ---@class deck.Item: deck.ItemSpecifier

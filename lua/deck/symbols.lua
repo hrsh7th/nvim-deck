@@ -5,4 +5,5 @@ return {
   empty = {},
   item_actions = { sym = 'deck.item_actions' },
   item_previewers = { sym = 'deck.item_previewers' },
+  item_decorators = { sym = 'deck.item_decorators' },
 }

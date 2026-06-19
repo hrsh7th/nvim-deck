@@ -253,6 +253,7 @@ function Context.create(id, source, start_config, prev)
 
         local decorators = context.get_decorators()
         for item, idx in buffer:iter_rendered_items(toprow + 1, botrow + 1) do
+          local item_decorators = item[symbols.item_decorators] or {}
           -- create cache.
           if not state.decoration_cache[item] then
             state.decoration_cache[item] = {}
@@ -265,10 +266,28 @@ function Context.create(id, source, start_config, prev)
                 end
               end
             end
+            for _, decorator in ipairs(item_decorators) do
+              if not decorator.dynamic then
+                if not decorator.resolve or decorator.resolve(context, item) then
+                  for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
+                    table.insert(state.decoration_cache[item], decoration)
+                  end
+                end
+              end
+            end
           end
 
           -- apply.
           for _, decorator in ipairs(decorators) do
+            if decorator.dynamic then
+              if not decorator.resolve or decorator.resolve(context, item) then
+                for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do
+                  apply_decoration(idx - 1, decoration)
+                end
+              end
+            end
+          end
+          for _, decorator in ipairs(item_decorators) do
             if decorator.dynamic then
               if not decorator.resolve or decorator.resolve(context, item) then
                 for _, decoration in ipairs(kit.to_array(decorator.decorate(context, item))) do

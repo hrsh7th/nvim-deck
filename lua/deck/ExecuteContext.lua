@@ -128,6 +128,10 @@ function ExecuteContext.create(params)
         item_specifier[symbols.item_previewers] = item_specifier.previewers
         item_specifier.previewers = nil
       end
+      if item_specifier.decorators then
+        item_specifier[symbols.item_decorators] = item_specifier.decorators
+        item_specifier.decorators = nil
+      end
 
       params.on_item(item_specifier --[[@as deck.Item]])
     end,
