@@ -7,6 +7,7 @@ local System = require('deck.kit.System')
 ---@field name string
 ---@field type 'file' | 'directory'
 ---@field link boolean
+---@field broken boolean
 
 local Node = {}
 
@@ -27,6 +28,7 @@ function Node.resolve(path)
       path = path,
       type = stat.type == 'directory' and 'directory' or 'file',
       link = false,
+      broken = false,
     }
   end)
 end
@@ -48,6 +50,15 @@ function Node.children(node)
           path = IO.normalize(entry.path),
           type = stat.type == 'directory' and 'directory' or 'file',
           link = entry.type == 'link',
+          broken = false,
+        })
+      elseif entry.type == 'link' then
+        table.insert(children, {
+          name = vim.fs.basename(entry.path),
+          path = IO.normalize(entry.path),
+          type = 'file',
+          link = true,
+          broken = true,
         })
       end
     end

@@ -129,6 +129,35 @@ describe('deck.builtin.source.explorer', function()
     )
   end)
 
+  it('displays broken symlinks', function()
+    setup()
+    local broken_link = IO.join(fixture_target_dir, 'broken-link')
+    assert(vim.uv.fs_symlink('missing-target', broken_link))
+
+    local ctx = start(fixture_target_dir)
+
+    assert.is_true(vim.tbl_contains(item_basenames(ctx), 'broken-link'))
+    for item in ctx.iter_rendered_items() do
+      if vim.fs.basename(item.data.filename) == 'broken-link' then
+        assert.matches('broken%-link !$', item.display_text)
+      end
+    end
+  end)
+
+  it('displays valid symlink markers', function()
+    setup()
+    assert(vim.uv.fs_symlink('dir1/file1', IO.join(fixture_target_dir, 'file-link')))
+
+    local ctx = start(fixture_target_dir)
+
+    assert.is_true(vim.tbl_contains(item_basenames(ctx), 'file-link'))
+    for item in ctx.iter_rendered_items() do
+      if vim.fs.basename(item.data.filename) == 'file-link' then
+        assert.matches('file%-link @$', item.display_text)
+      end
+    end
+  end)
+
   it('create file', function()
     setup()
     local ctx = start(fixture_target_dir)

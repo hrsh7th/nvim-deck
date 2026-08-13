@@ -32,6 +32,15 @@ function View.create_display_text(node, is_expanded, depth)
     table.insert(parts, { ' ' })
     table.insert(parts, { node.name })
   end
+  if node.link then
+    local marker = '@'
+    local hl = 'Comment'
+    if node.broken then
+      marker = '!'
+      hl = 'ErrorMsg'
+    end
+    table.insert(parts, { ' ' .. marker, hl })
+  end
   return parts
 end
 
