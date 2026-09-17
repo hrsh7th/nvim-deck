@@ -1,5 +1,4 @@
 local x = require('deck.x')
-local notify = require('deck.notify')
 local IO = require('deck.kit.IO')
 local Git = require('deck.x.Git')
 local Async = require('deck.kit.Async')
@@ -221,18 +220,7 @@ return function(option)
               },
             },
             execute = function()
-              Async.run(function()
-                for _, remote in ipairs(git:remote():await() --[=[@type deck.x.Git.Remote[]]=]) do
-                  if remote.name == current_branch.remotename then
-                    local browser_url = Git.to_browser_url(remote.fetch_url)
-                    if browser_url then
-                      vim.ui.open(('%s/tree/%s'):format(browser_url, current_branch.name))
-                      return
-                    end
-                  end
-                end
-                notify.add_message('default', { { { 'No remote url found', 'WarningMsg' } } })
-              end)
+              git:open_browser(current_branch)
             end,
           })
         end

@@ -794,6 +794,7 @@ function Git:push(params)
             'git',
             'push',
             params.force and '--force-with-lease' or nil,
+            '--set-upstream',
             params.branch.remotename,
             params.branch.name,
           })
@@ -953,12 +954,53 @@ function Git:exec(command, option)
   end)
 end
 
+---Open a branch in the browser without requiring an upstream or a pushed ref.
+---@param branch deck.x.Git.Branch
+---@return deck.kit.Async.AsyncTask
+function Git:open_browser(branch)
+  return Async.run(function()
+    local remotes = self:remote():await() --[=[@as deck.x.Git.Remote[]]=]
+    local remote_by_name = {}
+    for _, remote in ipairs(remotes) do
+      remote_by_name[remote.name] = remote
+    end
+
+    local remote = remote_by_name[branch.remotename] or remote_by_name.origin or remotes[1]
+    if remote then
+      local url = Git.to_browser_url(remote.fetch_url)
+      if url then
+        local name = branch.name:gsub('[^%w%-%._~/]', function(char)
+          return ('%%%02X'):format(char:byte())
+        end)
+        vim.ui.open(('%s/tree/%s'):format(url, name))
+        return
+      end
+    end
+    notify.add_message('default', { { { 'No remote url found', 'WarningMsg' } } })
+  end)
+end
+
 ---Get browser URL from fetch url.
 ---@param fetch_url string
 ---@return string?
 function Git.to_browser_url(fetch_url)
-  if fetch_url:match('^git@') then
-    return (fetch_url:gsub(':', '/'):gsub('^git@', 'https://'):gsub('%.git$', ''))
+  local url
+  if fetch_url:match('^https?://') then
+    url = fetch_url:gsub('^(https?://)[^/]*@', '%1')
+  elseif fetch_url:match('^ssh://') then
+    local host, path = fetch_url:match('^ssh://([^/]+)/(.+)$')
+    if host then
+      host = host:gsub('^.*@', ''):gsub(':%d+$', '')
+      url = ('https://%s/%s'):format(host, path)
+    end
+  else
+    local host, path = fetch_url:match('^[^/@:]+@([^/:]+):(.+)$')
+    if host then
+      url = ('https://%s/%s'):format(host, path)
+    end
+  end
+  if url then
+    return (url:gsub('/+$', ''):gsub('%.git$', ''))
   end
 end
 

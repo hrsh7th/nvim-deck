@@ -102,26 +102,10 @@ local function source(option)
           return ctx.get_cursor_item() ~= nil
         end,
         execute = function(ctx)
-          Async.run(function()
-            local item = ctx.get_cursor_item()
-            if item then
-              local remotes = git:remote():await() --[=[@type deck.x.Git.Remote[]]=]
-              local target_remotename = item.data.remotename
-              if not target_remotename and remotes[1] then
-                target_remotename = remotes[1].name
-              end
-              for _, remote in ipairs(remotes) do
-                if remote.name == target_remotename then
-                  local browser_url = Git.to_browser_url(remote.fetch_url)
-                  if browser_url then
-                    vim.ui.open(('%s/tree/%s'):format(browser_url, item.data.name))
-                    return
-                  end
-                end
-              end
-            end
-            notify.add_message('default', { { { 'No remote url found', 'WarningMsg' } } })
-          end)
+          local item = ctx.get_cursor_item()
+          if item then
+            git:open_browser(item.data)
+          end
         end,
       },
       {
