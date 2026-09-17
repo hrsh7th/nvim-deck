@@ -279,8 +279,13 @@ function Buffer:_step_filter()
     for i = self._cursor_filtered + 1, #self._items do
       local item = self._items[i]
       if not is_match_continuation(self._start_config.matcher, item[symbols.query_unmatch], self._query) then
-        local score = self._start_config.matcher.match(self._query, item.filter_text or item.display_text)
-        if score > 0 then
+        local matcher = self._start_config.matcher
+        local match_score = matcher.match(self._query, item.filter_text or item.display_text)
+        if match_score > 0 then
+          if item.score_bonus ~= nil and matcher.score_granularity then
+            match_score = math.ceil(match_score / matcher.score_granularity) * matcher.score_granularity
+          end
+          local score = match_score + (item.score_bonus or 0)
           local not_added_item = self._topk:add(item, score)
           if not_added_item then
             self._items_filtered[#self._items_filtered + 1] = not_added_item

@@ -43,7 +43,7 @@ local Context = require('deck.Context')
 ---@alias deck.Matcher.MatchFunction fun(query: string, text: string): number
 ---@alias deck.Matcher.DecorFunction fun(query: string, text: string): deck.Highlight[]
 ---@alias deck.Matcher.ContinuationFunction fun(prev_query: string, next_query: string): boolean
----@alias deck.Matcher { match: deck.Matcher.MatchFunction, decor?: deck.Matcher.DecorFunction, is_match_continuation?: deck.Matcher.ContinuationFunction }
+---@alias deck.Matcher { match: deck.Matcher.MatchFunction, score_granularity?: number, decor?: deck.Matcher.DecorFunction, is_match_continuation?: deck.Matcher.ContinuationFunction }
 
 ---@doc.type
 ---@class deck.ItemSpecifier

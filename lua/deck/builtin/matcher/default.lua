@@ -649,7 +649,9 @@ local function contains_node_type(node, types)
   return false
 end
 
-local default = {}
+local default = {
+  score_granularity = Config.score_adjuster,
+}
 
 ---@param query string
 ---@return boolean
