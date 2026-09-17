@@ -45,14 +45,16 @@ return setmetatable({
   ---Prune entries (remove duplicates and non-existent entries).
   ---@param self unknown
   prune = function(self)
-    local seen = {}
-    for i = #self.file.contents, 1, -1 do
-      local path = self.file.contents[i]
-      if seen[path] or vim.fn.filereadable(path) == 0 then
-        table.remove(self.file.contents, i)
+    self.file:update(function(contents)
+      local seen = {}
+      for i = #contents, 1, -1 do
+        local path = contents[i]
+        if seen[path] or vim.fn.filereadable(path) == 0 then
+          table.remove(contents, i)
+        end
+        seen[path] = true
       end
-      seen[path] = true
-    end
+    end)
   end,
 
   ---Add entry.
@@ -69,15 +71,17 @@ return setmetatable({
       return
     end
 
-    local seen = { [target_path] = true }
-    for i = #self.file.contents, 1, -1 do
-      local path = self.file.contents[i]
-      if seen[path] then
-        table.remove(self.file.contents, i)
+    self.file:update(function(contents)
+      local seen = { [target_path] = true }
+      for i = #contents, 1, -1 do
+        local path = contents[i]
+        if seen[path] then
+          table.remove(contents, i)
+        end
+        seen[path] = true
       end
-      seen[path] = true
-    end
-    table.insert(self.file.contents, target_path)
+      table.insert(contents, target_path)
+    end)
   end,
 }, {
   ---@param option { ignore_paths?: string[] }
@@ -94,6 +98,7 @@ return setmetatable({
     return {
       name = 'recent_files',
       execute = function(ctx)
+        self.file:touch()
         local sync_count = vim.o.lines
         local contents = self.file.contents
         Async.run(function()
