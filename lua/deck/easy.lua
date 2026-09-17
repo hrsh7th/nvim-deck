@@ -107,14 +107,10 @@ function easy.setup(config)
     })
     -- Register `files` start preset.
     deck.register_start_preset('files', function()
-      deck.start({
-        require('deck.builtin.source.recent_files')(),
-        require('deck.builtin.source.buffers')(),
-        require('deck.builtin.source.files')({
-          root_dir = config.get_cwd(),
-          ignore_globs = config.ignore_globs,
-        }),
-      })
+      deck.start(require('deck.builtin.source.smart_files')({
+        root_dirs = { config.get_cwd() },
+        ignore_globs = config.ignore_globs,
+      }))
     end)
 
     -- Register `buffers` start preset.

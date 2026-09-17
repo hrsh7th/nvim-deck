@@ -856,6 +856,38 @@ List recent files.
 <
 
 
+SMART_FILES ~
+
+Show context-resolved recent files, project files, and buffers.
+
+  Name           Type      Default           Description
+  -------------- --------- ----------------- ---------------------------------
+  root_dirs      string[]? { vim.fn.getcwd() } Project directories, in context resolution priority order.
+  ignore_globs   string[]? []                  Ignore glob patterns for project files.
+
+Recent files and buffers are emitted first. When a configured `root_dir` is a
+Git repository and a recent file or buffer belongs to another worktree of the
+same repository, its repository-relative path is resolved into that
+`root_dir`. The resolved candidate is emitted in the original MRU position;
+the original path is retained after project files as a fallback.
+
+Only roots with a `.git` file or directory directly below them participate in
+repository-relative resolution. Non-Git roots remain independent even when
+they contain identical relative paths. Project roots are searched in the order
+given, and duplicate worktree paths are kept from the first root.
+
+File-backed candidates use `~`-relative paths consistently in `display_text`.
+
+The recent-file storage is configured by `recent_files.setup()` and is flushed
+to disk when Neovim becomes idle.
+>lua
+    deck.start(require('deck.builtin.source.smart_files')({
+      root_dirs = { vim.fn.getcwd() },
+      ignore_globs = { '**/node_modules/**', '**/.git/**' },
+    }))
+<
+
+
 ACTIONS                                                *deck-built-in-actions*
 
 - `choose_action`
