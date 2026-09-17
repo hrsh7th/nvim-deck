@@ -52,6 +52,8 @@ return function(sources)
               get_config = function()
                 return ctx.get_config()
               end,
+              get_prev_win = ctx.get_prev_win,
+              get_prev_buf = ctx.get_prev_buf,
               queue = function(callback)
                 ctx.queue(callback)
               end,
